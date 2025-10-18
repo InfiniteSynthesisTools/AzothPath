@@ -2,7 +2,7 @@ import { database } from '../database/connection';
 import axios from 'axios';
 
 // 外部验证 API 配置
-const VALIDATION_API_URL = process.env.VALIDATION_API_URL || 'https://neal.fun/api/infinite-craft/pair';
+const VALIDATION_API_URL = process.env.VALIDATION_API_URL || 'https://hc.tsdo.in/api';
 const MAX_RETRY_COUNT = 3;
 const QUEUE_INTERVAL = 5000; // 5秒检查一次
 const CONCURRENT_LIMIT = 5; // 并发处理数量
@@ -124,8 +124,8 @@ class ImportTaskQueue {
       // 3. 验证成功，插入到 recipes 表
       const recipeId = await this.insertRecipe(task);
 
-      // 4. 更新物品字典
-      await this.updateItemsDictionary([task.item_a, task.item_b, task.result]);
+      // 4. 更新物品字典（包括保存 emoji）
+      await this.updateItemsDictionary([task.item_a, task.item_b, task.result], validationResult.emoji);
 
       // 5. 标记为成功
       await this.markAsSuccess(task, recipeId);
@@ -163,50 +163,64 @@ class ImportTaskQueue {
   /**
    * 调用外部 API 验证配方
    */
-  private async validateRecipe(task: ImportTaskContent): Promise<{ success: boolean; error?: string }> {
+  private async validateRecipe(task: ImportTaskContent): Promise<{ success: boolean; error?: string; emoji?: string }> {
     try {
-      const response = await axios.post<ValidationResponse>(
-        VALIDATION_API_URL,
-        {
-          first: task.item_a,
-          second: task.item_b
+      console.log(`🔍 验证配方: ${task.item_a} + ${task.item_b}`);
+      const response = await axios.get(VALIDATION_API_URL, {
+        params: {
+          itemA: task.item_a,
+          itemB: task.item_b
         },
-        {
-          timeout: 10000, // 10秒超时
-          headers: {
-            'Content-Type': 'application/json',
-            'User-Agent': 'AzothPath/1.0'
-          }
+        timeout: 3000, // 3秒超时
+        headers: {
+          'Accept': 'application/json',
+          'User-Agent': 'AzothPath/1.0'
         }
-      );
+      });
 
-      // 验证返回的结果是否匹配
-      if (response.data.result !== task.result) {
-        return {
-          success: false,
-          error: `API returned different result: expected "${task.result}", got "${response.data.result}"`
-        };
-      }
+      console.log(`📡 API响应: ${response.status}`, response.data);
 
-      return { success: true };
-    } catch (error: any) {
-      if (error.response) {
-        // API 返回错误状态码
-        return {
-          success: false,
-          error: `API error ${error.response.status}: ${error.response.statusText}`
-        };
-      } else if (error.request) {
-        // 网络错误
-        return {
-          success: false,
-          error: 'Network error: no response from API'
-        };
+      if (response.status === 200) {
+        const data = response.data;
+        if (data.item && data.item !== '') {
+          // 验证返回的结果是否匹配
+          if (data.item !== task.result) {
+            return {
+              success: false,
+              error: `结果不匹配: 预期 "${task.result}", 实际 "${data.item}"`
+            };
+          }
+          console.log(`✅ 验证成功: ${task.item_a} + ${task.item_b} = ${data.item}`);
+          return { success: true, emoji: data.emoji };
+        } else {
+          console.log(`❌ 验证失败: 无法合成 ${task.item_a} + ${task.item_b}`);
+          return { success: false, error: '无法合成' };
+        }
       } else {
-        // 其他错误
+        console.log(`❌ API错误状态: ${response.status}`);
+        return { success: false, error: `API返回状态: ${response.status}` };
+      }
+    } catch (error: any) {
+      console.log(`❌ 验证异常: ${error.message}`);
+      
+      if (error.response) {
+        const status = error.response.status;
+        console.log(`📡 错误响应: ${status}`, error.response.data);
+        
+        if (status === 400) {
+          return { success: false, error: '这两个物件不能合成' };
+        } else if (status === 403) {
+          return { success: false, error: '包含非法物件（还没出现过的物件）' };
+        } else {
+          return { success: false, error: `验证失败，状态码: ${status}` };
+        }
+      } else if (error.code === 'ECONNABORTED') {
+        return { success: false, error: '验证超时，请稍后重试' };
+      } else {
+        // 网络错误，可以重试
         return {
           success: false,
-          error: error.message
+          error: `网络错误: ${error.message}`
         };
       }
     }
@@ -242,12 +256,21 @@ class ImportTaskQueue {
   /**
    * 更新物品字典
    */
-  private async updateItemsDictionary(items: string[]) {
+  private async updateItemsDictionary(items: string[], resultEmoji?: string) {
     for (const item of items) {
       await database.run(
         'INSERT OR IGNORE INTO items (name, is_base) VALUES (?, 0)',
         [item]
       );
+    }
+    
+    // 如果有 emoji，更新结果物品的 emoji
+    if (resultEmoji && items[2]) {
+      await database.run(
+        'UPDATE items SET emoji = ? WHERE name = ?',
+        [resultEmoji, items[2]]
+      );
+      console.log(`💾 保存emoji: ${items[2]} = ${resultEmoji}`);
     }
   }
 

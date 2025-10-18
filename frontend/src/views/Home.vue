@@ -111,7 +111,6 @@ interface RecipeWithEmoji {
   item_b: string;
   result: string;
   user_id: number;
-  is_verified: number;
   likes: number;
   created_at: string;
   creator_name?: string;

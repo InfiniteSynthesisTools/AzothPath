@@ -6,7 +6,6 @@ export interface Recipe {
   item_b: string;
   result: string;
   user_id: number;  // 数据库字段名
-  is_verified: number;  // 0=false, 1=true
   likes: number;  // 点赞数（冗余字段）
   created_at: string;
 }
@@ -130,8 +129,8 @@ export class RecipeService {
 
     // 插入配方
     const recipeResult = await database.run(
-      'INSERT INTO recipes (item_a, item_b, result, user_id, is_verified, likes) VALUES (?, ?, ?, ?, ?, ?)',
-      [itemA, itemB, result, creatorId, 0, 0]
+      'INSERT INTO recipes (item_a, item_b, result, user_id, likes) VALUES (?, ?, ?, ?, ?)',
+      [itemA, itemB, result, creatorId, 0]
     );
 
     // 自动收录新物品

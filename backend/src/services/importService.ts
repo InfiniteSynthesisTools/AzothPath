@@ -204,14 +204,8 @@ export class ImportService {
             userId
           );
 
-          // 如果验证成功，标记为已验证并保存emoji
+          // 如果验证成功，保存emoji信息到items表（只保存result的emoji）
           if (validation.valid && validation.result) {
-            await database.run(
-              'UPDATE recipes SET is_verified = 1 WHERE id = ?',
-              [recipeId]
-            );
-            
-            // 保存emoji信息到items表（只保存result的emoji）
             await this.saveEmojiToItems(content.item_a, content.item_b, finalResult, validation.emoji);
           }
 

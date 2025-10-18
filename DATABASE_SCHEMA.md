@@ -32,7 +32,6 @@
 | `item_b` | TEXT | 材料B | '木' |
 | `result` | TEXT | 合成结果 | '合金' |
 | `user_id` | INTEGER | 创建者 ID（关联 user.id） | 1 |
-| `is_verified` | INTEGER | 是否已验证 | 0=否, 1=是 |
 | `likes` | INTEGER | 点赞数（冗余字段） | 5 |
 | `created_at` | DATETIME | 创建时间 | '2025-10-18 ...' |
 
@@ -180,7 +179,6 @@ UPDATE recipes SET likes = likes - 1 WHERE id = ?;
   "item_b": "木",
   "result": "合金",
   "user_id": 1,
-  "is_verified": 1,
   "likes": 5,
   "created_at": "2025-10-18T12:00:00Z",
   "creator_name": "admin"
@@ -254,9 +252,9 @@ export interface Recipe {
   item_b: string;
   result: string;
   user_id: number;
-  is_verified: number;  // 0=false, 1=true
   likes: number;  // 点赞数（直接从数据库获取）
   created_at: string;
   creator_name?: string;  // JOIN 时返回
+  is_liked?: boolean;  // 前端本地状态
 }
 ```

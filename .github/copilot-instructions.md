@@ -88,7 +88,6 @@ recipe_calculator.py - Python reference implementation for graph algorithms (917
 | `item_b` | TEXT | 材料B |
 | `result` | TEXT | 合成结果 |
 | `user_id` | INTEGER | 创建者 ID |
-| `is_verified` | INTEGER | 0=未验证, 1=已验证 |
 | `likes` | INTEGER | 点赞数（冗余字段，提高查询性能） |
 | `created_at` | DATETIME | 创建时间 |
 
@@ -116,7 +115,7 @@ Example:
 
 // Recipe (JOIN 查询)
 { id: 1, item_a: '金', item_b: '木', result: '合金', user_id: 1, 
-  is_verified: 1, likes: 5, created_at: '...', creator_name: 'admin' }
+  likes: 5, created_at: '...', creator_name: 'admin' }
 ```
 
 ## Data Flow & Processing

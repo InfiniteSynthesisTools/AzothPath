@@ -6,7 +6,6 @@ export interface Recipe {
   item_b: string;
   result: string;
   user_id: number;  // 数据库字段名
-  is_verified: number;  // 0=false, 1=true
   likes: number;  // 点赞数（直接从数据库字段获取）
   created_at: string;
   creator_name?: string;  // JOIN 查询时返回

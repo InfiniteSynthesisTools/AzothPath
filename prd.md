@@ -82,7 +82,6 @@
 | `item_b` | VARCHAR | 合成材料 $\text{B}$ 的名称 | $\text{Part of Unique Key}$ | 写入时强制 $\text{item\_a < item\_b}$ (字典序) |
 | `result` | VARCHAR | 合成结果 $\text{C}$ 的名称 | | 关联 `items.name` |
 | `user_id` | INT/BIGINT | 贡献者 $\text{ID}$ | | 关联 `user.id` |
-| `is_verified` | BOOLEAN | 是否通过官方 $\text{API}$ 验证 | | |
 | `created_at}$ | DATETIME | 记录创建时间 | | |
 
 #### 2.2 `items` 表 (词条/元素)
@@ -432,7 +431,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   item_b TEXT NOT NULL,
   result TEXT NOT NULL,
   user_id INTEGER NOT NULL,
-  is_verified INTEGER DEFAULT 0,  -- SQLite 使用 INTEGER 存储布尔值
+  likes INTEGER DEFAULT 0,  -- 点赞数（冗余字段）
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(item_a, item_b),
   CHECK (item_a < item_b)  -- 确保字典序
@@ -594,10 +593,9 @@ export interface Recipe {
   result: string;
   user_id: number;
   username?: string;
-  is_verified: boolean;
+  likes: number;  // 点赞数
   created_at: string;
-  like_count?: number;
-  is_liked?: boolean;
+  is_liked?: boolean;  // 前端本地状态
 }
 
 export interface Item {

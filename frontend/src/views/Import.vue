@@ -105,7 +105,7 @@ const handleImport = async () => {
   importing.value = true;
   try {
     const result = await importApi.batchImport({ text: recipeText.value });
-    ElMessage.success(`✅ 导入完成！成功导入 ${result.data.totalCount} 条配方`);
+    ElMessage.success(`✅ 导入完成！成功导入 ${result.totalCount} 条配方`);
     handleReset();
     
     // 跳转到配方列表页面查看结果

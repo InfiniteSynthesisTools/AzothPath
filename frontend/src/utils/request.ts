@@ -33,8 +33,10 @@ request.interceptors.response.use(
     
     // 如果后端返回的是标准格式 { code, message, data }
     if (data.code !== undefined) {
-      if (data.code === 0 || data.code === 200) {
-        return data.data;
+      // 2xx 状态码都视为成功
+      if (data.code >= 200 && data.code < 300) {
+        // 返回内层 data，如果不存在则返回整个响应
+        return data.data !== undefined ? data.data : data;
       } else {
         ElMessage.error(data.message || '请求失败');
         return Promise.reject(new Error(data.message || '请求失败'));
@@ -80,5 +82,28 @@ request.interceptors.response.use(
     return Promise.reject(error);
   }
 );
+
+// 类型安全的包装器
+export interface ApiResponse<T = any> {
+  code: number;
+  message: string;
+  data: T;
+}
+
+// 导出类型安全的请求方法
+export const api = {
+  get: <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+    return request.get(url, config);
+  },
+  post: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+    return request.post(url, data, config);
+  },
+  put: <T>(url: string, data?: any, config?: AxiosRequestConfig): Promise<T> => {
+    return request.put(url, data, config);
+  },
+  delete: <T>(url: string, config?: AxiosRequestConfig): Promise<T> => {
+    return request.delete(url, config);
+  }
+};
 
 export default request;

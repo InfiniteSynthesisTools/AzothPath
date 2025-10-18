@@ -1,4 +1,4 @@
-import request from '@/utils/request';
+import { api } from '@/utils/request';
 
 export interface ImportTask {
   id: number;
@@ -33,12 +33,15 @@ export interface BatchImportRequest {
 export interface BatchImportResponse {
   taskId: number;
   totalCount: number;
+  successCount: number;
+  failedCount: number;
+  duplicateCount: number;
 }
 
 export const importApi = {
   // 批量导入配方
-  batchImport(data: BatchImportRequest) {
-    return request.post<BatchImportResponse>('/import-tasks/batch', data);
+  batchImport(data: BatchImportRequest): Promise<BatchImportResponse> {
+    return api.post<BatchImportResponse>('/import-tasks/batch', data);
   },
 
   // 获取导入任务列表
@@ -46,13 +49,13 @@ export const importApi = {
     page?: number;
     limit?: number;
     status?: string;
-  } = {}) {
-    return request.get<{ tasks: ImportTask[]; total: number }>('/import-tasks', { params });
+  } = {}): Promise<{ tasks: ImportTask[]; total: number }> {
+    return api.get<{ tasks: ImportTask[]; total: number }>('/import-tasks', { params });
   },
 
   // 获取导入任务详情
-  getImportTask(taskId: number) {
-    return request.get<ImportTask>(`/import-tasks/${taskId}`);
+  getImportTask(taskId: number): Promise<ImportTask> {
+    return api.get<ImportTask>(`/import-tasks/${taskId}`);
   },
 
   // 获取导入任务明细
@@ -60,8 +63,8 @@ export const importApi = {
     page?: number;
     limit?: number;
     status?: string;
-  } = {}) {
-    return request.get<{ contents: ImportTaskContent[]; total: number }>(
+  } = {}): Promise<{ contents: ImportTaskContent[]; total: number }> {
+    return api.get<{ contents: ImportTaskContent[]; total: number }>(
       `/import-tasks/${taskId}/contents`,
       { params }
     );

@@ -16,7 +16,9 @@
 /frontend - Vue 3 SPA with Composition API
 /backend - RESTful API server with async task processing
 /database - SQLite file (azothpath.db) with WAL mode enabled
-recipe_calculator.py - Python utility for path optimization (legacy/standalone)
+recipe_calculator.py - Python reference implementation for graph algorithms (917 lines)
+                       Contains RecipeGraph class with BFS, memoization, cycle detection
+                       To be ported to TypeScript backend for production use
 ```
 
 ## Database Design Philosophy
@@ -136,14 +138,203 @@ busy_timeout: 5000         // Handle lock contention
 
 ## Search & Path Optimization
 
-### "最简路径" Algorithm (from recipe_calculator.py)
-Ranking criteria (in order):
-1. **深度最小** - Fewest synthesis steps
-2. **宽度最小** - Fewest total recipes needed
-3. **广度最大** - Most base materials used
-4. **字典序** - Lexical order as tiebreaker
+### Graph-Based Recipe Path Algorithm (recipe_calculator.py)
 
-Implementation uses BFS with cycle detection for items like "A+A=A".
+The recipe search system is built on **directed graph traversal** with sophisticated optimizations to handle circular dependencies, unreachable items, and multi-path scenarios.
+
+#### Core Data Structure: RecipeGraph
+
+```python
+class RecipeGraph:
+    recipes: List[Recipe]              # All recipes (normalized)
+    item_to_recipes: Dict[str, List]   # item → recipes that can craft it
+    reachable_items: Set[str]          # Items craftable from base materials
+    valid_recipes: Set[Recipe]         # Recipes with reachable materials
+    base_items: Set[str]               # {"金", "木", "水", "火", "土", "宝石"}
+    self_loop_recipes: Set[Recipe]     # Circular recipes (A+A=A)
+    circular_items: Set[str]           # Items involved in cycles
+```
+
+#### Key Algorithms
+
+**1. Recipe Normalization (O(1))**
+```python
+def normalize_recipe(item_a, item_b, result):
+    # Always ensure item_a <= item_b (lexical order)
+    # Automatically deduplicates "A+B=C" and "B+A=C"
+    if item_a > item_b:
+        item_a, item_b = item_b, item_a
+    return (item_a, item_b, result)
+```
+
+**2. Circular Dependency Detection (O(n))**
+- Identifies patterns: `A+A=A`, `A+B=A`, `A+B=B`
+- Marks `self_loop_recipes` and `circular_items`
+- Critical for preventing infinite loops in tree building
+
+**3. Reachability Analysis (BFS - O(V+E))**
+```python
+def analyze_reachability():
+    queue = deque(base_items)
+    reachable = set(base_items)
+    
+    while queue:
+        current = queue.popleft()
+        for recipe in item_to_recipes[current]:
+            item_a, item_b, result = recipe
+            
+            # Both materials must be reachable
+            if item_a in reachable and item_b in reachable:
+                valid_recipes.add(recipe)
+                if result not in reachable:
+                    reachable.add(result)
+                    queue.append(result)
+    
+    return reachable, valid_recipes
+```
+- Complexity: O(V + E) where V = items, E = recipes
+- Marks which items are craftable from base materials
+- Filters out invalid recipes with unreachable materials
+
+**4. Crafting Tree Building (O(V+E) with memoization)**
+```python
+def build_crafting_tree(item, memo={}):
+    if item in base_items:
+        return {"item": item, "is_base": True}
+    
+    if item in memo:
+        return memo[item]  # Avoid recomputing subtrees
+    
+    recipes = item_to_recipes[item]
+    if not recipes:
+        return None
+    
+    # Pick first recipe (can extend to multi-path)
+    item_a, item_b = recipes[0]
+    tree = {
+        "item": item,
+        "is_base": False,
+        "recipe": (item_a, item_b),
+        "children": [
+            build_crafting_tree(item_a, memo),
+            build_crafting_tree(item_b, memo)
+        ]
+    }
+    memo[item] = tree
+    return tree
+```
+
+**5. Multi-Path Enumeration (O(k^d))**
+```python
+def build_all_crafting_trees(item, memo={}):
+    if item in base_items:
+        return [{"item": item, "is_base": True}]
+    
+    if item in memo:
+        return memo[item]
+    
+    all_trees = []
+    for recipe in item_to_recipes[item]:
+        item_a, item_b = recipe
+        trees_a = build_all_crafting_trees(item_a, memo)
+        trees_b = build_all_crafting_trees(item_b, memo)
+        
+        # Cartesian product of all sub-paths
+        for tree_a in trees_a:
+            for tree_b in trees_b:
+                all_trees.append({
+                    "item": item,
+                    "recipe": recipe,
+                    "children": [tree_a, tree_b]
+                })
+    
+    memo[item] = all_trees
+    return all_trees
+```
+- Returns ALL possible crafting paths for an item
+- Complexity: O(k^d) where k = avg recipes per item, d = depth
+- Memoization prevents redundant subtree computation
+
+#### Tree Analysis & Ranking
+
+**Calculate Statistics:**
+```python
+def analyze_tree_stats(tree):
+    return {
+        "depth": max_depth,              # Tree height (合成深度)
+        "steps": total_steps,            # Non-leaf nodes (合成步骤)
+        "total_materials": sum(counts),  # Total base materials needed
+        "material_types": len(materials), # Unique material types
+        "materials": {material: count}    # Material distribution
+    }
+```
+
+**"最简路径" Ranking Criteria (in order):**
+1. **深度最小** (`depth` ascending) - Fewest synthesis layers
+2. **宽度最小** (`steps` ascending) - Fewest recipes needed
+3. **广度最大** (`material_types` descending) - Most base material variety
+4. **字典序** (lexical order) - Stable tiebreaker
+
+```typescript
+// TypeScript backend implementation
+paths.sort((a, b) => {
+    if (a.depth !== b.depth) return a.depth - b.depth;
+    if (a.steps !== b.steps) return a.steps - b.steps;
+    if (a.material_types !== b.material_types) return b.material_types - a.material_types;
+    return a.item.localeCompare(b.item);
+});
+```
+
+#### Query Methods
+
+```python
+# Filter recipes by material or result
+query_recipes(material="火", result="凤凰", exact=True, limit=10, offset=0)
+
+# Get all recipes that craft an item
+get_recipes_for_item("剑") → [("铁", "木"), ("钢", "火"), ...]
+
+# Check if recipe exists
+recipe_exists("金", "木", "合金") → bool
+
+# Graph statistics
+get_graph_stats() → {
+    "total_recipes": 1000,
+    "reachable_items": 850,
+    "unreachable_items": 150,
+    "circular_recipes": 5,
+    ...
+}
+```
+
+#### Integration with TypeScript Backend
+
+**API Endpoints:**
+```typescript
+// Single optimal path
+GET /api/recipes/path/:item → { tree, stats }
+
+// All paths (paginated)
+GET /api/recipes/path/:item?mode=all&limit=100 → { trees, total }
+
+// Graph analysis
+GET /api/recipes/graph/stats → { ...stats }
+```
+
+**Caching Strategy:**
+- Redis cache for popular items (TTL 1 hour)
+- Invalidate cache when recipes table updates
+- Pre-compute paths for items with task bounties
+
+**Performance Considerations:**
+- For items with >1000 paths, limit to top 100 by ranking
+- Use Web Workers in frontend for large tree rendering
+- Consider lazy-loading subtrees in UI for deep paths (depth >10)
+
+**Cycle Handling:**
+- Items like "时间+时间=时间" are marked in `circular_items`
+- BFS algorithm naturally handles cycles (visited set prevents loops)
+- Display warning in UI: "⚠️ 此物品包含循环依赖配方"
 
 ## Security & Validation
 
@@ -166,12 +357,13 @@ Implementation uses BFS with cycle detection for items like "A+A=A".
 
 ## File References
 - `prd.md` - Complete product requirements and technical specifications
-- `recipe_calculator.py` - Path optimization algorithms (Python, standalone utility)
+- `recipe_calculator.py` - Python reference implementation (917 lines) with RecipeGraph class
+  - Implements BFS reachability analysis (O(V+E) complexity)
+  - Multi-path enumeration with memoization (O(k^d) worst case)
+  - Circular dependency detection for A+A=A patterns
+  - Tree analysis with depth/steps/materials statistics
+  - **Status**: Reference implementation, needs TypeScript port for production
+- Section 3.2.1 in prd.md - Complete algorithm design with complexity analysis
 - Section 4.2.4 in prd.md - Complete SQL schema with indexes
 - Section 4.3 in prd.md - Frontend architecture and type definitions
 - Section 4.4 in prd.md - Backend architecture and API endpoints
-
-## Questions to Clarify
-- Is recipe_calculator.py integrated with the main app or standalone tool?
-- What's the actual external validation API endpoint?
-- Should we implement the Redis caching layer mentioned in prd.md?

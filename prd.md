@@ -179,10 +179,189 @@
 * **搜索栏：** 模糊搜索、中间产物（$\text{item\_a, item\_b}$）搜索、目标产物（$\text{result}$）搜索。
 * **最简路径定义：** 深度最小 $\rightarrow$ 宽度最小 $\rightarrow$ 广度最大 $\rightarrow$ 字典序排序。
 
+##### 3.2.1 合成路径搜索算法设计
+
+合成路径搜索基于**有向图遍历**，需要处理循环依赖（如 $\text{A+A=A}$）、不可达物品、配方去重等问题。参考 `recipe_calculator.py` 实现。
+
+**核心数据结构**
+
+```typescript
+interface RecipeGraph {
+  recipes: Recipe[];                    // 所有配方列表
+  itemToRecipes: Map<string, Recipe[]>; // item → 可合成它的配方列表
+  reachableItems: Set<string>;          // 可从基础材料合成的物品集合
+  validRecipes: Set<Recipe>;            // 材料可达的有效配方集合
+  baseItems: Set<string>;               // 基础材料 {"金", "木", "水", "火", "土", "宝石"}
+  selfLoopRecipes: Set<Recipe>;         // 循环依赖配方 (A+A=A, A+B=A 等)
+  circularItems: Set<string>;           // 参与循环依赖的物品
+}
+```
+
+**算法流程**
+
+1. **配方规范化 (normalize_recipe)**
+   - 确保 $\text{item\_a} \leq \text{item\_b}$ (字典序)
+   - 自动去重 "A+B=C" 和 "B+A=C"
+   - 时间复杂度: $O(1)$
+
+2. **配方加载与去重 (load_recipes)**
+   ```python
+   normalized_set = set()  # 使用集合自动去重
+   for recipe in db_recipes:
+       normalized = normalize_recipe(recipe)
+       normalized_set.add(normalized)
+   ```
+   - 时间复杂度: $O(n)$，$n$ 为配方总数
+
+3. **循环依赖检测 (detect_circular_dependencies)**
+   - 检测模式:
+     - **自环:** $\text{A+A=A}$
+     - **单边循环:** $\text{A+B=A}$ 或 $\text{A+B=B}$
+   - 标记 `self_loop_recipes` 和 `circular_items`
+   - 时间复杂度: $O(n)$
+
+4. **可达性分析 (analyze_reachability)** — **核心算法**
+   ```python
+   queue = deque(base_items)           # 从基础材料开始
+   reachable_items = set(base_items)
+   
+   while queue:
+       current = queue.popleft()
+       
+       for recipe in item_to_recipes[current]:
+           item_a, item_b, result = recipe
+           
+           # 跳过材料不可达的配方
+           if item_a not in reachable_items or item_b not in reachable_items:
+               continue
+           
+           valid_recipes.add(recipe)
+           
+           # 新物品加入队列
+           if result not in reachable_items:
+               reachable_items.add(result)
+               queue.append(result)
+   ```
+   - **算法:** 广度优先搜索 (BFS)
+   - **时间复杂度:** $O(V + E)$
+     - $V$: 物品总数 (`all_items`)
+     - $E$: 配方总数 (`recipes`)
+   - **空间复杂度:** $O(V)$ (队列 + 集合)
+
+5. **合成树构建 (build_crafting_tree)**
+   ```python
+   def build_tree(item):
+       if item in base_items:
+           return {"item": item, "is_base": True}
+       
+       if item in memo:  # 记忆化避免重复计算
+           return memo[item]
+       
+       recipes = item_to_recipes[item]
+       if not recipes:
+           return None
+       
+       # 选择第一个有效配方（可扩展为多路径）
+       item_a, item_b = recipes[0]
+       tree = {
+           "item": item,
+           "is_base": False,
+           "recipe": (item_a, item_b),
+           "children": [build_tree(item_a), build_tree(item_b)]
+       }
+       memo[item] = tree
+       return tree
+   ```
+   - **优化:** 记忆化 (memoization) 避免重复计算子树
+   - **时间复杂度:** $O(V + E)$ (有记忆化)
+   - **空间复杂度:** $O(V)$ (递归栈 + memo)
+
+6. **多路径枚举 (build_all_crafting_trees)**
+   ```python
+   def build_all_trees(item):
+       if item in base_items:
+           return [{"item": item, "is_base": True}]
+       
+       if item in memo:
+           return memo[item]
+       
+       all_trees = []
+       for recipe in item_to_recipes[item]:
+           item_a, item_b = recipe
+           trees_a = build_all_trees(item_a)
+           trees_b = build_all_trees(item_b)
+           
+           # 笛卡尔积组合所有子树
+           for tree_a in trees_a:
+               for tree_b in trees_b:
+                   all_trees.append({
+                       "item": item,
+                       "recipe": recipe,
+                       "children": [tree_a, tree_b]
+                   })
+       
+       memo[item] = all_trees
+       return all_trees
+   ```
+   - **时间复杂度:** $O(k^d)$
+     - $k$: 每个物品的平均配方数
+     - $d$: 合成树深度
+   - **空间复杂度:** $O(k^d)$ (所有路径树)
+
+7. **最简路径排序**
+   
+   计算每棵树的统计指标:
+   ```python
+   stats = {
+       "depth": max_depth,           # 合成深度（树的高度）
+       "steps": total_steps,         # 合成步骤（非叶子节点数）
+       "total_materials": sum(材料数量),  # 基础材料总数
+       "material_types": len(材料种类),   # 基础材料种类数
+       "materials": {材料: 数量}     # 材料详细分布
+   }
+   ```
+   
+   **排序优先级** (按顺序):
+   1. **深度最小** (`depth` 升序): 合成层数最少
+   2. **宽度最小** (`steps` 升序): 合成步骤最少
+   3. **广度最大** (`material_types` 降序): 使用的基础材料种类最多
+   4. **字典序** (结果字符串比较): 稳定排序的 tiebreaker
+   
+   ```typescript
+   trees.sort((a, b) => {
+       if (a.depth !== b.depth) return a.depth - b.depth;
+       if (a.steps !== b.steps) return a.steps - b.steps;
+       if (a.material_types !== b.material_types) return b.material_types - a.material_types;
+       return a.item.localeCompare(b.item);
+   });
+   ```
+
+**图复杂度分析**
+
+```python
+stats = {
+    "max_in_degree": max(len(item_to_recipes[item])),  # 最多合成方式
+    "avg_in_degree": sum(入度) / len(all_items),
+    "max_out_degree": max(物品作为材料的次数),         # 最多参与合成
+    "avg_out_degree": sum(出度) / len(all_items),
+    "circular_count": len(self_loop_recipes),         # 循环配方数
+    "circular_items": len(circular_items)             # 循环物品数
+}
+```
+
+**实现建议**
+
+- **后端 API:** 实现为 `/api/recipes/path?item=<name>&mode=all` 
+  - `mode=single`: 返回最简路径
+  - `mode=all`: 返回所有路径 (前 100 条)
+- **前端展示:** 
+  - 树形可视化组件 (递归渲染)
+  - 路径对比表格 (材料、深度、步骤对比)
+
 #### 3.3 贡献榜
 
 * **更新时间：** 采用**定时任务**更新（建议每 $\text{1 小时}$）。
-* **维度：** 至少包含总贡献度。**待讨论：** 增加周/月贡献度维度。
+* **维度：** 至少包含总贡献度。**待讨论：** 增加日周贡献度维度。
 
 ---
 

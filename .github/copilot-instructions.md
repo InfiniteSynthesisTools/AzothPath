@@ -1,7 +1,33 @@
 # Azoth Path - AI Agent Instructions
 
+## 🚀 Quick Start Guide for AI Agents
+
+**Project Type**: Community-driven recipe database for the game "无尽合成" (Chinese version of Infinite Craft)
+
+**Core Purpose**: Help players discover and share item synthesis paths with validation and reward system
+
+**Quick Facts**:
+- 🎮 **Game**: 无尽合成 (https://hc.tsdo.in/)
+- 🏗️ **Architecture**: Vue 3 frontend + Node.js backend + SQLite database
+- 🔍 **Core Feature**: BFS-based recipe path search with multi-path analysis
+- 🏆 **Reward System**: Contribution scoring and task bounties
+- 📊 **Database**: SQLite with no foreign keys (application-layer integrity)
+
+**Key Files to Understand**:
+- `prd.md` - Complete product requirements and technical specs
+- `recipe_calculator.py` - Python reference for path search algorithms (917 lines)
+- `backend/src/` - TypeScript backend with Express and async processing
+- `frontend/src/` - Vue 3 SPA with TypeScript and Pinia stores
+
+**Development Status**: 
+- ✅ Backend running on http://localhost:3000
+- ✅ Frontend running on http://localhost:5173  
+- ✅ Database initialized and connected
+- ✅ Hot reload enabled (no manual restart needed)
+- ✅ Like system with toggle functionality implemented
+
 ## Project Overview
-**Azoth Path（无尽合成工具站）** is a community-driven web tool for the game "Infinite Craft", helping players discover and share item synthesis recipes. The system validates recipes through external game API and rewards users for discovering new synthesis paths.
+**Azoth Path（无尽合成工具站）** is a community-driven web tool for the game "无尽合成", helping players discover and share item synthesis recipes. The system validates recipes through external game API and rewards users for discovering new synthesis paths.
 
 ## ⚠️ CRITICAL Development Rules
 
@@ -461,6 +487,50 @@ GET /api/recipes/graph/stats → { ...stats }
 3. **taskId is number, not string** - Changed from UUID to auto-increment
 4. **Check import_tasks_content.task_id** - Links to parent task for batch operations
 5. **Update parent task counters** - When processing content, update import_tasks aggregates
+
+## Documentation Maintenance Principles
+
+### AI Agent Documentation Guidelines
+
+**CRITICAL**: When iterating and improving project documentation, AI Agents must follow these principles:
+
+1. **Preserve All Content**
+   - ✅ **NEVER** delete existing documentation content
+   - ✅ **ALWAYS** maintain historical context and decisions
+   - ✅ **MARK** deprecated content with clear indicators (e.g., "⚠️ DEPRECATED", "🚫 OBSOLETE")
+   - ✅ **ADD** new information while keeping old content for reference
+
+2. **Iterative Improvement Process**
+   - ✅ **UPDATE** outdated information with current facts
+   - ✅ **CORRECT** factual errors (e.g., game name from "Infinite Craft" to "无尽合成")
+   - ✅ **ENHANCE** clarity and organization without removing context
+   - ✅ **ADD** missing information that improves understanding
+
+3. **Version Control Awareness**
+   - ✅ **RESPECT** existing Git commit history and documentation evolution
+   - ✅ **MAINTAIN** cross-references between documents
+   - ✅ **ENSURE** consistency across all documentation files
+
+4. **Context Preservation**
+   - ✅ **KEEP** technical decisions and rationale
+   - ✅ **PRESERVE** architectural diagrams and code examples
+   - ✅ **MAINTAIN** API specifications and database schemas
+   - ✅ **DOCUMENT** changes made during iterations
+
+### Documentation Update Examples
+
+**Correct Approach:**
+```markdown
+## Game Information
+- **Current**: 无尽合成 (Chinese name)
+- **Legacy Reference**: Infinite Craft (original English name - preserved for context)
+```
+
+**Incorrect Approach:**
+```markdown
+## Game Information
+- 无尽合成 (deletes historical reference to Infinite Craft)
+```
 
 ## File References
 - `prd.md` - Complete product requirements and technical specifications

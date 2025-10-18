@@ -52,25 +52,47 @@ AzothPath/
 - npm >= 9.0.0
 - Python >= 3.8 (可选，用于算法参考)
 
-### 1. 克隆项目
+### 方法一：使用安装脚本（推荐）
+
+#### Windows 系统
 ```bash
-git clone https://github.com/your-repo/AzothPath.git
+# 运行 Windows 安装脚本
+run.bat
+```
+
+#### Linux/macOS 系统
+```bash
+# 运行 Linux/macOS 安装脚本
+chmod +x run.sh
+./run.sh
+```
+
+安装脚本将自动完成以下操作：
+- 安装前端和后端依赖
+- 初始化数据库
+- 启动开发服务器
+
+### 方法二：手动安装
+
+#### 1. 克隆项目
+```bash
+git clone https://github.com/InfiniteSynthesisTools/AzothPath.git
 cd AzothPath
 ```
 
-### 2. 安装前端依赖
+#### 2. 安装前端依赖
 ```bash
 cd frontend
 npm install
 ```
 
-### 3. 安装后端依赖
+#### 3. 安装后端依赖
 ```bash
 cd ../backend
 npm install
 ```
 
-### 4. 配置环境变量
+#### 4. 配置环境变量
 ```bash
 # 复制环境变量模板
 cp .env.example .env
@@ -79,7 +101,7 @@ cp .env.example .env
 # 特别注意修改 JWT_SECRET 为随机字符串
 ```
 
-### 5. 初始化数据库
+#### 5. 初始化数据库
 ```bash
 # 在 backend 目录下执行
 npm run db:init
@@ -87,23 +109,23 @@ npm run db:init
 
 这将创建数据库表结构。
 
-### 6. 启动开发服务器
+#### 6. 启动开发服务器
 
-#### 启动后端（终端1）
+##### 启动后端（终端1）
 ```bash
 cd backend
 npm run dev
 ```
 后端将运行在 http://localhost:3000
 
-#### 启动前端（终端2）
+##### 启动前端（终端2）
 ```bash
 cd frontend
 npm run dev
 ```
 前端将运行在 http://localhost:5173
 
-### 7. 访问应用
+#### 7. 访问应用
 打开浏览器访问: http://localhost:5173
 
 ## 数据库初始化说明
@@ -242,5 +264,5 @@ MIT License
 - 问题反馈: [Issues链接]
 
 ## 致谢
-- Infinite Craft 游戏社区
+- 无尽合成游戏社区
 - 所有贡献者

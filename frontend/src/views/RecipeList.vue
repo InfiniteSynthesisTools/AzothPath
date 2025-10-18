@@ -111,11 +111,7 @@ const handlePageChange = (page: number) => {
 };
 
 const handleLike = async (row: any) => {
-  if (row.is_liked) {
-    await recipeStore.unlikeRecipe(row.id);
-  } else {
-    await recipeStore.likeRecipe(row.id);
-  }
+  await recipeStore.toggleLike(row.id);
 };
 
 const viewDetail = (id: number) => {

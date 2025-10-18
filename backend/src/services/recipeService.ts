@@ -41,19 +41,26 @@ export class RecipeService {
     limit?: number;
     search?: string;
     orderBy?: string;
+    userId?: number;
   }) {
-    const { page = 1, limit = 20, search, orderBy = 'created_at' } = params;
+    const { page = 1, limit = 20, search, orderBy = 'created_at', userId } = params;
     const offset = (page - 1) * limit;
 
     let sql = `
       SELECT r.*, u.name as creator_name,
              (SELECT emoji FROM items WHERE name = r.item_a) as item_a_emoji,
              (SELECT emoji FROM items WHERE name = r.item_b) as item_b_emoji,
-             (SELECT emoji FROM items WHERE name = r.result) as result_emoji
+             (SELECT emoji FROM items WHERE name = r.result) as result_emoji,
+             ${userId ? 'EXISTS(SELECT 1 FROM recipe_likes WHERE recipe_id = r.id AND user_id = ?) as is_liked' : '0 as is_liked'}
       FROM recipes r
       LEFT JOIN user u ON r.user_id = u.id
     `;
     const sqlParams: any[] = [];
+
+    // 如果提供了userId，添加到参数列表
+    if (userId) {
+      sqlParams.push(userId);
+    }
 
     if (search) {
       sql += ` WHERE r.item_a LIKE ? OR r.item_b LIKE ? OR r.result LIKE ?`;
@@ -61,6 +68,7 @@ export class RecipeService {
       sqlParams.push(searchPattern, searchPattern, searchPattern);
     }
 
+    // 使用白名单验证 orderBy 参数
     const validOrderBy = ['created_at', 'likes'].includes(orderBy) ? orderBy : 'created_at';
     sql += ` ORDER BY r.${validOrderBy} DESC LIMIT ? OFFSET ?`;
     sqlParams.push(limit, offset);

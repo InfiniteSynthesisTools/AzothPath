@@ -1,7 +1,10 @@
 import { Router, Request, Response } from 'express';
+import * as jwt from 'jsonwebtoken';
 import { recipeService } from '../services/recipeService';
 import { authMiddleware, AuthRequest } from '../middlewares/auth';
 import { userService } from '../services/userService';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'development_secret_key';
 
 const router = Router();
 
@@ -16,7 +19,21 @@ router.get('/', async (req: Request, res: Response) => {
     const search = req.query.search as string;
     const orderBy = req.query.orderBy as string;
 
-    const result = await recipeService.getRecipes({ page, limit, search, orderBy });
+    // 尝试从认证信息中获取用户ID
+    let userId: number | undefined;
+    try {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
+        userId = decoded.userId;
+      }
+    } catch (error) {
+      // 如果token验证失败，继续执行但不传递userId
+      console.log('Token verification failed, proceeding without user context');
+    }
+
+    const result = await recipeService.getRecipes({ page, limit, search, orderBy, userId });
 
     res.json({
       code: 200,
@@ -63,10 +80,28 @@ router.post('/submit', authMiddleware, async (req: AuthRequest, res: Response) =
   try {
     const { item_a, item_b, result } = req.body;
 
+    // 输入验证
     if (!item_a || !item_b || !result) {
       return res.status(400).json({
         code: 400,
         message: '配方参数不完整'
+      });
+    }
+
+    // 长度限制验证
+    if (item_a.length > 50 || item_b.length > 50 || result.length > 50) {
+      return res.status(400).json({
+        code: 400,
+        message: '物品名称长度不能超过50个字符'
+      });
+    }
+
+    // 字符白名单验证（只允许中文、英文、数字和常见符号）
+    const validPattern = /^[\u4e00-\u9fa5a-zA-Z0-9\s\-_]+$/;
+    if (!validPattern.test(item_a) || !validPattern.test(item_b) || !validPattern.test(result)) {
+      return res.status(400).json({
+        code: 400,
+        message: '物品名称只能包含中文、英文、数字、空格、连字符和下划线'
       });
     }
 

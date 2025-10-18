@@ -50,6 +50,8 @@ logs/
 *.temp
 .cache/
 .temp/
+backend/check_tables.js
+package-lock.json
 
 # Coverage reports
 coverage/

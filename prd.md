@@ -7,6 +7,7 @@
 | **产品名称** | **Azoth Path** | |
 | **副标题** | 无尽合成工具站 | |
 | **产品目标** | 为游戏玩家提供快速检索和贡献合成路径的工具，活跃玩家社区。 | |
+| **游戏信息** | **当前**: 无尽合成 (Chinese name)<br>**历史参考**: Infinite Craft (original English name - preserved for context) | |
 
 ---
 

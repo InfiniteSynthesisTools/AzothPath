@@ -8,7 +8,7 @@
 
 ## 📖 项目简介
 
-Azoth Path 是一个为"Infinite Craft"游戏玩家打造的社区工具站，提供：
+Azoth Path 是一个为"无尽合成"游戏玩家打造的社区工具站，提供：
 - 🔍 配方搜索与展示
 - 📝 配方贡献与验证
 - 🏆 任务悬赏系统
@@ -85,7 +85,7 @@ cd frontend && npm run dev
 - 浏览和搜索配方数据库
 - 提交新配方（文本或 JSON 格式）
 - 配方验证和去重
-- 配方点赞和排序
+- 配方点赞和排序（支持切换点赞状态）
 
 ### 2. 合成路径搜索
 - 基于 BFS 的路径搜索算法
@@ -173,7 +173,7 @@ npm run db:init  # 初始化数据库
 
 ## 🙏 致谢
 
-- [Infinite Craft](https://neal.fun/infinite-craft/) 游戏
+- [无尽合成](https://hc.tsdo.in/) 游戏
 - Vue.js 社区
 - Element Plus 团队
 - 所有贡献者
@@ -186,4 +186,3 @@ npm run db:init  # 初始化数据库
 ---
 
 ⭐ 如果这个项目对你有帮助，请给我们一个 Star！
-

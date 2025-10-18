@@ -44,7 +44,7 @@ router.post('/register', async (req: Request, res: Response) => {
     console.error('Register error:', error);
     res.status(400).json({
       code: 400,
-      message: error.message || '注册失败'
+      message: '注册失败'
     });
   }
 });
@@ -75,7 +75,7 @@ router.post('/login', async (req: Request, res: Response) => {
     console.error('Login error:', error);
     res.status(401).json({
       code: 401,
-      message: error.message || '登录失败'
+      message: '用户名或密码错误'
     });
   }
 });

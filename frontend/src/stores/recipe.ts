@@ -66,35 +66,19 @@ export const useRecipeStore = defineStore('recipe', () => {
     }
   };
 
-  // 点赞配方
-  const likeRecipe = async (id: number) => {
-    await recipeApi.like(id);
+  // 点赞/取消点赞配方（切换状态）
+  const toggleLike = async (id: number) => {
+    const result = await recipeApi.like(id);
     // 更新列表中的配方
     const recipe = recipes.value.find(r => r.id === id);
     if (recipe) {
-      recipe.is_liked = true;
-      recipe.like_count = (recipe.like_count || 0) + 1;
+      recipe.is_liked = result.liked;
+      recipe.likes = result.likes;
     }
     // 更新当前配方
     if (currentRecipe.value?.id === id) {
-      currentRecipe.value.is_liked = true;
-      currentRecipe.value.like_count = (currentRecipe.value.like_count || 0) + 1;
-    }
-  };
-
-  // 取消点赞
-  const unlikeRecipe = async (id: number) => {
-    await recipeApi.unlike(id);
-    // 更新列表中的配方
-    const recipe = recipes.value.find(r => r.id === id);
-    if (recipe) {
-      recipe.is_liked = false;
-      recipe.like_count = Math.max((recipe.like_count || 0) - 1, 0);
-    }
-    // 更新当前配方
-    if (currentRecipe.value?.id === id) {
-      currentRecipe.value.is_liked = false;
-      currentRecipe.value.like_count = Math.max((currentRecipe.value.like_count || 0) - 1, 0);
+      currentRecipe.value.is_liked = result.liked;
+      currentRecipe.value.likes = result.likes;
     }
   };
 
@@ -140,8 +124,7 @@ export const useRecipeStore = defineStore('recipe', () => {
     fetchRecipeDetail,
     submitRecipe,
     deleteRecipe,
-    likeRecipe,
-    unlikeRecipe,
+    toggleLike,
     searchPath,
     searchAllPaths,
     resetSearchParams

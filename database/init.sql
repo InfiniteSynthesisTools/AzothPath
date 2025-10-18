@@ -16,7 +16,6 @@ CREATE TABLE IF NOT EXISTS recipes (
   item_b TEXT NOT NULL,
   result TEXT NOT NULL,
   user_id INTEGER NOT NULL,  -- 关联 user.id（应用层管理）
-  is_verified INTEGER DEFAULT 0,  -- 0=false, 1=true
   likes INTEGER DEFAULT 0,  -- 点赞数（冗余字段，提高查询性能）
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(item_a, item_b),
@@ -116,8 +115,9 @@ CREATE TABLE IF NOT EXISTS import_tasks_content (
   item_a TEXT NOT NULL,
   item_b TEXT NOT NULL,
   result TEXT NOT NULL,
-  status TEXT DEFAULT 'pending',  -- pending, processing, success, failed, duplicate
-  error_message TEXT,
+  status INTEGER DEFAULT 0,  -- 0=待处理, 1=成功, -1=失败（超过3次重试）
+  retry_count INTEGER DEFAULT 0,  -- 重试次数
+  error_message TEXT,  -- 错误信息
   recipe_id INTEGER,  -- 关联 recipes.id（应用层管理）
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
@@ -126,6 +126,7 @@ CREATE TABLE IF NOT EXISTS import_tasks_content (
 CREATE INDEX IF NOT EXISTS idx_import_tasks_content_task_id ON import_tasks_content(task_id);
 CREATE INDEX IF NOT EXISTS idx_import_tasks_content_status ON import_tasks_content(status);
 CREATE INDEX IF NOT EXISTS idx_import_tasks_content_created_at ON import_tasks_content(created_at);
+CREATE INDEX IF NOT EXISTS idx_import_tasks_content_retry ON import_tasks_content(status, retry_count) WHERE status = 0;
 
 -- ====================================
 -- 7. recipe_likes 表 (配方点赞记录)

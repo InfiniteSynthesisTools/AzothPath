@@ -24,6 +24,9 @@ import userRoutes from './routes/userRoutes';
 import recipeRoutes from './routes/recipeRoutes';
 import importRoutes from './routes/importRoutes';
 
+// 导入任务队列
+import { importTaskQueue } from './services/importTaskQueue';
+
 // API 路由
 app.get('/api', (req, res) => {
   res.json({
@@ -68,6 +71,10 @@ app.listen(PORT, () => {
   console.log(`🚀 Server is running on http://localhost:${PORT}`);
   console.log(`📝 API documentation: http://localhost:${PORT}/api`);
   console.log(`🏥 Health check: http://localhost:${PORT}/health`);
+  
+  // 启动导入任务队列
+  importTaskQueue.start();
+  console.log(`⏰ Import task queue started`);
 });
 
 export default app;

@@ -21,7 +21,8 @@ export interface ImportTaskContent {
   item_a: string;
   item_b: string;
   result: string;
-  status: 'pending' | 'processing' | 'success' | 'failed' | 'duplicate';
+  status: number;  // 0=待处理, 1=成功, -1=失败
+  retry_count: number;  // 重试次数
   error_message?: string;
   recipe_id?: number;
   created_at: string;

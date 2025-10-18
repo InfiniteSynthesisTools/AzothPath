@@ -50,17 +50,6 @@
       <router-view />
     </div>
 
-    <!-- 全局页脚 -->
-    <el-footer class="footer">
-      <div class="footer-content">
-        <p>© 2025 Azoth Path - 社区驱动的无尽合成工具站</p>
-        <div class="footer-links">
-          <a href="https://github.com/InfiniteSynthesisTools/AzothPath" target="_blank">GitHub</a>
-          <span>|</span>
-          <a @click="router.push('/about')">关于我们</a>
-        </div>
-      </div>
-    </el-footer>
   </div>
 </template>
 
@@ -169,41 +158,4 @@ const handleLogout = () => {
   background-color: #f5f7fa;
 }
 
-.footer {
-  background: #303133;
-  color: white;
-  text-align: center;
-  padding: 30px 20px;
-  margin-top: auto;
-}
-
-.footer-content {
-  max-width: 1400px;
-  margin: 0 auto;
-}
-
-.footer-content p {
-  margin: 0 0 10px 0;
-}
-
-.footer-links {
-  display: flex;
-  gap: 10px;
-  justify-content: center;
-  align-items: center;
-}
-
-.footer-links a {
-  color: #409eff;
-  text-decoration: none;
-  cursor: pointer;
-}
-
-.footer-links a:hover {
-  text-decoration: underline;
-}
-
-.footer-links span {
-  color: #909399;
-}
 </style>

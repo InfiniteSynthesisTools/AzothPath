@@ -47,7 +47,10 @@ export class RecipeService {
     const offset = (page - 1) * limit;
 
     let sql = `
-      SELECT r.*, u.name as creator_name
+      SELECT r.*, u.name as creator_name,
+             (SELECT emoji FROM items WHERE name = r.item_a) as item_a_emoji,
+             (SELECT emoji FROM items WHERE name = r.item_b) as item_b_emoji,
+             (SELECT emoji FROM items WHERE name = r.result) as result_emoji
       FROM recipes r
       LEFT JOIN user u ON r.user_id = u.id
     `;
@@ -190,12 +193,22 @@ export class RecipeService {
   async getGraphStats() {
     const recipesCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM recipes');
     const itemsCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM items');
+    const baseItemsCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM items WHERE is_base = 1');
+    const craftableItemsCount = await database.get<{ count: number }>(`
+      SELECT COUNT(DISTINCT result) as count 
+      FROM recipes 
+      WHERE result IN (
+        SELECT name FROM items WHERE is_base = 0
+      )
+    `);
     const usersCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM user');
     const tasksCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM task WHERE status = ?', ['active']);
 
     return {
       total_recipes: recipesCount?.count || 0,
       total_items: itemsCount?.count || 0,
+      base_items: baseItemsCount?.count || 0,
+      craftable_items: craftableItemsCount?.count || 0,
       total_users: usersCount?.count || 0,
       active_tasks: tasksCount?.count || 0
     };

@@ -5,41 +5,6 @@
       <h2>🎮 探索无尽合成的奥秘</h2>
       <p>收集、分享、发现 - 社区驱动的合成配方数据库</p>
       
-      <!-- 搜索框 -->
-      <el-card class="search-card">
-        <el-input
-          v-model="searchText"
-          placeholder="搜索配方或物品名称..."
-          size="large"
-          clearable
-          @keyup.enter="handleSearch"
-        >
-          <template #prepend>
-            <el-icon><Search /></el-icon>
-          </template>
-          <template #append>
-            <el-button type="primary" @click="handleSearch">搜索</el-button>
-          </template>
-        </el-input>
-      </el-card>
-
-      <!-- 快速路径搜索 -->
-      <el-card class="path-search-card">
-        <h3>🔍 查找合成路径</h3>
-        <el-input
-          v-model="pathSearchText"
-          placeholder="输入目标物品名称，查找最简合成路径..."
-          size="large"
-          clearable
-          @keyup.enter="handlePathSearch"
-        >
-          <template #append>
-            <el-button type="success" @click="handlePathSearch" :loading="pathSearching">
-              查找路径
-            </el-button>
-          </template>
-        </el-input>
-      </el-card>
     </div>
 
     <!-- 统计信息 -->
@@ -95,46 +60,37 @@
             </el-button>
           </div>
         </template>
-        <el-table 
-          :data="latestRecipes" 
-          style="width: 100%"
-          v-loading="loadingRecipes"
-        >
-          <el-table-column prop="item_a" label="材料A" width="150" />
-          <el-table-column label="+" width="60" align="center">
-            <template #default>
-              <span style="font-size: 18px; color: #909399;">+</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="item_b" label="材料B" width="150" />
-          <el-table-column label="=" width="60" align="center">
-            <template #default>
-              <span style="font-size: 18px; color: #409eff;">→</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="result" label="结果" width="150">
-            <template #default="{ row }">
-              <el-tag type="success">{{ row.result }}</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="creator_name" label="创建者" width="120" />
-          <el-table-column label="验证" width="80" align="center">
-            <template #default="{ row }">
-              <el-tag v-if="row.is_verified" type="success" size="small">已验证</el-tag>
-              <el-tag v-else type="info" size="small">未验证</el-tag>
-            </template>
-          </el-table-column>
-          <el-table-column prop="likes" label="点赞" width="80" align="center">
-            <template #default="{ row }">
-              <span style="color: #f56c6c;">❤️ {{ row.likes }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="created_at" label="创建时间" width="180">
-            <template #default="{ row }">
-              {{ formatTime(row.created_at) }}
-            </template>
-          </el-table-column>
-        </el-table>
+        <div class="recipe-list" v-loading="loadingRecipes">
+          <div 
+            v-for="recipe in latestRecipes" 
+            :key="recipe.id" 
+            class="recipe-item"
+          >
+            <div class="recipe-content">
+              <div class="materials">
+                <span class="material">
+                  <span v-if="recipe.item_a_emoji" class="emoji">{{ recipe.item_a_emoji }}</span>
+                  <span class="text">{{ recipe.item_a }}</span>
+                </span>
+                <span class="plus">+</span>
+                <span class="material">
+                  <span v-if="recipe.item_b_emoji" class="emoji">{{ recipe.item_b_emoji }}</span>
+                  <span class="text">{{ recipe.item_b }}</span>
+                </span>
+              </div>
+              <div class="arrow">→</div>
+              <div class="result">
+                <span v-if="recipe.result_emoji" class="emoji">{{ recipe.result_emoji }}</span>
+                <span class="text">{{ recipe.result }}</span>
+              </div>
+            </div>
+            <div class="recipe-info">
+              <span class="author">{{ recipe.creator_name || '未知' }}</span>
+              <span class="likes">❤️ {{ recipe.likes || 0 }}</span>
+              <span class="time">{{ formatTime(recipe.created_at) }}</span>
+            </div>
+          </div>
+        </div>
       </el-card>
     </div>
   </div>
@@ -143,18 +99,27 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useRecipeStore } from '@/stores';
 import { recipeApi } from '@/api';
-import { ElMessage } from 'element-plus';
-import type { Recipe } from '@/types';
+import { User, Clock } from '@element-plus/icons-vue';
 
 const router = useRouter();
-const recipeStore = useRecipeStore();
-
-const searchText = ref('');
-const pathSearchText = ref('');
-const pathSearching = ref(false);
 const loadingRecipes = ref(false);
+
+// 定义包含emoji的配方类型
+interface RecipeWithEmoji {
+  id: number;
+  item_a: string;
+  item_b: string;
+  result: string;
+  user_id: number;
+  is_verified: number;
+  likes: number;
+  created_at: string;
+  creator_name?: string;
+  item_a_emoji?: string;
+  item_b_emoji?: string;
+  result_emoji?: string;
+}
 
 const stats = ref({
   total_recipes: 0,
@@ -168,7 +133,7 @@ const stats = ref({
   base_items: 6
 });
 
-const latestRecipes = ref<Recipe[]>([]);
+const latestRecipes = ref<RecipeWithEmoji[]>([]);
 
 // 加载统计数据
 const loadStats = async () => {
@@ -196,37 +161,6 @@ const loadLatestRecipes = async () => {
   }
 };
 
-// 处理搜索
-const handleSearch = () => {
-  if (!searchText.value.trim()) {
-    ElMessage.warning('请输入搜索内容');
-    return;
-  }
-  router.push({
-    path: '/recipes',
-    query: { search: searchText.value }
-  });
-};
-
-// 处理路径搜索
-const handlePathSearch = async () => {
-  if (!pathSearchText.value.trim()) {
-    ElMessage.warning('请输入目标物品名称');
-    return;
-  }
-  
-  pathSearching.value = true;
-  try {
-    const data = await recipeStore.searchPath(pathSearchText.value);
-    // TODO: 显示路径结果（可以跳转到详情页或弹窗显示）
-    console.log('搜索路径结果:', data);
-    ElMessage.success('路径查找成功！');
-  } catch (error: any) {
-    ElMessage.error(error.message || '路径查找失败');
-  } finally {
-    pathSearching.value = false;
-  }
-};
 
 // 格式化时间
 const formatTime = (dateString: string) => {
@@ -313,4 +247,153 @@ onMounted(() => {
   font-size: 20px;
   color: #303133;
 }
+
+/* Emoji 样式 */
+.item-with-emoji {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+/* 搜索建议样式 */
+.search-suggestions {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e4e7ed;
+  border-top: none;
+  border-radius: 0 0 4px 4px;
+  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  z-index: 1000;
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.suggestion-item {
+  padding: 8px 12px;
+  cursor: pointer;
+  border-bottom: 1px solid #f5f7fa;
+  transition: background-color 0.2s;
+}
+
+.suggestion-item:hover {
+  background-color: #f5f7fa;
+}
+
+.suggestion-item:last-child {
+  border-bottom: none;
+}
+
+/* 配方列表布局 */
+.recipe-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.recipe-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px 16px;
+  background: #fafbfc;
+  border: 1px solid #e8eaed;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+}
+
+.recipe-item:hover {
+  background: #f5f7fa;
+  border-color: #d0d7de;
+}
+
+.recipe-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex: 1;
+}
+
+.materials {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.material {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+  background: white;
+  border: 1px solid #d0d7de;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.plus {
+  font-size: 16px;
+  color: #656d76;
+  font-weight: 600;
+}
+
+.arrow {
+  font-size: 18px;
+  color: #0969da;
+  font-weight: 600;
+  margin: 0 4px;
+}
+
+.result {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: #0969da;
+  color: white;
+  border-radius: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.text {
+  font-size: 14px;
+}
+
+.recipe-info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  font-size: 12px;
+  color: #656d76;
+}
+
+.author {
+  font-weight: 500;
+}
+
+.likes {
+  color: #f85149;
+  font-weight: 500;
+}
+
+.time {
+  color: #656d76;
+}
 </style>
+
+

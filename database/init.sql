@@ -20,7 +20,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   likes INTEGER DEFAULT 0,  -- 点赞数（冗余字段，提高查询性能）
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(item_a, item_b),
-  CHECK (item_a < item_b)  -- 确保字典序 item_a < item_b
+  CHECK (item_a <= item_b)  -- 确保字典序 item_a <= item_b，允许相同材料
 );
 
 CREATE INDEX IF NOT EXISTS idx_recipes_result ON recipes(result);
@@ -49,8 +49,7 @@ INSERT OR IGNORE INTO items (name, is_base) VALUES
   ('木', 1),
   ('水', 1),
   ('火', 1),
-  ('土', 1),
-  ('宝石', 1);
+  ('土', 1);
 
 -- ====================================
 -- 3. user 表 (用户)
@@ -69,9 +68,8 @@ CREATE INDEX IF NOT EXISTS idx_user_name ON user(name);
 CREATE INDEX IF NOT EXISTS idx_user_contribute ON user(contribute DESC);
 
 -- 创建默认管理员账号 (密码: admin123)
--- bcrypt hash for 'admin123': $2a$10$rOYDfLZqvQhtMhqEZwDN7.VDxvDN8SzqXmH4kZh3JVvKm0.4vNJQS
 INSERT OR IGNORE INTO user (name, psw, auth) VALUES 
-  ('admin', '$2a$10$rOYDfLZqvQhtMhqEZwDN7.VDxvDN8SzqXmH4kZh3JVvKm0.4vNJQS', 9);
+  ('admin', '$2a$10$LEIwAh14C0yGzPcXtSRKlOiv.CGuhoXz1M9n0Xajp7qyJ7B0H0eay', 9);
 
 -- ====================================
 -- 4. task 表 (悬赏任务)

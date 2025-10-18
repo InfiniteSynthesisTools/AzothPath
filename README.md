@@ -36,10 +36,11 @@ AzothPath/
 ├── frontend/          # Vue 3 前端项目
 ├── backend/           # Node.js 后端项目
 ├── database/          # SQLite 数据库
-├── recipe_calculator.py  # Python 算法参考实现
 ├── prd.md             # 产品需求文档
 ├── INSTALL.md         # 安装指南
-└── PROJECT_STATUS.md  # 项目状态
+├── DATABASE_SCHEMA.md # 数据库架构文档
+├── run.sh             # 快速启动脚本 (Linux/macOS)
+└── run.bat            # 快速启动脚本 (Windows)
 ```
 
 ## ⚡ 快速开始
@@ -75,9 +76,8 @@ cd frontend && npm run dev
 
 - [产品需求文档 (PRD)](./prd.md) - 完整的产品设计和技术规范
 - [安装指南 (INSTALL)](./INSTALL.md) - 详细的安装和配置说明
-- [项目状态 (PROJECT_STATUS)](./PROJECT_STATUS.md) - 当前进度和待办事项
+- [数据库架构 (DATABASE_SCHEMA)](./DATABASE_SCHEMA.md) - 数据库设计和表结构
 - [AI Agent 指南](./.github/copilot-instructions.md) - 开发规范和架构说明
-- [前端 README](./frontend/README.md) - 前端项目文档
 
 ## 🎯 核心功能
 

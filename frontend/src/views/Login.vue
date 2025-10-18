@@ -6,8 +6,8 @@
       </template>
 
       <el-form :model="form" :rules="rules" ref="formRef">
-        <el-form-item prop="name">
-          <el-input v-model="form.name" placeholder="用户名" />
+        <el-form-item prop="username">
+          <el-input v-model="form.username" placeholder="用户名" />
         </el-form-item>
         <el-form-item prop="password">
           <el-input v-model="form.password" type="password" placeholder="密码" />
@@ -36,12 +36,12 @@ const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
 
-const form = ref({ name: '', password: '' });
+const form = ref({ username: '', password: '' });
 const formRef = ref();
 const loading = ref(false);
 
 const rules = {
-  name: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
+  username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
 };
 

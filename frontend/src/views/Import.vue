@@ -72,8 +72,12 @@
 
 <script setup lang="ts">
 import { ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { UploadFilled } from '@element-plus/icons-vue';
+import { importApi } from '@/api/import';
+
+const router = useRouter();
 
 const importMethod = ref('text');
 const recipeText = ref('');
@@ -93,14 +97,21 @@ const handleImport = async () => {
     return;
   }
 
+  if (importing.value) {
+    ElMessage.warning('正在处理中，请稍候...');
+    return;
+  }
+
   importing.value = true;
   try {
-    // TODO: 调用导入 API
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    ElMessage.success('导入成功');
+    const result = await importApi.batchImport({ text: recipeText.value });
+    ElMessage.success(`✅ 导入完成！成功导入 ${result.data.totalCount} 条配方`);
     handleReset();
-  } catch (error) {
-    ElMessage.error('导入失败');
+    
+    // 跳转到配方列表页面查看结果
+    router.push('/recipes');
+  } catch (error: any) {
+    ElMessage.error(error.message || '导入失败');
   } finally {
     importing.value = false;
   }

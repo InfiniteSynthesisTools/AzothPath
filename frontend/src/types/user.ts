@@ -10,12 +10,12 @@ export interface User {
 }
 
 export interface LoginForm {
-  name: string;
+  username: string;
   password: string;
 }
 
 export interface RegisterForm {
-  name: string;
+  username: string;
   password: string;
   confirmPassword: string;
 }

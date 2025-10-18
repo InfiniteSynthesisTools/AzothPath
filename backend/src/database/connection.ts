@@ -4,8 +4,14 @@ import { promisify } from 'util';
 
 const PROJECT_ROOT = path.join(__dirname, '../../../');
 const DB_PATH = process.env.DB_PATH 
-  ? path.join(PROJECT_ROOT, process.env.DB_PATH)
-  : path.join(PROJECT_ROOT, 'database/azothpath.db');
+  ? path.resolve(process.cwd(), process.env.DB_PATH)
+  : path.resolve(PROJECT_ROOT, 'database/azothpath.db');
+
+console.log('🔍 Database path debug:');
+console.log('  PROJECT_ROOT:', PROJECT_ROOT);
+console.log('  process.cwd():', process.cwd());
+console.log('  DB_PATH:', DB_PATH);
+console.log('  File exists:', require('fs').existsSync(DB_PATH));
 
 // 创建数据库连接
 let db: sqlite3.Database | null = null;

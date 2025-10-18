@@ -21,12 +21,37 @@
 
       <el-card class="recipe-card">
         <el-table :data="recipeStore.recipes" v-loading="recipeStore.loading">
-          <el-table-column prop="item_a" label="材料A" />
-          <el-table-column prop="item_b" label="材料B" />
-          <el-table-column prop="result" label="结果" />
-          <el-table-column prop="creator_name" label="贡献者" />
-          <el-table-column prop="likes" label="点赞数" width="100" />
-          <el-table-column label="操作" width="200">
+          <el-table-column label="材料A" width="180" align="center">
+            <template #default="{ row }">
+              <span class="item-with-emoji">
+                <span v-if="row.item_a_emoji" class="emoji">{{ row.item_a_emoji }}</span>
+                <span>{{ row.item_a }}</span>
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="材料B" width="180" align="center">
+            <template #default="{ row }">
+              <span class="item-with-emoji">
+                <span v-if="row.item_b_emoji" class="emoji">{{ row.item_b_emoji }}</span>
+                <span>{{ row.item_b }}</span>
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column label="结果" width="180" align="center">
+            <template #default="{ row }">
+              <span class="item-with-emoji">
+                <span v-if="row.result_emoji" class="emoji">{{ row.result_emoji }}</span>
+                <span>{{ row.result }}</span>
+              </span>
+            </template>
+          </el-table-column>
+          <el-table-column prop="creator_name" label="贡献者" width="120" align="center" />
+          <el-table-column prop="likes" label="点赞数" width="100" align="center">
+            <template #default="{ row }">
+              <span style="color: #f56c6c;">❤️ {{ row.likes || 0 }}</span>
+            </template>
+          </el-table-column>
+          <el-table-column label="操作" width="180" align="center">
             <template #default="{ row }">
               <el-button
                 :type="row.is_liked ? 'warning' : 'primary'"
@@ -109,7 +134,7 @@ onMounted(() => {
 }
 
 .page-container {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 30px 20px;
 }
@@ -120,12 +145,32 @@ onMounted(() => {
   align-items: center;
   gap: 20px;
   margin-bottom: 20px;
+  flex-wrap: wrap;
 }
 
 .page-header h1 {
   font-size: 28px;
   color: #303133;
   margin: 0;
+  flex-shrink: 0;
+}
+
+.page-header .el-input {
+  flex-shrink: 0;
+  min-width: 300px;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .page-header .el-input {
+    width: 100%;
+    min-width: auto;
+  }
 }
 
 .recipe-card {
@@ -136,10 +181,22 @@ onMounted(() => {
   margin-top: 20px;
   display: flex;
   justify-content: center;
+  width: 100%;
 }
 
 .el-pagination {
-  margin-top: 20px;
   justify-content: center;
+}
+
+/* Emoji 样式 */
+.item-with-emoji {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.emoji {
+  font-size: 16px;
+  line-height: 1;
 }
 </style>

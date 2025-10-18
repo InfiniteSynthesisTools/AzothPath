@@ -23,6 +23,7 @@ app.get('/health', (req, res) => {
 import userRoutes from './routes/userRoutes';
 import recipeRoutes from './routes/recipeRoutes';
 import importRoutes from './routes/importRoutes';
+import taskRoutes from './routes/taskRoutes';
 
 // 导入任务队列
 import { importTaskQueue } from './services/importTaskQueue';
@@ -45,8 +46,7 @@ app.get('/api', (req, res) => {
 app.use('/api/users', userRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/import-tasks', importRoutes);
-// TODO: 任务路由
-// app.use('/api/tasks', taskRoutes);
+app.use('/api/tasks', taskRoutes);
 
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

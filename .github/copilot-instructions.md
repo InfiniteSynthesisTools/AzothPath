@@ -3,6 +3,20 @@
 ## Project Overview
 **Azoth Path（无尽合成工具站）** is a community-driven web tool for the game "Infinite Craft", helping players discover and share item synthesis recipes. The system validates recipes through external game API and rewards users for discovering new synthesis paths.
 
+## ⚠️ CRITICAL Development Rules
+
+### DO NOT Restart Servers
+**IMPORTANT**: The developer keeps both frontend and backend servers running continuously. AI Agent should:
+- ✅ **NEVER** manually run `npm run dev` or restart servers
+- ✅ **RELY** on hot-reload (Vite HMR for frontend, nodemon for backend)
+- ✅ **TRUST** that file changes will auto-reload
+- ✅ **ONLY** mention manual restart if explicitly required (e.g., after `.env` changes)
+
+When making code changes:
+- Frontend: Vite will automatically reload (HMR)
+- Backend: nodemon will automatically restart on file save
+- Database schema changes: May require manual `npm run db:init`
+
 ## Architecture
 
 ### Tech Stack
@@ -49,6 +63,61 @@ recipe_calculator.py - Python reference implementation for graph algorithms (917
 - **Dictionary ordering**: `item_a` always < `item_b` to deduplicate "A+B=C" and "B+A=C"
 - **Async processing**: Batch imports create task records first, then process items asynchronously
 - **No cascading deletes**: Application handles cleanup logic explicitly
+
+### Database Field Naming Convention (CRITICAL)
+**IMPORTANT**: API 字段名称与数据库字段名称保持完全一致，不进行任何转换。
+
+#### `user` 表字段定义
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | INTEGER | Primary key |
+| `name` | TEXT | 用户登录名 |
+| `psw` | TEXT | bcrypt 密码哈希 |
+| `auth` | INTEGER | 1=普通用户, 9=管理员 |
+| `contribute` | INTEGER | 累积贡献分 |
+| `level` | INTEGER | 用户等级 |
+| `created_at` | DATETIME | 创建时间 |
+
+#### `recipes` 表字段定义
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | INTEGER | Primary key |
+| `item_a` | TEXT | 材料A (item_a < item_b) |
+| `item_b` | TEXT | 材料B |
+| `result` | TEXT | 合成结果 |
+| `user_id` | INTEGER | 创建者 ID |
+| `is_verified` | INTEGER | 0=未验证, 1=已验证 |
+| `likes` | INTEGER | 点赞数（冗余字段，提高查询性能） |
+| `created_at` | DATETIME | 创建时间 |
+
+**注意**: `likes` 字段是冗余字段，与 `recipe_likes` 表保持同步。点赞/取消点赞时需要同时更新两个表。
+
+#### `recipe_likes` 表字段定义
+
+| Field | Type | Notes |
+|-------|------|-------|
+| `id` | INTEGER | Primary key |
+| `recipe_id` | INTEGER | 配方 ID |
+| `user_id` | INTEGER | 点赞用户 ID |
+| `created_at` | DATETIME | 点赞时间 |
+
+**前后端统一规则**:
+- ✅ API 请求/响应直接使用数据库字段名
+- ✅ 前端类型定义使用数据库字段名
+- ✅ 不需要字段转换函数
+- ❌ 不使用 `username`、`role`、`creator_id`、`total_contribution` 等别名
+
+Example:
+```typescript
+// User
+{ id: 1, name: 'admin', auth: 9, contribute: 100, level: 1, created_at: '...' }
+
+// Recipe (JOIN 查询)
+{ id: 1, item_a: '金', item_b: '木', result: '合金', user_id: 1, 
+  is_verified: 1, likes: 5, created_at: '...', creator_name: 'admin' }
+```
 
 ## Data Flow & Processing
 

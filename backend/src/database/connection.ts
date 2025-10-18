@@ -2,14 +2,15 @@ import sqlite3 from 'sqlite3';
 import path from 'path';
 import { promisify } from 'util';
 
+// 从 backend/src/database/connection.ts 到项目根目录是 ../../../
 const PROJECT_ROOT = path.join(__dirname, '../../../');
 const DB_PATH = process.env.DB_PATH 
-  ? path.resolve(process.cwd(), process.env.DB_PATH)
-  : path.resolve(PROJECT_ROOT, 'database/azothpath.db');
+  ? path.join(PROJECT_ROOT, process.env.DB_PATH)
+  : path.join(PROJECT_ROOT, 'database/azothpath.db');
 
-console.log('🔍 Database path debug:');
+console.log('🔍 Database connection debug:');
+console.log('  __dirname:', __dirname);
 console.log('  PROJECT_ROOT:', PROJECT_ROOT);
-console.log('  process.cwd():', process.cwd());
 console.log('  DB_PATH:', DB_PATH);
 console.log('  File exists:', require('fs').existsSync(DB_PATH));
 

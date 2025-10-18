@@ -35,41 +35,55 @@
           <template #default="{ row }">
             <div class="user-cell">
               <el-avatar :size="40" style="background-color: #409eff">
-                {{ row.user.name.charAt(0).toUpperCase() }}
+                {{ row.name.charAt(0).toUpperCase() }}
               </el-avatar>
-              <span class="user-name">{{ row.user.name }}</span>
+              <span class="user-name">{{ row.name }}</span>
             </div>
           </template>
         </el-table-column>
 
-        <el-table-column prop="user.contribute" label="贡献分" width="150" sortable align="center">
+        <el-table-column prop="contribute" label="贡献分" width="150" sortable align="center">
           <template #default="{ row }">
             <el-tag type="success" effect="dark" size="large">
-              {{ row.user.contribute }}
+              💰 {{ row.contribute }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column prop="user.level" label="等级" width="120" sortable align="center">
+        <el-table-column prop="recipe_count" label="配方数量" width="120" sortable align="center">
+          <template #default="{ row }">
+            <el-tag type="primary" effect="plain">
+              📝 {{ row.recipe_count || 0 }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="item_count" label="物品数量" width="120" sortable align="center">
           <template #default="{ row }">
             <el-tag type="warning" effect="plain">
-              Lv.{{ row.user.level }}
+              🎁 {{ row.item_count || 0 }}
             </el-tag>
           </template>
         </el-table-column>
 
-        <el-table-column prop="recipe_count" label="配方数量" width="120" sortable align="center" />
-
-        <el-table-column prop="user.created_at" label="加入时间" width="180" align="center">
+        <el-table-column prop="level" label="等级" width="100" sortable align="center">
           <template #default="{ row }">
-            {{ formatDate(row.user.created_at) }}
+            <el-tag type="info" effect="plain">
+              Lv.{{ row.level }}
+            </el-tag>
+          </template>
+        </el-table-column>
+
+        <el-table-column prop="created_at" label="加入时间" width="180" align="center">
+          <template #default="{ row }">
+            {{ formatDate(row.created_at) }}
           </template>
         </el-table-column>
 
         <el-table-column label="操作" width="120" align="center">
           <template #default="{ row }">
-            <el-button type="primary" link @click="viewProfile(row.user.id)">
-              查看主页
+            <el-button type="primary" link @click="viewProfile(row.id)">
+              查看详情
             </el-button>
           </template>
         </el-table-column>
@@ -159,11 +173,11 @@ const loadData = async () => {
     if (response.users && response.users.length > 0) {
       stats.value.totalUsers = response.total;
       stats.value.totalContributions = response.users.reduce(
-        (sum: number, item: any) => sum + (item.user?.contribute || 0), 
+        (sum: number, item: any) => sum + (item.contribute || 0), 
         0
       );
       stats.value.avgLevel = response.users.reduce(
-        (sum: number, item: any) => sum + (item.user?.level || 0), 
+        (sum: number, item: any) => sum + (item.level || 0), 
         0
       ) / response.users.length;
     }

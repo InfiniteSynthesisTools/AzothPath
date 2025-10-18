@@ -42,7 +42,7 @@ recipe_calculator.py - Python reference implementation for graph algorithms (917
 
 ### Core Tables Structure
 1. **recipes** - Main synthesis records (item_a + item_b = result)
-   - Enforces `item_a < item_b` (lexical order) via CHECK constraint
+   - Enforces `item_a <= item_b` (lexical order) via CHECK constraint
    - UNIQUE constraint on (item_a, item_b) to prevent duplicates
    
 2. **items** - Dictionary of all game items (自动收录 from API validation)
@@ -50,6 +50,8 @@ recipe_calculator.py - Python reference implementation for graph algorithms (917
 3. **user** - User accounts with contribution scoring
    
 4. **task** - Bounty system for undiscovered recipes
+   - 任务创建时不预先添加物品到 items 表
+   - 等配方验证成功后，物品才会自动添加到 items 表
    
 5. **import_tasks** - Batch import job summary (汇总表)
    - Status: processing → completed/failed
@@ -135,17 +137,54 @@ Example:
 ```
 
 ### External API Integration
-- **Validation endpoint**: Verifies if recipe is valid in game
+- **Validation endpoint**: `https://hc.tsdo.in/api` (GET with itemA, itemB params)
 - **Error handling**: 
   - Status 400/403 → immediate failure (discard)
   - Other errors → log to error_message, allow retry
-- **Auto-discovery**: New items from API automatically added to `items` table
+- **Auto-discovery**: New items from API automatically added to `items` table with emoji
+
+### Contribution Score System
+**实时计算规则**（每次配方验证成功后更新）:
+1. **新配方奖励**: 成功插入 recipes 表 → +1 分
+   - 已存在的配方（重复提交）→ 不加分
+2. **新物品奖励**: 成功插入 items 表 → 每个新物品 +2 分
+   - 配方包含 3 个物品（item_a, item_b, result）
+   - **用户可能乱序导入**，所以 item_a 和 item_b 也可能是新物品
+   - 已存在的物品 → 不加分
+   - 最多可获得 6 分（3 个新物品 × 2）
+3. **任务奖励**: 完成悬赏任务 → 获得任务设定的奖励分
+
+**关键理解**:
+- **外部 API 验证**: 游戏 API 有自己的物品库，不依赖我们的数据库
+- **乱序导入**: 用户可能先导入 "铁剑 + 火焰 = 炎之剑"，但 "铁剑" 和 "火焰" 的配方还没导入
+- **物品自动收录**: 验证成功后，item_a、item_b、result 都会被添加到 items 表（如果不存在）
+- **emoji 获取**: API 只返回 result 的 emoji，item_a 和 item_b 的 emoji 初始为空（后续导入时更新）
+
+**示例**:
+```
+提交配方: "金 + 木 = 合金"（假设都是新物品）
+- 配方不存在 → +1 分
+- "金" 不存在 → +2 分
+- "木" 不存在 → +2 分
+- "合金" 不存在 → +2 分
+总计: +7 分（最多）
+
+如果 "金" 和 "木" 已存在，"合金" 是新物品:
+- 配方不存在 → +1 分
+- "合金" 不存在 → +2 分
+总计: +3 分
+```
 
 ### Task/Bounty System
-Tasks auto-generate when:
-1. Recipe successfully added (A+B=C)
-2. Item A or B has no recipe (not in recipes.result)
-3. Item is not base element (金木水火土)
+**任务创建规则**:
+1. 手动创建：管理员/用户发布悬赏（物品名称 + 奖励分）
+   - 不检查物品是否存在于 items 表
+   - 不预先添加物品到 items 表
+   - 等配方验证成功后自动添加物品
+2. 自动创建：配方提交后自动检测
+   - Recipe successfully added (A+B=C)
+   - Item A or B has no recipe (not in recipes.result)
+   - Item is not base element (金木水火土)
 4. No active task exists for that item
 
 ## Code Conventions

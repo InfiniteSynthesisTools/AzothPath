@@ -127,24 +127,49 @@ export class RecipeService {
     // const isValid = await this.validateRecipeWithAPI(itemA, itemB, result);
     // if (!isValid) throw new Error('配方验证失败');
 
-    // 插入配方
+    // 记录贡献分
+    let contributionPoints = 0;
+
+    // 插入配方（新配方 +1 分）
     const recipeResult = await database.run(
       'INSERT INTO recipes (item_a, item_b, result, user_id, likes) VALUES (?, ?, ?, ?, ?)',
       [itemA, itemB, result, creatorId, 0]
     );
+    contributionPoints += 1; // 新配方 +1 分
+    console.log(`✅ New recipe added: ${itemA} + ${itemB} = ${result}, +1 point`);
 
-    // 自动收录新物品
-    await this.ensureItemExists(itemA);
-    await this.ensureItemExists(itemB);
-    await this.ensureItemExists(result);
+    // 自动收录新物品（每个新物品 +2 分）
+    // 注意: 用户可能乱序导入，所以 item_a、item_b、result 都可能是新物品
+    const itemAPoints = await this.ensureItemExists(itemA);
+    const itemBPoints = await this.ensureItemExists(itemB);
+    const resultPoints = await this.ensureItemExists(result);
+    contributionPoints += itemAPoints + itemBPoints + resultPoints;
+
+    // 更新用户贡献分
+    if (contributionPoints > 0) {
+      await database.run(
+        'UPDATE user SET contribute = contribute + ? WHERE id = ?',
+        [contributionPoints, creatorId]
+      );
+      const newItemCount = (itemAPoints + itemBPoints + resultPoints) / 2;
+      console.log(`💰 User ${creatorId} earned ${contributionPoints} points (1 recipe + ${newItemCount} new items)`);
+    }
 
     return recipeResult.lastID;
   }
 
   /**
-   * 确保物品存在（自动收录）
+   * 确保物品存在于 items 表（自动收录）
+   * 
+   * 说明: 
+   * - 用户可能乱序导入配方，导致 item_a、item_b、result 都可能不存在于数据库
+   * - 外部 API 有自己的物品库，验证时不依赖我们的数据库
+   * - API 只返回 result 的 emoji，item_a 和 item_b 的 emoji 初始为空
+   * 
+   * @param itemName 物品名称
+   * @returns 贡献分（新物品 +2，已存在 0）
    */
-  private async ensureItemExists(itemName: string) {
+  private async ensureItemExists(itemName: string): Promise<number> {
     const existing = await database.get('SELECT * FROM items WHERE name = ?', [itemName]);
     if (!existing) {
       // 基础材料列表
@@ -154,7 +179,10 @@ export class RecipeService {
         'INSERT INTO items (name, is_base) VALUES (?, ?)',
         [itemName, isBase ? 1 : 0]
       );
+      console.log(`📝 New item added to dictionary: ${itemName}, +2 points`);
+      return 2; // 新物品 +2 分
     }
+    return 0; // 已存在物品不加分
   }
 
   /**

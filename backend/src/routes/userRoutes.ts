@@ -104,7 +104,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
 
 /**
  * GET /api/users/contribution-rank
- * 获取贡献榜
+ * 获取贡献榜（实时计算）
  */
 router.get('/contribution-rank', async (req: Request, res: Response) => {
   try {
@@ -123,6 +123,45 @@ router.get('/contribution-rank', async (req: Request, res: Response) => {
     res.status(500).json({
       code: 500,
       message: error.message || '获取贡献榜失败'
+    });
+  }
+});
+
+/**
+ * GET /api/users/:id/stats
+ * 获取用户详细贡献统计
+ */
+router.get('/:id/stats', async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的用户 ID'
+      });
+    }
+
+    const result = await userService.getUserContributionStats(userId);
+
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Get user stats error:', error);
+    
+    if (error.message === '用户不存在') {
+      return res.status(404).json({
+        code: 404,
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取用户统计失败'
     });
   }
 });

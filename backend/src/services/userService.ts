@@ -129,29 +129,89 @@ export class UserService {
   }
 
   /**
-   * 获取贡献榜
+   * 获取贡献榜（实时计算）
    */
   async getContributionRank(page: number = 1, limit: number = 10) {
     const offset = (page - 1) * limit;
 
-    const users = await database.all<User>(
-      `SELECT id, name, auth, contribute, created_at 
-       FROM user 
-       WHERE contribute > 0
-       ORDER BY contribute DESC, created_at ASC
+    // 查询用户基本信息和贡献分，按贡献分降序排列
+    const users = await database.all<UserPublic>(
+      `SELECT 
+         u.id, 
+         u.name, 
+         u.auth, 
+         u.contribute, 
+         u.level,
+         u.created_at,
+         (SELECT COUNT(*) FROM recipes WHERE user_id = u.id) as recipe_count,
+         (SELECT COUNT(DISTINCT i.id) 
+          FROM items i 
+          INNER JOIN recipes r ON (r.item_a = i.name OR r.item_b = i.name OR r.result = i.name)
+          WHERE r.user_id = u.id) as item_count
+       FROM user u
+       WHERE u.contribute > 0
+       ORDER BY u.contribute DESC, u.created_at ASC
        LIMIT ? OFFSET ?`,
       [limit, offset]
     );
 
+    // 获取总数
     const totalResult = await database.get<{ count: number }>(
       'SELECT COUNT(*) as count FROM user WHERE contribute > 0'
     );
 
     return {
-      users: users.map(toUserPublic),
+      users,
       total: totalResult?.count || 0,
       page,
       limit
+    };
+  }
+
+  /**
+   * 获取用户详细贡献统计
+   */
+  async getUserContributionStats(userId: number) {
+    const user = await database.get<UserPublic>(
+      'SELECT id, name, auth, contribute, level, created_at FROM user WHERE id = ?',
+      [userId]
+    );
+
+    if (!user) {
+      throw new Error('用户不存在');
+    }
+
+    // 获取用户提交的配方数量
+    const recipeCount = await database.get<{ count: number }>(
+      'SELECT COUNT(*) as count FROM recipes WHERE user_id = ?',
+      [userId]
+    );
+
+    // 获取用户发现的新物品数量
+    const itemCount = await database.get<{ count: number }>(
+      `SELECT COUNT(DISTINCT i.id) as count
+       FROM items i 
+       INNER JOIN recipes r ON (r.item_a = i.name OR r.item_b = i.name OR r.result = i.name)
+       WHERE r.user_id = ?`,
+      [userId]
+    );
+
+    // 获取用户完成的任务数量
+    const taskCount = await database.get<{ count: number }>(
+      `SELECT COUNT(*) as count 
+       FROM task 
+       WHERE completed_by_recipe_id IN (SELECT id FROM recipes WHERE user_id = ?)`,
+      [userId]
+    );
+
+    return {
+      user,
+      stats: {
+        total_contribution: user.contribute,
+        recipe_count: recipeCount?.count || 0,
+        item_count: itemCount?.count || 0,
+        task_completed: taskCount?.count || 0
+      }
     };
   }
 

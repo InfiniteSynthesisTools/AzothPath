@@ -22,7 +22,7 @@ export const useTaskStore = defineStore('task', () => {
       if (params) {
         searchParams.value = { ...searchParams.value, ...params };
       }
-      const data = await taskApi.list(searchParams.value);
+      const data = await taskApi.getTasks(searchParams.value);
       tasks.value = data.tasks;
       total.value = data.total;
       return data;
@@ -35,7 +35,7 @@ export const useTaskStore = defineStore('task', () => {
   const fetchTaskDetail = async (id: number) => {
     loading.value = true;
     try {
-      const data = await taskApi.detail(id);
+      const data = await taskApi.getTaskById(id);
       currentTask.value = data;
       return data;
     } finally {
@@ -47,13 +47,12 @@ export const useTaskStore = defineStore('task', () => {
   const createTask = async (itemName: string, prize: number) => {
     loading.value = true;
     try {
-      const data = await taskApi.create({
-        item_name: itemName,
+      const data = await taskApi.createTask({
+        itemName,
         prize
       });
-      // 添加到列表开头
-      tasks.value.unshift(data);
-      total.value += 1;
+      // 创建任务后需要重新获取任务列表，因为API只返回taskId
+      await fetchTasks();
       return data;
     } finally {
       loading.value = false;
@@ -64,17 +63,10 @@ export const useTaskStore = defineStore('task', () => {
   const updateTask = async (id: number, updates: Partial<Task>) => {
     loading.value = true;
     try {
-      const data = await taskApi.update(id, updates);
-      // 更新列表中的任务
-      const index = tasks.value.findIndex((t: Task) => t.id === id);
-      if (index !== -1) {
-        tasks.value[index] = data;
-      }
-      // 更新当前任务
-      if (currentTask.value?.id === id) {
-        currentTask.value = data;
-      }
-      return data;
+      // 由于API中没有update方法，我们暂时不实现更新功能
+      console.warn('更新任务功能暂未实现');
+      // 这里可以调用后端的更新接口，但需要先确认后端是否有对应的API
+      return null;
     } finally {
       loading.value = false;
     }
@@ -84,7 +76,7 @@ export const useTaskStore = defineStore('task', () => {
   const deleteTask = async (id: number) => {
     loading.value = true;
     try {
-      await taskApi.delete(id);
+      await taskApi.deleteTask(id);
       // 从列表中移除
       tasks.value = tasks.value.filter((t: Task) => t.id !== id);
       total.value -= 1;

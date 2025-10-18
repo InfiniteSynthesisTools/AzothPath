@@ -166,4 +166,45 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * GET /api/users/:id/liked-recipes
+ * 获取用户点赞的配方列表
+ */
+router.get('/:id/liked-recipes', async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+
+    if (isNaN(userId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的用户 ID'
+      });
+    }
+
+    const result = await userService.getUserLikedRecipes(userId, page, limit);
+
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: result
+    });
+  } catch (error: any) {
+    console.error('Get user liked recipes error:', error);
+    
+    if (error.message === '用户不存在') {
+      return res.status(404).json({
+        code: 404,
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取点赞配方失败'
+    });
+  }
+});
+
 export default router;

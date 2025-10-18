@@ -41,5 +41,15 @@ export const userApi = {
   // 获取用户的贡献配方
   getUserRecipes(userId: number, params: { page?: number; limit?: number } = {}) {
     return request.get<{ recipes: any[]; total: number }>(`/users/${userId}/recipes`, { params });
+  },
+
+  // 获取用户点赞的配方
+  getLikedRecipes(userId: number, params: { page?: number; limit?: number } = {}) {
+    return request.get<{ recipes: any[]; total: number }>(`/users/${userId}/liked-recipes`, { params });
+  },
+
+  // 获取用户统计信息
+  getUserStats(userId: number) {
+    return request.get<{ stats: any }>(`/users/${userId}/stats`);
   }
 };

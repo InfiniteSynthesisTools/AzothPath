@@ -7,7 +7,7 @@
 | **产品名称** | **Azoth Path** | |
 | **副标题** | 无尽合成工具站 | |
 | **产品目标** | 为游戏玩家提供快速检索和贡献合成路径的工具，活跃玩家社区。 | |
-| **游戏信息** | **当前**: 无尽合成 (Chinese name)<br>**历史参考**: Infinite Craft (original English name - preserved for context) | |
+| **游戏信息** | 无尽合成 |
 
 ---
 
@@ -314,24 +314,22 @@ interface RecipeGraph {
    ```python
    stats = {
        "depth": max_depth,           # 合成深度（树的高度）
-       "steps": total_steps,         # 合成步骤（非叶子节点数）
-       "total_materials": sum(材料数量),  # 基础材料总数
-       "material_types": len(材料种类),   # 基础材料种类数
-       "materials": {材料: 数量}     # 材料详细分布
+       "width": sum_width(材料数量),  # 合成宽度(基础材料总数)(树的宽度)
+       "breadth": sum_breadth        # 合成广度(易得性)(树中除了根节点之外的节点的广度之和，其中节点的广度是指该节点能匹配到的配方数量)
    }
    ```
    
    **排序优先级** (按顺序):
    1. **深度最小** (`depth` 升序): 合成层数最少
-   2. **宽度最小** (`steps` 升序): 合成步骤最少
-   3. **广度最大** (`material_types` 降序): 使用的基础材料种类最多
+   2. **宽度最小** (`width` 升序): 可能使用的基础材料最少
+   3. **广度最大** (`breadth` 降序): 使用的材料配方最多(最易得)
    4. **字典序** (结果字符串比较): 稳定排序的 tiebreaker
    
    ```typescript
    trees.sort((a, b) => {
        if (a.depth !== b.depth) return a.depth - b.depth;
-       if (a.steps !== b.steps) return a.steps - b.steps;
-       if (a.material_types !== b.material_types) return b.material_types - a.material_types;
+       if (a.width !== b.width) return a.width - b.width;
+       if (a.breadth !== b.breadth) return b.breadth - a.breadth;
        return a.item.localeCompare(b.item);
    });
    ```
@@ -1039,21 +1037,74 @@ npm run dev
 
 ---
 
-### 7. 迭代计划
+### 7. 已完成功能与系统变更
 
-#### Phase 1: 核心功能（MVP）
-- [ ] 用户注册登录
-- [ ] 配方录入（单条 + 批量）
-- [ ] 配方展示与搜索
-- [ ] 任务系统基础功能
-- [ ] 贡献度统计
+#### 7.1 通知系统功能
+- [x] **通知表结构设计**：新增 `notifications` 表，支持系统通知、任务完成通知、点赞通知等
+- [x] **通知类型**：支持 `system`、`task_completed`、`recipe_liked`、`import_completed` 等类型
+- [x] **通知状态管理**：支持 `unread`、`read`、`archived` 状态
+- [x] **实时通知**：用户操作触发实时通知生成
+- [x] **侧边栏通知面板**：显示未读通知，支持标记已读和归档
+- [x] **通知归档功能**：归档后的通知从侧边栏消失，保持界面整洁
 
-#### Phase 2: 体验优化
-- [ ] 最简路径算法实现
-- [ ] 点赞功能
-- [ ] 用户等级系统
-- [ ] 贡献榜排行
-- [ ] 拼音搜索支持
+#### 7.2 批量导入任务管理功能
+- [x] **导入任务管理页面**：专门的页面用于管理批量导入任务
+- [x] **任务状态监控**：实时显示导入任务的进度和状态
+- [x] **明细查看**：查看每个导入任务的详细内容和处理结果
+- [x] **单次上传优化**：支持单次上传不分成多个卡片，保持任务完整性
+- [x] **任务重试机制**：支持对失败的任务进行重试
+- [x] **任务删除功能**：支持删除不需要的导入任务
+
+#### 7.3 个人中心功能修复
+- [x] **用户统计信息**：修复用户统计信息显示问题，正确显示贡献度、配方数量等
+- [x] **收藏配方显示**：修复收藏配方列表显示问题，正确显示用户点赞的配方
+- [x] **API响应处理**：修复前后端数据格式不一致问题，确保TypeScript类型安全
+- [x] **响应拦截器优化**：统一处理API响应，确保数据格式一致性
+
+#### 7.4 API文档系统
+- [x] **完整API文档**：创建 `API_DOCUMENTATION.md`，包含所有API端点的详细说明
+- [x] **数据结构定义**：包含请求参数、响应格式、错误代码等完整信息
+- [x] **使用指导**：在README和AI指南中添加API文档阅读指导
+- [x] **前后端一致性**：确保API文档与实际实现保持一致
+
+#### 7.5 技术架构变更
+- [x] **前端架构优化**：
+  - 修复TypeScript类型错误
+  - 优化API调用和响应处理
+  - 改进组件间数据流
+- [x] **后端服务修复**：
+  - 修复用户服务中的表名错误
+  - 优化数据库查询性能
+  - 改进错误处理机制
+- [x] **数据库架构扩展**：
+  - 新增通知系统相关表
+  - 优化现有表索引
+  - 改进数据一致性
+
+#### 7.6 用户体验改进
+- [x] **侧边栏优化**：改进通知显示和交互体验
+- [x] **导入流程优化**：简化批量导入操作流程
+- [x] **个人中心优化**：改进统计信息和收藏配方的显示
+- [x] **错误处理改进**：提供更友好的错误提示和重试机制
+
+### 8. 迭代计划
+
+#### Phase 1: 核心功能（MVP）✅ 已完成
+- [x] 用户注册登录
+- [x] 配方录入（单条 + 批量）
+- [x] 配方展示与搜索
+- [x] 任务系统基础功能
+- [x] 贡献度统计
+
+#### Phase 2: 体验优化 ✅ 已完成
+- [x] 最简路径算法实现
+- [x] 点赞功能
+- [x] 用户等级系统
+- [x] 贡献榜排行
+- [x] 拼音搜索支持
+- [x] 通知系统
+- [x] 批量导入任务管理
+- [x] 个人中心功能完善
 
 #### Phase 3: 高级功能
 - [ ] 管理员后台
@@ -1061,3 +1112,88 @@ npm run dev
 - [ ] 社区互动功能
 - [ ] 移动端适配
 - [ ] 性能优化
+- [ ] 高级搜索功能
+- [ ] 数据可视化
+- [ ] 多语言支持
+
+### 9. 系统架构更新
+
+#### 9.1 新增数据库表
+
+##### 9.1.1 `notifications` 表（通知系统）
+| 字段名 | 数据类型 | 说明 | 约束 |
+| :--- | :--- | :--- | :--- |
+| `id` | INTEGER | 唯一通知ID | PRIMARY KEY AUTOINCREMENT |
+| `user_id` | INTEGER | 接收用户ID | NOT NULL |
+| `type` | VARCHAR | 通知类型 | NOT NULL |
+| `title` | VARCHAR | 通知标题 | NOT NULL |
+| `content` | TEXT | 通知内容 | |
+| `related_id` | INTEGER | 关联对象ID | |
+| `status` | VARCHAR | 通知状态 | DEFAULT 'unread' |
+| `created_at` | DATETIME | 创建时间 | DEFAULT CURRENT_TIMESTAMP |
+| `updated_at` | DATETIME | 更新时间 | DEFAULT CURRENT_TIMESTAMP |
+
+#### 9.2 API端点扩展
+
+##### 9.2.1 通知相关API
+- `GET /api/notifications` - 获取用户通知列表
+- `PUT /api/notifications/:id/read` - 标记通知为已读
+- `PUT /api/notifications/:id/archive` - 归档通知
+- `GET /api/notifications/unread-count` - 获取未读通知数量
+
+##### 9.2.2 导入任务管理API
+- `GET /api/import-tasks` - 获取导入任务列表
+- `GET /api/import-tasks/:id` - 获取导入任务详情
+- `GET /api/import-tasks/:id/contents` - 获取导入任务明细
+- `POST /api/import-tasks/:id/retry` - 重试导入任务
+- `DELETE /api/import-tasks/:id` - 删除导入任务
+
+##### 9.2.3 用户统计API
+- `GET /api/users/:id/stats` - 获取用户统计信息
+- `GET /api/users/:id/liked-recipes` - 获取用户收藏的配方
+
+#### 9.3 前端组件更新
+
+##### 9.3.1 新增组件
+- `Sidebar.vue` - 侧边栏组件，集成通知面板
+- `ImportTasks.vue` - 导入任务管理页面
+- `ImportTaskCard.vue` - 导入任务卡片组件
+
+##### 9.3.2 更新组件
+- `Profile.vue` - 个人中心页面，修复统计和收藏显示
+- 所有API调用组件，优化响应处理逻辑
+
+### 10. 开发指南更新
+
+#### 10.1 API文档使用
+- 详细API文档位于 `API_DOCUMENTATION.md`
+- 包含所有端点的请求参数、响应格式和错误处理
+- 前后端开发人员应参考此文档确保接口一致性
+
+#### 10.2 数据库架构参考
+- 完整数据库架构位于 `DATABASE_SCHEMA.md`
+- 包含所有表结构、索引和关系说明
+- 数据库变更应同步更新此文档
+
+#### 10.3 开发环境配置
+- 使用 `run.bat` 或 `run.sh` 快速启动开发环境
+- 前端开发服务器运行在端口 5173
+- 后端API服务器运行在端口 3000
+
+### 11. 质量保证
+
+#### 11.1 测试覆盖
+- [ ] 单元测试覆盖核心业务逻辑
+- [ ] 集成测试验证API端点
+- [ ] 端到端测试验证用户流程
+
+#### 11.2 代码质量
+- [x] TypeScript类型安全
+- [x] ESLint代码规范检查
+- [x] Prettier代码格式化
+- [x] Git提交规范
+
+#### 11.3 性能监控
+- [ ] API响应时间监控
+- [ ] 数据库查询性能优化
+- [ ] 前端加载性能优化

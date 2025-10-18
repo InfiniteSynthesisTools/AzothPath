@@ -34,6 +34,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: '导入配方', requiresAuth: true }
       },
       {
+        path: '/import-tasks',
+        name: 'ImportTasks',
+        component: () => import('@/views/ImportTasks.vue'),
+        meta: { title: '导入任务', requiresAuth: true }
+      },
+      {
         path: '/tasks',
         name: 'TaskBoard',
         component: () => import('@/views/TaskBoard.vue'),

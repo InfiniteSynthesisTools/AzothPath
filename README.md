@@ -77,6 +77,7 @@ cd frontend && npm run dev
 - [产品需求文档 (PRD)](./prd.md) - 完整的产品设计和技术规范
 - [安装指南 (INSTALL)](./INSTALL.md) - 详细的安装和配置说明
 - [数据库架构 (DATABASE_SCHEMA)](./DATABASE_SCHEMA.md) - 数据库设计和表结构
+- [API 文档 (API_DOCUMENTATION)](./API_DOCUMENTATION.md) - 完整的 API 接口说明
 - [AI Agent 指南](./.github/copilot-instructions.md) - 开发规范和架构说明
 
 ## 🎯 核心功能

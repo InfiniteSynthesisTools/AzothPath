@@ -56,9 +56,9 @@ export interface CraftingTreeNode {
 // 合成路径统计
 export interface PathStats {
   depth: number;           // 合成深度
-  steps: number;           // 合成步骤数
+  width: number;           // 合成宽度（基础材料总数）
   total_materials: number; // 基础材料总数
-  material_types: number;  // 基础材料种类数
+  breadth: number;         // 合成广度（树中除了根节点之外的节点的广度之和，其中节点的广度是指该节点能匹配到的配方数量）
   materials: Record<string, number>; // 材料详细分布
 }
 

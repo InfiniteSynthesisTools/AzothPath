@@ -216,6 +216,57 @@ export class UserService {
   }
 
   /**
+   * 获取用户点赞的配方列表
+   */
+  async getUserLikedRecipes(userId: number, page: number = 1, limit: number = 20) {
+    const offset = (page - 1) * limit;
+
+    // 检查用户是否存在
+    const user = await database.get<UserPublic>(
+      'SELECT id FROM user WHERE id = ?',
+      [userId]
+    );
+
+    if (!user) {
+      throw new Error('用户不存在');
+    }
+
+    // 查询用户点赞的配方
+    const recipes = await database.all<any>(`
+      SELECT 
+        r.id,
+        r.item_a,
+        r.item_b,
+        r.result,
+        r.user_id,
+        r.likes,
+        r.created_at,
+        u.name as creator_name,
+        rl.created_at as liked_at
+      FROM recipe_likes rl
+      INNER JOIN recipes r ON rl.recipe_id = r.id
+      INNER JOIN user u ON r.user_id = u.id
+      WHERE rl.user_id = ?
+      ORDER BY rl.created_at DESC
+      LIMIT ? OFFSET ?
+    `, [userId, limit, offset]);
+
+    // 获取总数
+    const totalResult = await database.get<{ count: number }>(`
+      SELECT COUNT(*) as count 
+      FROM recipe_likes 
+      WHERE user_id = ?
+    `, [userId]);
+
+    return {
+      recipes,
+      total: totalResult?.count || 0,
+      page,
+      limit
+    };
+  }
+
+  /**
    * 增加用户贡献度
    */
   async incrementContribution(userId: number, amount: number = 1): Promise<void> {

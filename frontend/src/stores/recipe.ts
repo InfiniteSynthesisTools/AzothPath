@@ -1,7 +1,7 @@
 import { defineStore } from 'pinia';
 import { ref } from 'vue';
 import { recipeApi } from '@/api';
-import type { Recipe, RecipeSearchParams, CraftingPath } from '@/types';
+import type { Recipe, RecipeSearchParams } from '@/types';
 
 export const useRecipeStore = defineStore('recipe', () => {
   // 状态

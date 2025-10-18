@@ -26,9 +26,9 @@ export interface CraftingTreeNode {
 
 export interface PathStats {
   depth: number;
-  steps: number;
+  width: number;
   total_materials: number;
-  material_types: number;
+  breadth: number;
   materials: Record<string, number>;
 }
 
@@ -277,7 +277,7 @@ export class RecipeService {
     }
 
     // 计算统计信息
-    const stats = this.calculateTreeStats(tree);
+    const stats = this.calculateTreeStats(tree, itemToRecipes);
 
     return { tree, stats };
   }
@@ -332,18 +332,26 @@ export class RecipeService {
   /**
    * 计算树的统计信息
    */
-  private calculateTreeStats(tree: CraftingTreeNode): PathStats {
+  private calculateTreeStats(tree: CraftingTreeNode, itemToRecipes: Record<string, Recipe[]>): PathStats {
     const materials: Record<string, number> = {};
+    let breadthSum = 0;
     
-    const traverse = (node: CraftingTreeNode, depth: number): { maxDepth: number; steps: number } => {
+    const traverse = (node: CraftingTreeNode, depth: number, isRoot: boolean = true): { maxDepth: number; steps: number } => {
       if (node.is_base) {
         materials[node.item] = (materials[node.item] || 0) + 1;
         return { maxDepth: depth, steps: 0 };
       }
 
+      // 如果不是根节点，计算该节点的广度（能匹配到的配方数量）
+      if (!isRoot) {
+        // 获取该节点能匹配到的配方数量
+        const recipes = itemToRecipes[node.item] || [];
+        breadthSum += recipes.length;
+      }
+
       const [childA, childB] = node.children!;
-      const resultA = traverse(childA, depth + 1);
-      const resultB = traverse(childB, depth + 1);
+      const resultA = traverse(childA, depth + 1, false);
+      const resultB = traverse(childB, depth + 1, false);
 
       return {
         maxDepth: Math.max(resultA.maxDepth, resultB.maxDepth),
@@ -351,14 +359,14 @@ export class RecipeService {
       };
     };
 
-    const { maxDepth, steps } = traverse(tree, 0);
+    const { maxDepth, steps } = traverse(tree, 0, true);
     const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);
 
     return {
       depth: maxDepth,
-      steps,
+      width: steps,
       total_materials: totalMaterials,
-      material_types: Object.keys(materials).length,
+      breadth: breadthSum,
       materials
     };
   }

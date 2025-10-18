@@ -18,6 +18,7 @@
 - `recipe_calculator.py` - Python reference for path search algorithms (917 lines)
 - `backend/src/` - TypeScript backend with Express and async processing
 - `frontend/src/` - Vue 3 SPA with TypeScript and Pinia stores
+- `API_DOCUMENTATION.md` - Complete API interface documentation with examples
 
 **Development Status**: 
 - ✅ Backend running on http://localhost:3000
@@ -488,6 +489,103 @@ GET /api/recipes/graph/stats → { ...stats }
 4. **Check import_tasks_content.task_id** - Links to parent task for batch operations
 5. **Update parent task counters** - When processing content, update import_tasks aggregates
 
+## Database Schema Reference
+
+### Complete Database Structure (from DATABASE_SCHEMA.md)
+
+**⚠️ 重要规则**: 前后端 API 字段名与数据库字段名完全一致，不进行任何转换！
+
+#### Core Tables
+
+**1. `user` 表（用户）**
+- `id` (INTEGER) - 主键
+- `name` (TEXT) - 用户登录名
+- `psw` (TEXT) - bcrypt 密码哈希
+- `auth` (INTEGER) - 权限等级 (1=普通用户, 9=管理员)
+- `contribute` (INTEGER) - 累积贡献分
+- `level` (INTEGER) - 用户等级
+- `created_at` (DATETIME) - 创建时间
+
+**2. `recipes` 表（配方）**
+- `id` (INTEGER) - 主键
+- `item_a` (TEXT) - 材料A（字典序 item_a < item_b）
+- `item_b` (TEXT) - 材料B
+- `result` (TEXT) - 合成结果
+- `user_id` (INTEGER) - 创建者 ID（关联 user.id）
+- `likes` (INTEGER) - 点赞数（冗余字段）
+- `created_at` (DATETIME) - 创建时间
+
+**⚠️ 注意**: `likes` 字段是冗余字段，与 `recipe_likes` 表保持同步。点赞/取消点赞时需要同时更新两个表。
+
+**3. `recipe_likes` 表（配方点赞）**
+- `id` (INTEGER) - 主键
+- `recipe_id` (INTEGER) - 配方 ID
+- `user_id` (INTEGER) - 点赞用户 ID
+- `created_at` (DATETIME) - 点赞时间
+
+**4. `items` 表（物品词典）**
+- `id` (INTEGER) - 主键
+- `name` (TEXT) - 物品名称（唯一）
+- `emoji` (TEXT) - 物品图标
+- `pinyin` (TEXT) - 拼音（用于搜索）
+- `is_base` (INTEGER) - 是否基础材料 (0=否, 1=是)
+- `created_at` (DATETIME) - 创建时间
+
+**5. `task` 表（悬赏任务）**
+- `id` (INTEGER) - 主键
+- `item_name` (TEXT) - 目标物品名称
+- `prize` (INTEGER) - 奖励积分
+- `status` (TEXT) - 任务状态 ('active' / 'completed')
+- `created_at` (DATETIME) - 创建时间
+- `completed_by_recipe_id` (INTEGER) - 完成任务的配方 ID
+- `completed_at` (DATETIME) - 完成时间
+
+**6. `import_tasks` 表（批量导入任务汇总）**
+- `id` (INTEGER) - 主键
+- `user_id` (INTEGER) - 导入用户 ID
+- `total_count` (INTEGER) - 总数
+- `success_count` (INTEGER) - 成功数
+- `failed_count` (INTEGER) - 失败数
+- `duplicate_count` (INTEGER) - 重复数
+- `status` (TEXT) - 任务状态 ('processing' / 'completed' / 'failed')
+- `error_details` (TEXT) - 错误详情（JSON）
+- `created_at` (DATETIME) - 创建时间
+- `updated_at` (DATETIME) - 更新时间
+
+**7. `import_tasks_content` 表（批量导入任务明细）**
+- `id` (INTEGER) - 主键
+- `task_id` (INTEGER) - 关联 import_tasks.id
+- `item_a` (TEXT) - 材料A
+- `item_b` (TEXT) - 材料B
+- `result` (TEXT) - 合成结果
+- `status` (TEXT) - 处理状态 ('pending' / 'processing' / 'success' / 'failed' / 'duplicate')
+- `error_message` (TEXT) - 错误信息
+- `recipe_id` (INTEGER) - 成功后的配方 ID
+- `created_at` (DATETIME) - 创建时间
+
+### Key Database Constraints & Indexes
+
+**recipes 表约束**:
+- `UNIQUE(item_a, item_b)` - 防止重复配方
+- `CHECK (item_a < item_b)` - 强制字典序
+
+**recipe_likes 表约束**:
+- `UNIQUE(recipe_id, user_id)` - 防止重复点赞
+
+**items 表约束**:
+- `UNIQUE(name)` - 物品名称唯一
+
+### API 响应示例
+
+```typescript
+// User
+{ id: 1, name: 'admin', auth: 9, contribute: 100, level: 1, created_at: '...' }
+
+// Recipe (JOIN 查询)
+{ id: 1, item_a: '金', item_b: '木', result: '合金', user_id: 1, 
+  likes: 5, created_at: '...', creator_name: 'admin' }
+```
+
 ## Documentation Maintenance Principles
 
 ### AI Agent Documentation Guidelines
@@ -532,6 +630,37 @@ GET /api/recipes/graph/stats → { ...stats }
 - 无尽合成 (deletes historical reference to Infinite Craft)
 ```
 
+## API Documentation Reference
+
+### Complete API Documentation (from API_DOCUMENTATION.md)
+
+**⚠️ 重要**: API 文档提供了所有后端接口的完整说明，包括请求/响应格式、错误码和前端类型定义。
+
+#### API 文档结构
+- **认证接口** - 用户登录、注册、获取当前用户信息
+- **用户接口** - 用户资料、统计信息、收藏管理
+- **配方接口** - 配方 CRUD、路径搜索、点赞系统
+- **物品接口** - 物品词典查询、搜索
+- **任务接口** - 悬赏任务管理、进度查询
+- **导入接口** - 批量导入任务管理、进度跟踪
+- **通知接口** - 系统通知、用户通知管理
+
+#### 关键 API 端点
+- `GET /api/recipes/path/:item` - 获取物品合成路径
+- `POST /api/recipes` - 提交新配方
+- `POST /api/import-tasks` - 创建批量导入任务
+- `GET /api/notifications` - 获取用户通知列表
+- `PUT /api/notifications/:id/read` - 标记通知为已读
+- `PUT /api/notifications/:id/archive` - 归档通知
+
+#### 前端类型定义
+API 文档包含完整的前端 TypeScript 类型定义，确保前后端数据一致性：
+- `User` - 用户信息类型
+- `Recipe` - 配方类型
+- `ImportTask` - 导入任务类型
+- `Notification` - 通知类型
+- `Task` - 悬赏任务类型
+
 ## File References
 - `prd.md` - Complete product requirements and technical specifications
 - `recipe_calculator.py` - Python reference implementation (917 lines) with RecipeGraph class
@@ -540,6 +669,7 @@ GET /api/recipes/graph/stats → { ...stats }
   - Circular dependency detection for A+A=A patterns
   - Tree analysis with depth/steps/materials statistics
   - **Status**: Reference implementation, needs TypeScript port for production
+- `API_DOCUMENTATION.md` - Complete API interface documentation with request/response examples and error codes
 - Section 3.2.1 in prd.md - Complete algorithm design with complexity analysis
 - Section 4.2.4 in prd.md - Complete SQL schema with indexes
 - Section 4.3 in prd.md - Frontend architecture and type definitions

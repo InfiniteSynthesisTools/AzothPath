@@ -46,26 +46,43 @@
     </el-header>
 
     <!-- 内容区域 -->
-    <div class="main-content">
+    <div class="main-content" :class="{ 'with-sidebar': sidebarVisible }">
       <router-view />
     </div>
+
+    <!-- 侧边栏 -->
+    <Sidebar 
+      v-if="userStore.isLoggedIn"
+      v-model:visible="sidebarVisible"
+      :has-unread-notifications="hasUnreadNotifications"
+    />
 
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores';
 import { ElMessage } from 'element-plus';
-import { User, SwitchButton } from '@element-plus/icons-vue';
+import { User, SwitchButton, Bell } from '@element-plus/icons-vue';
+import Sidebar from '@/components/Sidebar.vue';
 
 const router = useRouter();
 const route = useRoute();
 const userStore = useUserStore();
 
+// 侧边栏状态
+const sidebarVisible = ref(false);
+const hasUnreadNotifications = ref(false);
+
 // 当前激活的菜单项
 const activeMenu = computed(() => route.path);
+
+// 切换侧边栏
+const toggleSidebar = () => {
+  sidebarVisible.value = !sidebarVisible.value;
+};
 
 // 退出登录
 const handleLogout = () => {
@@ -156,6 +173,21 @@ const handleLogout = () => {
 .main-content {
   flex: 1;
   background-color: #f5f7fa;
+  transition: margin-right 0.3s ease;
+}
+
+.main-content.with-sidebar {
+  margin-right: 320px;
+}
+
+.sidebar-toggle {
+  position: relative;
+}
+
+.sidebar-toggle .el-badge {
+  position: absolute;
+  top: 2px;
+  right: 2px;
 }
 
 </style>

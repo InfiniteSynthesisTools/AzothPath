@@ -100,7 +100,6 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { recipeApi } from '@/api';
-import { User, Clock } from '@element-plus/icons-vue';
 
 const router = useRouter();
 const loadingRecipes = ref(false);

@@ -8,11 +8,18 @@
  * - 多个任务可以并发调用，但HTTP请求会被串行化
  */
 
+import { apiConfig } from '../config/api';
+
 class ValidationLimiter {
   private lastValidationTime: number = 0;
-  private readonly minInterval: number = 800; // 800毫秒间隔（可根据API限制调整）
+  private readonly minInterval: number; // 从配置文件读取
   private queue: Array<() => void> = [];
   private processing: boolean = false;
+
+  constructor() {
+    // 从配置文件中读取限速间隔
+    this.minInterval = apiConfig.rateLimitInterval;
+  }
 
   /**
    * 限速验证请求

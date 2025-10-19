@@ -24,8 +24,8 @@ export function getApiConfig(): ApiConfig {
     retryCount: parseInt(process.env.API_RETRY_COUNT || '3'),
     
     // 限速配置：API请求最小间隔（毫秒）
-    // 默认800ms，可通过环境变量 API_RATE_LIMIT_INTERVAL 调整
-    rateLimitInterval: parseInt(process.env.API_RATE_LIMIT_INTERVAL || '800'),
+    // 默认0ms，可通过环境变量 API_RATE_LIMIT_INTERVAL 调整
+    rateLimitInterval: parseInt(process.env.API_RATE_LIMIT_INTERVAL || '0'),
     
     // 请求头配置
     headers: {
@@ -60,10 +60,18 @@ export function validateApiConfig(): void {
     throw new Error('API_RETRY_COUNT 不能为负数');
   }
   
-  if (config.rateLimitInterval <= 0) {
-    throw new Error('API_RATE_LIMIT_INTERVAL 必须大于0');
+  if (config.rateLimitInterval < 0) {
+    throw new Error('API_RATE_LIMIT_INTERVAL 不能为负数');
   }
 }
 
-// 导出默认配置
-export const apiConfig = getApiConfig();
+// 懒加载配置（确保环境变量已加载）
+let _apiConfig: ApiConfig | null = null;
+export const apiConfig = new Proxy({} as ApiConfig, {
+  get(target, prop) {
+    if (!_apiConfig) {
+      _apiConfig = getApiConfig();
+    }
+    return _apiConfig[prop as keyof ApiConfig];
+  }
+});

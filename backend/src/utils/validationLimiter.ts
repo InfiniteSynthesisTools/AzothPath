@@ -9,6 +9,7 @@
  */
 
 import { apiConfig } from '../config/api';
+import { logger } from './logger';
 
 class ValidationLimiter {
   private lastValidationTime: number = 0;
@@ -19,6 +20,7 @@ class ValidationLimiter {
   constructor() {
     // 从配置文件中读取限速间隔
     this.minInterval = apiConfig.rateLimitInterval;
+    logger.info(`验证限速器初始化: 最小间隔 ${this.minInterval}ms`);
   }
 
   /**
@@ -59,6 +61,7 @@ class ValidationLimiter {
       // 如果距离上次请求不足 minInterval，等待
       if (timeSinceLastValidation < this.minInterval) {
         const waitTime = this.minInterval - timeSinceLastValidation;
+        logger.debug(`验证限速: 等待 ${waitTime}ms (最小间隔: ${this.minInterval}ms)`);
         await this.delay(waitTime);
       }
 

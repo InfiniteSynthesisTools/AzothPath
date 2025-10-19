@@ -157,7 +157,7 @@ export class UserService {
           INNER JOIN recipes r ON (r.item_a = i.name OR r.item_b = i.name OR r.result = i.name)
           WHERE r.user_id = u.id) as item_count
        FROM user u
-       WHERE u.contribute > 0
+       WHERE 1=1
        ORDER BY u.contribute DESC, u.created_at ASC
        LIMIT ? OFFSET ?`,
       [limit, offset]
@@ -165,7 +165,7 @@ export class UserService {
 
     // 获取总数
     const totalResult = await database.get<{ count: number }>(
-      'SELECT COUNT(*) as count FROM user WHERE contribute > 0'
+      'SELECT COUNT(*) as count FROM user'
     );
 
     return {

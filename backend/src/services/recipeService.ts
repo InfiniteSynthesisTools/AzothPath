@@ -1173,6 +1173,83 @@ export class RecipeService {
       avgBreadth
     };
   }
+
+  /**
+   * 获取物品列表
+   */
+  async getItemsList(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    type?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  }) {
+    const { page, limit, search = '', type = '', sortBy = 'name', sortOrder = 'asc' } = params;
+    const offset = (page - 1) * limit;
+
+    // 构建查询条件
+    let whereConditions = [];
+    let queryParams: any[] = [];
+
+    // 搜索条件
+    if (search) {
+      whereConditions.push('(name LIKE ? OR emoji LIKE ?)');
+      queryParams.push(`%${search}%`, `%${search}%`);
+    }
+
+    // 类型条件
+    if (type === 'base') {
+      whereConditions.push('is_base = 1');
+    } else if (type === 'synthetic') {
+      whereConditions.push('is_base = 0');
+    }
+
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // 排序条件
+    let orderClause = '';
+    switch (sortBy) {
+      case 'name':
+        orderClause = `ORDER BY name ${sortOrder.toUpperCase()}`;
+        break;
+      case 'id':
+        orderClause = `ORDER BY id ${sortOrder.toUpperCase()}`;
+        break;
+      case 'usage_count':
+        // 这里需要计算使用次数，暂时按ID排序
+        orderClause = `ORDER BY id ${sortOrder.toUpperCase()}`;
+        break;
+      default:
+        orderClause = 'ORDER BY id ASC';
+    }
+
+    // 查询物品列表
+    const items = await database.all<Item & { usage_count: number; recipe_count: number }>(
+      `SELECT 
+         i.*,
+         (SELECT COUNT(*) FROM recipes WHERE item_a = i.name OR item_b = i.name) as usage_count,
+         (SELECT COUNT(*) FROM recipes WHERE result = i.name) as recipe_count
+       FROM items i
+       ${whereClause}
+       ${orderClause}
+       LIMIT ? OFFSET ?`,
+      [...queryParams, limit, offset]
+    );
+
+    // 获取总数
+    const totalResult = await database.get<{ count: number }>(
+      `SELECT COUNT(*) as count FROM items ${whereClause}`,
+      queryParams
+    );
+
+    return {
+      items,
+      total: totalResult?.count || 0,
+      page,
+      limit
+    };
+  }
 }
 
 export const recipeService = new RecipeService();

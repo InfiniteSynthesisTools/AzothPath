@@ -90,5 +90,22 @@ export const recipeApi = {
   // 创建优化索引（管理员功能）
   optimizeIndexes() {
     return api.post<{ message: string }>('/recipes/optimize');
+  },
+
+  // 获取物品列表
+  getItems(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    type?: string;
+    sortBy?: string;
+    sortOrder?: string;
+  } = {}) {
+    return api.get<{
+      items: any[];
+      total: number;
+      page: number;
+      limit: number;
+    }>('/items', { params });
   }
 };

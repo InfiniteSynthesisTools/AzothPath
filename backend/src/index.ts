@@ -57,6 +57,8 @@ import userRoutes from './routes/userRoutes';
 import recipeRoutes from './routes/recipeRoutes';
 import importRoutes from './routes/importRoutes';
 import taskRoutes from './routes/taskRoutes';
+import itemsRoutes from './routes/itemsRoutes';
+import systemRoutes from './routes/systemRoutes';
 
 // 导入任务队列
 import { importTaskQueue } from './services/importTaskQueue';
@@ -70,7 +72,8 @@ app.get('/api', (req, res) => {
       recipes: '/api/recipes',
       users: '/api/users',
       tasks: '/api/tasks',
-      imports: '/api/import-tasks'
+      imports: '/api/import-tasks',
+      items: '/api/items'
     }
   });
 });
@@ -80,6 +83,8 @@ app.use('/api/users', userRoutes);
 app.use('/api/recipes', recipeRoutes);
 app.use('/api/import-tasks', importRoutes);
 app.use('/api/tasks', taskRoutes);
+app.use('/api/items', itemsRoutes);
+app.use('/api/system', systemRoutes);
 
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

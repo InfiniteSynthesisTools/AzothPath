@@ -1237,17 +1237,20 @@ export class RecipeService {
     let orderClause = '';
     switch (sortBy) {
       case 'name':
-        orderClause = `ORDER BY name ${sortOrder.toUpperCase()}`;
+        // 强制逻辑：没有emoji的元素排在最后
+        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, name ${sortOrder.toUpperCase()}`;
         break;
       case 'id':
-        orderClause = `ORDER BY id ${sortOrder.toUpperCase()}`;
+        // 强制逻辑：没有emoji的元素排在最后
+        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, id ${sortOrder.toUpperCase()}`;
         break;
       case 'usage_count':
-        // 这里需要计算使用次数，暂时按ID排序
-        orderClause = `ORDER BY id ${sortOrder.toUpperCase()}`;
+        // 强制逻辑：没有emoji的元素排在最后
+        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, usage_count ${sortOrder.toUpperCase()}`;
         break;
       default:
-        orderClause = 'ORDER BY id ASC';
+        // 强制逻辑：没有emoji的元素排在最后
+        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, id ASC`;
     }
 
     // 查询物品列表

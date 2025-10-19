@@ -14,7 +14,7 @@ if %errorlevel% neq 0 (
 )
 
 echo ✅ Node.js 版本:
-node --version
+call node --version
 echo.
 
 REM 检查 npm 是否安装
@@ -26,7 +26,7 @@ if %errorlevel% neq 0 (
 )
 
 echo ✅ npm 版本:
-npm --version
+call npm --version
 echo.
 
 REM 设置构建目录
@@ -172,31 +172,6 @@ echo echo "📝 前端静态文件位于 frontend 目录"
 echo echo "💡 请使用 Nginx 或其他 Web 服务器托管前端文件"
 ) > "%BUILD_DIR%\start.sh"
 
-REM 创建 PM2 配置文件
-echo 📝 创建 PM2 配置 ecosystem.config.js...
-(
-echo module.exports = {
-echo   apps: [
-echo     {
-echo       name: 'azothpath-backend',
-echo       script: './backend/dist/index.js',
-echo       instances: 1,
-echo       exec_mode: 'fork',
-echo       env: {
-echo         NODE_ENV: 'production',
-echo         PORT: 19198
-echo       },
-echo       error_file: './logs/backend-error.log',
-echo       out_file: './logs/backend-out.log',
-echo       log_date_format: 'YYYY-MM-DD HH:mm:ss',
-echo       merge_logs: true,
-echo       autorestart: true,
-echo       max_restarts: 10,
-echo       min_uptime: '10s'
-echo     }
-echo   ]
-echo };
-) > "%BUILD_DIR%\ecosystem.config.js"
 
 REM 创建 Nginx 配置示例
 echo 📝 创建 Nginx 配置 nginx.conf...
@@ -240,7 +215,6 @@ echo.
 echo - Ubuntu 20.04+ / Debian 11+
 echo - Node.js 18+ / 20+
 echo - Nginx
-echo - PM2 ^(推荐^)
 echo.
 echo ## 部署步骤
 echo.
@@ -280,26 +254,7 @@ echo ```
 echo.
 echo ### 5. 启动后端服务
 echo.
-echo #### 方法 1: 使用 PM2 ^(推荐^)
-echo.
-echo ```bash
-echo # 安装 PM2
-echo npm install -g pm2
-echo.
-echo # 启动服务
-echo cd /var/www/azothpath
-echo pm2 start ecosystem.config.js
-echo.
-echo # 设置开机自启
-echo pm2 startup
-echo pm2 save
-echo.
-echo # 查看状态
-echo pm2 status
-echo pm2 logs azothpath-backend
-echo ```
-echo.
-echo #### 方法 2: 使用 systemd
+echo #### 方法 1: 使用 systemd
 echo.
 echo 创建服务文件 `/etc/systemd/system/azothpath.service`:
 echo.
@@ -374,7 +329,6 @@ echo │   │   └── init.sql
 echo │   ├── package.json
 echo │   └── .env
 echo ├── logs/                  # 日志目录
-echo ├── ecosystem.config.js    # PM2 配置
 echo ├── nginx.conf             # Nginx 配置示例
 echo └── start.sh               # 启动脚本
 echo ```
@@ -395,28 +349,13 @@ echo.
 echo ## 常用命令
 echo.
 echo ```bash
-echo # 查看后端状态
-echo pm2 status
-echo.
-echo # 查看日志
-echo pm2 logs azothpath-backend
 echo tail -f logs/backend.log
-echo.
-echo # 重启服务
-echo pm2 restart azothpath-backend
-echo.
-echo # 停止服务
-echo pm2 stop azothpath-backend
-echo.
-echo # 更新代码后重启
-echo pm2 reload azothpath-backend
 echo ```
 echo.
 echo ## 故障排查
 echo.
 echo 1. **后端无法启动**
 echo    - 检查端口是否被占用: `lsof -i :19198`
-echo    - 检查日志: `pm2 logs azothpath-backend`
 echo    - 检查数据库权限: `ls -l backend/database/`
 echo.
 echo 2. **前端无法访问**
@@ -425,7 +364,6 @@ echo    - 检查 Nginx 状态: `sudo systemctl status nginx`
 echo    - 检查文件权限: `ls -l frontend/`
 echo.
 echo 3. **API 请求失败**
-echo    - 检查后端是否运行: `pm2 status`
 echo    - 检查网络连接: `curl http://localhost:19198/api`
 echo    - 检查 Nginx 代理配置
 echo.
@@ -455,11 +393,9 @@ echo.
 echo 1. 备份数据库
 echo 2. 上传新的构建文件
 echo 3. 安装新依赖: `cd backend ^&^& npm install --production`
-echo 4. 重启服务: `pm2 reload azothpath-backend`
 echo.
 echo ## 监控建议
 echo.
-echo - 使用 PM2 监控: `pm2 monit`
 echo - 配置告警通知
 echo - 使用 Prometheus + Grafana 监控服务器资源
 ) > "%BUILD_DIR%\DEPLOY.md"
@@ -485,10 +421,7 @@ echo    │   ├── database/          (数据库目录)
 echo    │   ├── package.json
 echo    │   └── .env.example
 echo    ├── logs/                  (日志目录)
-echo    ├── start.sh               (Linux 启动脚本)
-echo    ├── ecosystem.config.js    (PM2 配置)
-echo    ├── nginx.conf             (Nginx 配置示例)
-echo    └── DEPLOY.md              (部署说明文档)
+echo    └── start.sh               (Linux 启动脚本)
 echo.
 echo 🚀 端口配置:
 echo    - 前端: 通过 Nginx 托管 (80/443)
@@ -496,9 +429,7 @@ echo    - 后端: http://localhost:19198
 echo.
 echo 💡 下一步:
 echo    1. 将 dist 目录上传到 Ubuntu 服务器
-echo    2. 阅读 DEPLOY.md 了解详细部署步骤
-echo    3. 配置 Nginx 和环境变量
-echo    4. 使用 PM2 启动后端服务
+echo    2. 配置 Nginx 和环境变量
 echo.
 echo 📖 详细文档: dist/DEPLOY.md
 echo.

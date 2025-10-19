@@ -1,9 +1,10 @@
 # Azoth Path - 完整项目安装指南
 
-## 项目概述
-Azoth Path（无尽合成工具站）是一个社区驱动的游戏配方数据库，帮助玩家发现和分享物品合成路径。
+> 项目概述和技术架构请参考 [README.md](./README.md) 和 [产品需求文档](./prd.md)
 
 ## 技术栈
+> 详细技术架构请参考 [产品需求文档](./prd.md#4-技术架构)
+
 - **前端**: Vue 3 + TypeScript + Element Plus + Vite
 - **后端**: Node.js + Express + TypeScript
 - **数据库**: SQLite
@@ -189,33 +190,16 @@ A: 在 `.env` 中调整 `JWT_EXPIRES_IN` 配置，或重新登录
 
 ## API 文档
 
-### 认证接口
-- `POST /api/users/login` - 用户登录
-- `POST /api/users/register` - 用户注册
-- `GET /api/users/me` - 获取当前用户信息
+> 完整 API 文档请查看 [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
 
-### 配方接口
-- `GET /api/recipes` - 获取配方列表
-- `GET /api/recipes/:id` - 获取配方详情
-- `POST /api/recipes/submit` - 提交配方
-- `DELETE /api/recipes/:id` - 删除配方
-- `POST /api/recipes/:id/like` - 点赞配方
-- `DELETE /api/recipes/:id/like` - 取消点赞
+### 主要接口类别
+- **认证接口** - 用户登录、注册、信息获取
+- **配方接口** - 配方管理、搜索、点赞
+- **任务接口** - 悬赏任务管理
+- **导入接口** - 批量导入配方
+- **通知接口** - 用户通知管理
 
-### 任务接口
-- `GET /api/tasks` - 获取任务列表
-- `GET /api/tasks/:id` - 获取任务详情
-- `POST /api/tasks` - 创建任务（管理员）
-- `PUT /api/tasks/:id` - 更新任务（管理员）
-- `DELETE /api/tasks/:id` - 删除任务（管理员）
-
-### 导入接口
-- `GET /api/import-tasks` - 获取导入任务列表
-- `GET /api/import-tasks/:id` - 获取导入任务详情
-- `GET /api/import-tasks/:id/summary` - 获取导入任务汇总
-- `DELETE /api/import-tasks/:id` - 删除导入任务
-
-详细 API 文档请参考 `prd.md` 第 4.4 节。
+详细 API 文档请查看 [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
 
 ## 生产部署
 

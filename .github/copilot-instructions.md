@@ -2,7 +2,7 @@
 
 ## 🚀 Quick Start Guide for AI Agents
 
-**Project Type**: Community-driven recipe database for the game "无尽合成" (Chinese version of Infinite Craft)
+**Project Type**: Community-driven recipe database for the game "无尽合成"
 
 **Core Purpose**: Help players discover and share item synthesis paths with validation and reward system
 

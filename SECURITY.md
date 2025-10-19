@@ -1,5 +1,7 @@
 # AzothPath 安全配置指南
 
+> 相关文档：[INSTALL.md](INSTALL.md) | [API_DOCUMENTATION.md](API_DOCUMENTATION.md) | [README.md](README.md)
+
 ## 概述
 
 本文档记录了 AzothPath 项目的安全配置和最佳实践，确保应用程序在生产环境中的安全性。

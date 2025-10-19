@@ -1,4 +1,6 @@
-# 数据库字段对照表
+# 数据库架构文档
+
+> 相关文档：[API_DOCUMENTATION.md](API_DOCUMENTATION.md) | [INSTALL.md](INSTALL.md) | [README.md](README.md)
 
 ## ⚠️ 重要规则
 **前后端 API 字段名与数据库字段名完全一致，不进行任何转换！**

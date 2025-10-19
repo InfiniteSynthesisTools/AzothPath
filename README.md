@@ -17,6 +17,8 @@ Azoth Path 是一个为"无尽合成"游戏玩家打造的社区工具站，提�
 
 ## 🚀 技术栈
 
+> 详细技术架构请参考 [产品需求文档](prd.md#4-技术架构) 和 [安装指南](INSTALL.md#技术栈)
+
 ### 前端
 - **框架**: Vue 3 + TypeScript + Vite
 - **UI 组件**: Element Plus
@@ -133,21 +135,16 @@ npm run db:init  # 初始化数据库
 
 ## 📋 API 接口
 
-### 配方 API
-- `GET /api/recipes` - 获取配方列表
-- `POST /api/recipes/submit` - 提交配方
-- `GET /api/recipes/path` - 搜索合成路径
+> 完整 API 文档请查看 [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
 
-### 用户 API
-- `POST /api/users/login` - 用户登录
-- `POST /api/users/register` - 用户注册
-- `GET /api/users/contribution-rank` - 贡献榜
+### 主要接口类别
+- **认证接口** - 用户登录、注册、信息获取
+- **配方接口** - 配方管理、搜索、点赞
+- **任务接口** - 悬赏任务管理
+- **导入接口** - 批量导入配方
+- **通知接口** - 用户通知管理
 
-### 任务 API
-- `GET /api/tasks` - 获取任务列表
-- `POST /api/tasks` - 创建任务（管理员）
-
-详细 API 文档请查看 [INSTALL.md#API文档](./INSTALL.md#api-文档)
+详细 API 文档请查看 [API_DOCUMENTATION.md](./API_DOCUMENTATION.md)
 
 ## 🤝 贡献指南
 

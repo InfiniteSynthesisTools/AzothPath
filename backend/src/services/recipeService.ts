@@ -355,50 +355,76 @@ export class RecipeService {
    * 提交配方（含验证和去重）
    */
   async submitRecipe(itemA: string, itemB: string, result: string, creatorId: number) {
-    // 规范化：确保 itemA < itemB
-    if (itemA > itemB) {
-      [itemA, itemB] = [itemB, itemA];
-    }
+    // 使用事务确保数据一致性
+    return await database.transaction(async (tx) => {
+      // 规范化：确保 itemA < itemB
+      if (itemA > itemB) {
+        [itemA, itemB] = [itemB, itemA];
+      }
 
-    // 检查是否已存在
-    const existing = await database.get(
-      'SELECT * FROM recipes WHERE item_a = ? AND item_b = ? AND result = ?',
-      [itemA, itemB, result]
-    );
-
-    if (existing) {
-      throw new Error('配方已存在');
-    }
-
-    // 记录贡献分
-    let contributionPoints = 0;
-
-    // 插入配方（新配方 +1 分）
-    const recipeResult = await database.run(
-      'INSERT INTO recipes (item_a, item_b, result, user_id, likes, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [itemA, itemB, result, creatorId, 0, getCurrentUTC8TimeForDB()]
-    );
-    contributionPoints += 1; // 新配方 +1 分
-    logger.success(`新配方添加: ${itemA} + ${itemB} = ${result}, +1分`);
-
-    // 自动收录新物品（每个新物品 +2 分）
-    // 注意: 用户可能乱序导入，所以 item_a、item_b、result 都可能是新物品
-    const itemAPoints = await this.ensureItemExists(itemA);
-    const itemBPoints = await this.ensureItemExists(itemB);
-    const resultPoints = await this.ensureItemExists(result);
-    contributionPoints += itemAPoints + itemBPoints + resultPoints;
-
-    // 更新用户贡献分
-    if (contributionPoints > 0) {
-      await database.run(
-        'UPDATE user SET contribute = contribute + ? WHERE id = ?',
-        [contributionPoints, creatorId]
+      // 检查是否已存在
+      const existing = await tx.get(
+        'SELECT * FROM recipes WHERE item_a = ? AND item_b = ? AND result = ?',
+        [itemA, itemB, result]
       );
-      const newItemCount = (itemAPoints + itemBPoints + resultPoints) / 2;
-      logger.info(`用户${creatorId}获得${contributionPoints}分 (1个配方 + ${newItemCount}个新物品)`);
-    }
 
-    return recipeResult.lastID!;
+      if (existing) {
+        throw new Error('配方已存在');
+      }
+
+      // 记录贡献分
+      let contributionPoints = 0;
+
+      // 自动收录新物品（每个新物品 +2 分）
+      // 注意: 用户可能乱序导入，所以 item_a、item_b、result 都可能是新物品
+      const itemAPoints = await this.ensureItemExistsWithTx(itemA, tx);
+      const itemBPoints = await this.ensureItemExistsWithTx(itemB, tx);
+      const resultPoints = await this.ensureItemExistsWithTx(result, tx);
+      contributionPoints += itemAPoints + itemBPoints + resultPoints;
+
+      // 插入配方（新配方 +1 分）
+      const recipeResult = await tx.run(
+        'INSERT INTO recipes (item_a, item_b, result, user_id, likes, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+        [itemA, itemB, result, creatorId, 0, getCurrentUTC8TimeForDB()]
+      );
+      contributionPoints += 1; // 新配方 +1 分
+      logger.success(`新配方添加: ${itemA} + ${itemB} = ${result}, +1分`);
+
+      // 更新用户贡献分
+      if (contributionPoints > 0) {
+        await tx.run(
+          'UPDATE user SET contribute = contribute + ? WHERE id = ?',
+          [contributionPoints, creatorId]
+        );
+        const newItemCount = (itemAPoints + itemBPoints + resultPoints) / 2;
+        logger.info(`用户${creatorId}获得${contributionPoints}分 (1个配方 + ${newItemCount}个新物品)`);
+      }
+
+      return recipeResult.lastID!;
+    });
+  }
+
+  /**
+   * 确保物品存在于 items 表（自动收录）- 事务版本
+   * 
+   * @param itemName 物品名称
+   * @param tx 事务数据库实例
+   * @returns 贡献分（新物品 +2，已存在 0）
+   */
+  private async ensureItemExistsWithTx(itemName: string, tx: any): Promise<number> {
+    const existing = await tx.get('SELECT * FROM items WHERE name = ?', [itemName]);
+    if (!existing) {
+      // 基础材料列表（与数据库初始化保持一致）
+      const baseItems = ['金', '木', '水', '火', '土'];
+      const isBase = baseItems.includes(itemName);
+      await tx.run(
+        'INSERT INTO items (name, is_base, created_at) VALUES (?, ?, ?)',
+        [itemName, isBase ? 1 : 0, getCurrentUTC8TimeForDB()]
+      );
+      logger.info(`新物品添加到词典: ${itemName}, +2分`);
+      return 2; // 新物品 +2 分
+    }
+    return 0; // 已存在物品不加分
   }
 
   /**
@@ -1253,4 +1279,3 @@ export class RecipeService {
 }
 
 export const recipeService = new RecipeService();
-

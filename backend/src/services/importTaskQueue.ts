@@ -4,6 +4,7 @@ import { apiConfig } from '../config/api';
 import axios from 'axios';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 import { validationLimiter } from '../utils/validationLimiter';
+import { userService } from './userService';
 
 // 任务队列配置
 const MAX_RETRY_COUNT = apiConfig.retryCount;
@@ -335,7 +336,49 @@ class ImportTaskQueue {
       [itemA, itemB, task.result, userId]
     );
 
+    // 计算并更新用户贡献度
+    await this.updateUserContribution(userId, task);
+
     return result.lastID!;
+  }
+
+  /**
+   * 更新用户贡献度
+   */
+  private async updateUserContribution(userId: number, task: ImportTaskContent): Promise<void> {
+    try {
+      let totalContribution = 0;
+      
+      // 1. 新配方贡献度：+1分
+      totalContribution += 1;
+      
+      // 2. 检查新物品贡献度：每个新物品+2分
+      const items = [task.item_a, task.item_b, task.result];
+      for (const item of items) {
+        // 检查该物品是否已经存在
+        const existingItem = await database.get<{ id: number }>(
+          'SELECT id FROM items WHERE name = ?',
+          [item]
+        );
+        
+        // 如果物品不存在，说明是新物品
+        if (!existingItem) {
+          totalContribution += 2;
+          logger.debug(`发现新物品 "${item}"，贡献度+2`);
+        }
+      }
+      
+      // 3. 更新用户贡献度
+      if (totalContribution > 0) {
+        await userService.incrementContribution(userId, totalContribution);
+        logger.success(`用户 ${userId} 贡献度增加 ${totalContribution} 分 (新配方: +1, 新物品: +${totalContribution - 1})`);
+      } else {
+        logger.debug(`用户 ${userId} 贡献度无变化 (所有物品已存在)`);
+      }
+    } catch (error) {
+      logger.error(`更新用户 ${userId} 贡献度失败:`, error);
+      // 不抛出错误，避免影响配方插入
+    }
   }
 
   /**

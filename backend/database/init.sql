@@ -36,7 +36,8 @@ CREATE TABLE IF NOT EXISTS items (
   name TEXT UNIQUE NOT NULL,
   emoji TEXT,
   pinyin TEXT,
-  is_base INTEGER DEFAULT 0  -- 0=false, 1=true
+  is_base INTEGER DEFAULT 0,  -- 0=false, 1=true
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);

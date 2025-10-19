@@ -7,10 +7,19 @@
 
       <el-form :model="form" :rules="rules" ref="formRef">
         <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="用户名" />
+          <el-input 
+            v-model="form.username" 
+            placeholder="用户名" 
+            @keyup.enter="handleEnterKey"
+          />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码" />
+          <el-input 
+            v-model="form.password" 
+            type="password" 
+            placeholder="密码" 
+            @keyup.enter="handleEnterKey"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" @click="handleLogin" style="width: 100%">
@@ -43,6 +52,12 @@ const loading = ref(false);
 const rules = {
   username: [{ required: true, message: '请输入用户名', trigger: 'blur' }],
   password: [{ required: true, message: '请输入密码', trigger: 'blur' }]
+};
+
+const handleEnterKey = () => {
+  if (form.value.username && form.value.password) {
+    handleLogin();
+  }
 };
 
 const handleLogin = async () => {

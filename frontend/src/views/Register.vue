@@ -7,13 +7,29 @@
 
       <el-form :model="form" :rules="rules" ref="formRef">
         <el-form-item prop="username">
-          <el-input v-model="form.username" placeholder="用户名" />
+          <el-input 
+            v-model="form.username" 
+            placeholder="用户名" 
+            @keyup.enter="handleEnterKey"
+          />
         </el-form-item>
         <el-form-item prop="password">
-          <el-input v-model="form.password" type="password" placeholder="密码" show-password />
+          <el-input 
+            v-model="form.password" 
+            type="password" 
+            placeholder="密码" 
+            show-password 
+            @keyup.enter="handleEnterKey"
+          />
         </el-form-item>
         <el-form-item prop="confirmPassword">
-          <el-input v-model="form.confirmPassword" type="password" placeholder="确认密码" show-password />
+          <el-input 
+            v-model="form.confirmPassword" 
+            type="password" 
+            placeholder="确认密码" 
+            show-password 
+            @keyup.enter="handleEnterKey"
+          />
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="loading" @click="handleRegister" style="width: 100%">
@@ -44,7 +60,7 @@ const formRef = ref();
 const loading = ref(false);
 
 // 自定义验证器：确认密码
-const validateConfirmPassword = (rule: any, value: any, callback: any) => {
+const validateConfirmPassword = (value: any, callback: any) => {
   if (value === '') {
     callback(new Error('请再次输入密码'));
   } else if (value !== form.value.password) {
@@ -68,6 +84,12 @@ const rules = {
     { required: true, message: '请确认密码', trigger: 'blur' },
     { validator: validateConfirmPassword, trigger: 'blur' }
   ]
+};
+
+const handleEnterKey = () => {
+  if (form.value.username && form.value.password && form.value.confirmPassword) {
+    handleRegister();
+  }
 };
 
 const handleRegister = async () => {

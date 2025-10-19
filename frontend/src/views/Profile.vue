@@ -2,8 +2,8 @@
   <div class="profile-page">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h1>个人中心</h1>
-      <p class="page-subtitle">管理您的个人信息和收藏</p>
+      <h1>{{ isViewingSelf ? '个人中心' : `${currentUser?.name || '用户'} 的资料` }}</h1>
+      <p class="page-subtitle">{{ isViewingSelf ? '管理您的个人信息和收藏' : '查看用户的贡献和收藏' }}</p>
     </div>
 
     <div class="profile-content">
@@ -17,39 +17,39 @@
             </div>
           </template>
 
-          <div class="user-info-content" v-if="userStore.userInfo">
+          <div class="user-info-content" v-if="currentUser">
             <div class="user-avatar">
               <el-avatar :size="80" :style="{ backgroundColor: '#409eff' }" class="large-avatar-text">
-                {{ userStore.userInfo.name.charAt(0).toUpperCase() }}
+                {{ currentUser.name.charAt(0).toUpperCase() }}
               </el-avatar>
             </div>
             
             <div class="user-details">
               <div class="user-field">
                 <label>用户名</label>
-                <span class="user-value">{{ userStore.userInfo.name }}</span>
+                <span class="user-value">{{ currentUser.name }}</span>
               </div>
               
               <div class="user-field">
                 <label>用户等级</label>
-                <span class="user-value level-badge">Lv.{{ userStore.userInfo.level }}</span>
+                <span class="user-value level-badge">Lv.{{ currentUser.level }}</span>
               </div>
               
               <div class="user-field">
                 <label>贡献积分</label>
-                <span class="user-value contribute-value">{{ userStore.userInfo.contribute }}</span>
+                <span class="user-value contribute-value">{{ currentUser.contribute }}</span>
               </div>
               
               <div class="user-field">
                 <label>注册时间</label>
-                <span class="user-value">{{ formatDate(userStore.userInfo.created_at) }}</span>
+                <span class="user-value">{{ formatDate(currentUser.created_at) }}</span>
               </div>
               
               <div class="user-field">
                 <label>用户权限</label>
                 <span class="user-value">
-                  <el-tag :type="userStore.isAdmin ? 'danger' : 'success'" size="small">
-                    {{ userStore.isAdmin ? '管理员' : '普通用户' }}
+                  <el-tag :type="isCurrentUserAdmin ? 'danger' : 'success'" size="small">
+                    {{ isCurrentUserAdmin ? '管理员' : '普通用户' }}
                   </el-tag>
                 </span>
               </div>
@@ -158,13 +158,31 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
+import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores';
 import { userApi } from '@/api';
 import { ElMessage } from 'element-plus';
 import { Star } from '@element-plus/icons-vue';
 import { formatDate, formatDateTime } from '@/utils/format';
+
+const route = useRoute();
 const userStore = useUserStore();
+
+// 当前查看的用户信息（可能是自己或其他用户）
+const currentUser = ref<any>(null);
+const isViewingSelf = computed(() => {
+  const userId = route.params.id ? parseInt(route.params.id as string) : null;
+  return !userId || userId === userStore.userInfo?.id;
+});
+
+// 当前查看的用户是否是管理员
+const isCurrentUserAdmin = computed(() => {
+  if (isViewingSelf.value) {
+    return userStore.isAdmin;
+  }
+  return currentUser.value?.auth === 9;
+});
 
 // 用户统计信息
 const userStats = ref({
@@ -183,13 +201,45 @@ const likedRecipesTotal = ref(0);
 
 // 使用统一的时间工具函数，已在上方导入
 
+// 加载用户基本信息
+const loadUserInfo = async () => {
+  const userId = route.params.id ? parseInt(route.params.id as string) : null;
+  
+  if (isViewingSelf.value) {
+    // 查看自己的资料，使用 store 中的数据
+    currentUser.value = userStore.userInfo;
+  } else if (userId) {
+    // 查看其他用户的资料，需要从 API 获取
+    try {
+      // 注意：这里需要后端提供获取用户信息的 API
+      // 暂时从统计接口中提取用户信息
+      const response = await userApi.getUserStats(userId);
+      if (response && (response as any).stats) {
+        // 从贡献榜 API 获取用户基本信息
+        const rankResponse = await userApi.getContributionRank({ page: 1, limit: 100 }) as any;
+        const user = rankResponse.users?.find((u: any) => u.id === userId);
+        if (user) {
+          currentUser.value = user;
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load user info:', error);
+      ElMessage.error('加载用户信息失败');
+    }
+  }
+};
+
 // 加载用户统计信息
 const loadUserStats = async () => {
-  if (!userStore.userInfo) return;
+  const userId = route.params.id 
+    ? parseInt(route.params.id as string) 
+    : userStore.userInfo?.id;
+  
+  if (!userId) return;
   
   try {
-    console.log('Loading user stats for user ID:', userStore.userInfo.id);
-    const response = await userApi.getUserStats(userStore.userInfo.id);
+    console.log('Loading user stats for user ID:', userId);
+    const response = await userApi.getUserStats(userId);
     console.log('User stats response:', response);
     console.log('Response data:', response.data);
     if (response && (response as any).stats) {
@@ -204,11 +254,15 @@ const loadUserStats = async () => {
 
 // 加载收藏配方
 const loadLikedRecipes = async () => {
-  if (!userStore.userInfo) return;
+  const userId = route.params.id 
+    ? parseInt(route.params.id as string) 
+    : userStore.userInfo?.id;
+    
+  if (!userId) return;
   
   likedRecipesLoading.value = true;
   try {
-    const response = await userApi.getLikedRecipes(userStore.userInfo.id, {
+    const response = await userApi.getLikedRecipes(userId, {
       page: likedRecipesPage.value,
       limit: likedRecipesLimit.value
     });
@@ -229,17 +283,26 @@ const loadLikedRecipes = async () => {
   }
 };
 
+// 监听路由变化，重新加载数据
+watch(() => route.params.id, () => {
+  loadAllData();
+}, { immediate: false });
 
-
-
-// 页面加载时初始化数据
-onMounted(async () => {
-  if (userStore.isLoggedIn) {
+// 加载所有数据
+const loadAllData = async () => {
+  await loadUserInfo();
+  if (currentUser.value) {
     await Promise.all([
       loadUserStats(),
       loadLikedRecipes()
     ]);
   }
+};
+
+
+// 页面加载时初始化数据
+onMounted(async () => {
+  await loadAllData();
 });
 </script>
 

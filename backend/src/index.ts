@@ -63,6 +63,9 @@ import systemRoutes from './routes/systemRoutes';
 // 导入任务队列
 import { importTaskQueue } from './services/importTaskQueue';
 
+// 导入数据库备份服务
+import { databaseBackupService } from './services/databaseBackupService';
+
 // API 路由
 app.get('/api', (req, res) => {
   res.json({
@@ -124,6 +127,14 @@ try {
       logger.info('导入任务队列启动成功');
     } catch (error) {
       logger.error('导入任务队列启动失败', error);
+    }
+
+    // 启动数据库自动备份服务
+    try {
+      databaseBackupService.start();
+      logger.info('数据库备份服务启动成功');
+    } catch (error) {
+      logger.error('数据库备份服务启动失败', error);
     }
   });
 

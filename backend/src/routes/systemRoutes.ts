@@ -1,5 +1,6 @@
 import express, { Request, Response } from 'express';
 import { logger } from '../utils/logger';
+import { databaseBackupService } from '../services/databaseBackupService';
 import os from 'os';
 import process from 'process';
 import fs from 'fs';
@@ -164,6 +165,78 @@ async function getDiskUsage() {
       path: process.cwd()
     };
   }
+}
+
+/**
+ * GET /api/system/backup/status
+ * 获取数据库备份状态
+ */
+router.get('/backup/status', async (req: Request, res: Response) => {
+  try {
+    const status = databaseBackupService.getStatus();
+    const backupList = databaseBackupService.getBackupList();
+
+    res.json({
+      code: 200,
+      message: '获取备份状态成功',
+      data: {
+        ...status,
+        backups: backupList.map(backup => ({
+          name: backup.name,
+          size: backup.size,
+          sizeFormatted: formatBytes(backup.size),
+          createdAt: backup.mtime.toISOString()
+        }))
+      }
+    });
+  } catch (error: any) {
+    logger.error('获取备份状态失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取备份状态失败'
+    });
+  }
+});
+
+/**
+ * POST /api/system/backup/manual
+ * 手动触发数据库备份
+ */
+router.post('/backup/manual', async (req: Request, res: Response) => {
+  try {
+    logger.info('收到手动备份请求');
+    const backupPath = await databaseBackupService.manualBackup();
+
+    res.json({
+      code: 200,
+      message: '备份成功',
+      data: {
+        backupPath,
+        timestamp: new Date().toISOString()
+      }
+    });
+  } catch (error: any) {
+    logger.error('手动备份失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '备份失败'
+    });
+  }
+});
+
+/**
+ * 格式化字节数
+ */
+function formatBytes(bytes: number, decimals = 2): string {
+  if (bytes === 0) return '0 Bytes';
+
+  const k = 1024;
+  const dm = decimals < 0 ? 0 : decimals;
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
 }
 
 export default router;

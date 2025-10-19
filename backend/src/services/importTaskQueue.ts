@@ -125,8 +125,6 @@ class ImportTaskQueue {
       // 串行处理任务，避免 API 限流（每个请求间隔 REQUEST_DELAY 秒）
       for (const task of pendingTasks) {
         await this.processTask(task);
-        // 请求间隔延迟，避免触发 429 限流
-        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
       }
       
       return true; // 有任务被处理

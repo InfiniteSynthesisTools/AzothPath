@@ -3,6 +3,10 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  
+  <!-- Noto Color Emoji 字体 (官方 Fontsource CDN) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fontsource/noto-color-emoji@5/index.min.css" />
+  
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#409eff" />
@@ -12,33 +16,22 @@
   <title>Azoth Path - 无尽合成工具站</title>
 
   <style>
-    /* 从 CDN 加载 Noto Color Emoji 字体（国内可访问的多个 CDN 备选） */
-    @font-face {
-      font-family: 'Noto Color Emoji';
-      font-display: swap; /* 字体加载前使用系统字体，加载后无缝切换 */
-      src: 
-        /* 备选 1: jsDelivr (GitHub + Cloudflare，国内较快) */
-        url('https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/fonts/NotoColorEmoji.ttf') format('truetype'),
-        /* 备选 2: unpkg (备用 CDN) */
-        url('https://unpkg.com/noto-color-emoji-font@1.0.2/font/NotoColorEmoji.ttf') format('truetype');
-    }
-    
     body {
-      /* 文字使用系统字体，emoji 优先使用系统原生 emoji */
+      /* 文字使用系统字体，emoji 优先使用 CDN 的 Noto Color Emoji */
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
         'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
         sans-serif,
-        /* Emoji 字体：优先系统原生，CDN 作为备选 */
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+        /* Emoji 字体优先级：CDN Noto → 系统 Emoji */
+        'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
       
       /* 移动端优化：防止双击缩放 */
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
     
-    /* 确保 emoji 元素优先使用系统原生 emoji 字体 */
+    /* 确保 emoji 元素优先使用 CDN 的 Noto Color Emoji */
     .emoji, .emoji-large {
-      font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
+      font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
       font-variant-emoji: emoji;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;

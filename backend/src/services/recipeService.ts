@@ -32,6 +32,41 @@ export interface PathStats {
   materials: Record<string, number>;
 }
 
+export interface UnreachableGraph {
+  id: string;
+  type: 'isolated' | 'boundary' | 'circular' | 'linear';
+  nodes: string[];
+  edges: Array<{ source: string; target: string }>;
+  stats: UnreachableGraphStats;
+}
+
+export interface UnreachableGraphStats {
+  size: number;
+  // 有向图统计指标
+  inDegree: number;        // 总入度（被依赖次数）
+  outDegree: number;       // 总出度（依赖其他节点次数）
+  avgDegree: number;       // 平均度数
+  density: number;         // 图密度
+  clustering: number;      // 聚类系数
+  boundaryNodes: number;   // 边界节点数（可能连接到合法图的节点）
+  // 移除树状统计指标
+}
+
+export interface GraphSystemStats {
+  totalValidItems: number;
+  totalUnreachableItems: number;
+  unreachableGraphCount: number;
+  graphTypes: Record<string, number>;
+  validGraphStats: {
+    maxDepth: number;
+    avgDepth: number;
+    maxWidth: number;
+    avgWidth: number;
+    maxBreadth: number;
+    avgBreadth: number;
+  };
+}
+
 export class RecipeService {
   /**
    * 获取配方列表
@@ -337,15 +372,24 @@ export class RecipeService {
     let breadthSum = 0;
     
     const traverse = (node: CraftingTreeNode, depth: number, isRoot: boolean = true): { maxDepth: number; steps: number } => {
+      // 计算该节点的广度（能匹配到的配方数量）
+      // 对于基础材料，广度是使用该材料作为输入材料的配方数量
+      // 对于合成材料，广度是能合成该材料的配方数量
+      const recipes = itemToRecipes[node.item] || [];
+      
+      // 如果是基础材料，广度是使用该材料作为输入材料的配方数量
       if (node.is_base) {
+        // 查找所有使用该基础材料作为输入材料的配方
+        const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe => 
+          recipe.item_a === node.item || recipe.item_b === node.item
+        );
+        breadthSum += inputRecipes.length;
         materials[node.item] = (materials[node.item] || 0) + 1;
         return { maxDepth: depth, steps: 0 };
       }
 
-      // 如果不是根节点，计算该节点的广度（能匹配到的配方数量）
+      // 对于合成材料，广度是能合成该材料的配方数量
       if (!isRoot) {
-        // 获取该节点能匹配到的配方数量
-        const recipes = itemToRecipes[node.item] || [];
         breadthSum += recipes.length;
       }
 
@@ -368,6 +412,486 @@ export class RecipeService {
       total_materials: totalMaterials,
       breadth: breadthSum,
       materials
+    };
+  }
+
+  /**
+   * 检测和分析不可及图
+   */
+  async analyzeUnreachableGraphs(): Promise<{ unreachableGraphs: UnreachableGraph[]; systemStats: GraphSystemStats }> {
+    // 获取所有配方和物品
+    const recipes = await database.all<Recipe>('SELECT * FROM recipes');
+    const items = await database.all<Item>('SELECT * FROM items');
+    const baseItems = await database.all<Item>('SELECT * FROM items WHERE is_base = 1');
+    
+    const baseItemNames = baseItems.map(item => item.name);
+    const allItemNames = items.map(item => item.name);
+
+    // 构建依赖图
+    const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
+    
+    // 分析可达性
+    const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
+    
+    // 构建不可及图
+    const unreachableGraphs = this.buildUnreachableGraphs(unreachableItems, recipeGraph);
+    
+    // 计算系统统计
+    const systemStats = await this.calculateSystemStats(reachableItems, unreachableGraphs, recipes, itemToRecipes);
+
+    return { unreachableGraphs, systemStats };
+  }
+
+  /**
+   * 构建依赖图
+   */
+  private buildDependencyGraph(recipes: Recipe[], allItemNames: string[]): {
+    itemToRecipes: Record<string, Recipe[]>;
+    recipeGraph: Record<string, string[]>;
+  } {
+    const itemToRecipes: Record<string, Recipe[]> = {};
+    const recipeGraph: Record<string, string[]> = {};
+
+    // 初始化所有物品
+    for (const itemName of allItemNames) {
+      itemToRecipes[itemName] = [];
+      recipeGraph[itemName] = [];
+    }
+
+    // 构建物品到配方的映射
+    for (const recipe of recipes) {
+      if (!itemToRecipes[recipe.result]) {
+        itemToRecipes[recipe.result] = [];
+      }
+      itemToRecipes[recipe.result].push(recipe);
+
+      // 构建依赖关系：result 依赖于 item_a 和 item_b
+      if (!recipeGraph[recipe.result]) {
+        recipeGraph[recipe.result] = [];
+      }
+      recipeGraph[recipe.result].push(recipe.item_a);
+      recipeGraph[recipe.result].push(recipe.item_b);
+    }
+
+    return { itemToRecipes, recipeGraph };
+  }
+
+  /**
+   * 分析可达性（BFS算法）
+   */
+  private analyzeReachability(
+    baseItems: string[], 
+    itemToRecipes: Record<string, Recipe[]>, 
+    allItemNames: string[]
+  ): { reachableItems: Set<string>; unreachableItems: Set<string> } {
+    const reachableItems = new Set<string>(baseItems);
+    const queue = [...baseItems];
+
+    while (queue.length > 0) {
+      const current = queue.shift()!;
+      
+      // 查找所有使用当前物品作为材料的配方
+      for (const recipe of Object.values(itemToRecipes).flat()) {
+        if (recipe.item_a === current || recipe.item_b === current) {
+          const result = recipe.result;
+          if (!reachableItems.has(result)) {
+            reachableItems.add(result);
+            queue.push(result);
+          }
+        }
+      }
+    }
+
+    // 不可及物品 = 所有物品 - 可达物品
+    const unreachableItems = new Set<string>(
+      allItemNames.filter(item => !reachableItems.has(item))
+    );
+
+    return { reachableItems, unreachableItems };
+  }
+
+  /**
+   * 构建不可及图
+   */
+  private buildUnreachableGraphs(unreachableItems: Set<string>, recipeGraph: Record<string, string[]>): UnreachableGraph[] {
+    const visited = new Set<string>();
+    const graphs: UnreachableGraph[] = [];
+
+    for (const item of unreachableItems) {
+      if (visited.has(item)) continue;
+
+      // 找到连通分量
+      const component = this.findConnectedComponent(item, recipeGraph, unreachableItems, visited);
+      
+      // 构建图
+      const graph = this.buildGraphFromComponent(component, recipeGraph);
+      graphs.push(graph);
+    }
+
+    return graphs;
+  }
+
+  /**
+   * 找到连通分量（DFS算法）
+   */
+  private findConnectedComponent(
+    startItem: string,
+    recipeGraph: Record<string, string[]>,
+    unreachableItems: Set<string>,
+    visited: Set<string>
+  ): Set<string> {
+    const stack = [startItem];
+    const component = new Set<string>();
+
+    while (stack.length > 0) {
+      const current = stack.pop()!;
+      if (visited.has(current)) continue;
+
+      visited.add(current);
+      component.add(current);
+
+      // 查找依赖关系
+      const dependencies = recipeGraph[current] || [];
+      for (const dep of dependencies) {
+        if (unreachableItems.has(dep) && !visited.has(dep)) {
+          stack.push(dep);
+        }
+      }
+
+      // 查找依赖此物品的其他物品
+      for (const [item, deps] of Object.entries(recipeGraph)) {
+        if (unreachableItems.has(item) && deps.includes(current) && !visited.has(item)) {
+          stack.push(item);
+        }
+      }
+    }
+
+    return component;
+  }
+
+  /**
+   * 从连通分量构建图
+   */
+  private buildGraphFromComponent(component: Set<string>, recipeGraph: Record<string, string[]>): UnreachableGraph {
+    const nodes = Array.from(component);
+    const edges: Array<{ source: string; target: string }> = [];
+
+    // 构建边
+    for (const node of nodes) {
+      const dependencies = recipeGraph[node] || [];
+      for (const dep of dependencies) {
+        if (component.has(dep)) {
+          edges.push({ source: node, target: dep });
+        }
+      }
+    }
+
+    // 分类图类型
+    const type = this.classifyGraphType(nodes, edges);
+    
+    // 计算统计信息
+    const stats = this.calculateUnreachableGraphStats(nodes, edges, recipeGraph);
+
+    return {
+      id: `graph_${nodes.join('_').slice(0, 20)}`,
+      type,
+      nodes,
+      edges,
+      stats
+    };
+  }
+
+  /**
+   * 分类图类型
+   */
+  private classifyGraphType(nodes: string[], edges: Array<{ source: string; target: string }>): UnreachableGraph['type'] {
+    if (nodes.length === 1) return 'isolated';
+    
+    // 检查循环依赖
+    if (this.hasCycle(nodes, edges)) return 'circular';
+    
+    // 检查线性结构
+    if (this.isLinear(nodes, edges)) return 'linear';
+    
+    return 'boundary';
+  }
+
+  /**
+   * 检查图中是否有循环
+   */
+  private hasCycle(nodes: string[], edges: Array<{ source: string; target: string }>): boolean {
+    const visited = new Set<string>();
+    const recursionStack = new Set<string>();
+    
+    const dfs = (node: string): boolean => {
+      if (recursionStack.has(node)) return true;
+      if (visited.has(node)) return false;
+      
+      visited.add(node);
+      recursionStack.add(node);
+      
+      const neighbors = edges.filter(e => e.source === node).map(e => e.target);
+      for (const neighbor of neighbors) {
+        if (dfs(neighbor)) return true;
+      }
+      
+      recursionStack.delete(node);
+      return false;
+    };
+    
+    for (const node of nodes) {
+      if (!visited.has(node)) {
+        if (dfs(node)) return true;
+      }
+    }
+    
+    return false;
+  }
+
+  /**
+   * 检查是否是线性结构
+   */
+  private isLinear(nodes: string[], edges: Array<{ source: string; target: string }>): boolean {
+    // 线性图应该有 n-1 条边，且每个节点最多有两个邻居
+    if (edges.length !== nodes.length - 1) return false;
+    
+    const degree: Record<string, number> = {};
+    for (const node of nodes) {
+      degree[node] = 0;
+    }
+    
+    for (const edge of edges) {
+      degree[edge.source]++;
+      degree[edge.target]++;
+    }
+    
+    // 线性图应该有两个端节点（度数为1）和其他节点（度数为2）
+    const degreeCounts = Object.values(degree);
+    const ones = degreeCounts.filter(d => d === 1).length;
+    const twos = degreeCounts.filter(d => d === 2).length;
+    
+    return ones === 2 && twos === nodes.length - 2;
+  }
+
+  /**
+   * 计算不可及图统计信息
+   */
+  private calculateUnreachableGraphStats(
+    nodes: string[], 
+    edges: Array<{ source: string; target: string }>,
+    recipeGraph: Record<string, string[]>
+  ): UnreachableGraphStats {
+    // 计算有向图统计指标
+    
+    // 计算入度和出度
+    let totalInDegree = 0;
+    let totalOutDegree = 0;
+    
+    for (const node of nodes) {
+      // 出度：该节点依赖的其他节点数量
+      const outDegree = edges.filter(e => e.source === node).length;
+      totalOutDegree += outDegree;
+      
+      // 入度：依赖该节点的其他节点数量
+      const inDegree = edges.filter(e => e.target === node).length;
+      totalInDegree += inDegree;
+    }
+    
+    // 平均度数
+    const avgDegree = nodes.length > 0 ? (totalInDegree + totalOutDegree) / nodes.length : 0;
+    
+    // 图密度（有向图密度 = 边数 / (节点数 * (节点数 - 1))）
+    const density = nodes.length > 1 ? edges.length / (nodes.length * (nodes.length - 1)) : 0;
+    
+    // 聚类系数（简化计算：平均邻居连接数）
+    let clusteringSum = 0;
+    for (const node of nodes) {
+      const neighbors = new Set();
+      // 添加出边邻居
+      edges.filter(e => e.source === node).forEach(e => neighbors.add(e.target));
+      // 添加入边邻居
+      edges.filter(e => e.target === node).forEach(e => neighbors.add(e.source));
+      
+      const neighborCount = neighbors.size;
+      if (neighborCount > 1) {
+        // 计算邻居之间的实际连接数
+        let actualConnections = 0;
+        const neighborArray = Array.from(neighbors);
+        for (let i = 0; i < neighborArray.length; i++) {
+          for (let j = i + 1; j < neighborArray.length; j++) {
+            const hasEdge1 = edges.some(e => 
+              (e.source === neighborArray[i] && e.target === neighborArray[j]) ||
+              (e.source === neighborArray[j] && e.target === neighborArray[i])
+            );
+            const hasEdge2 = edges.some(e => 
+              (e.source === neighborArray[j] && e.target === neighborArray[i]) ||
+              (e.source === neighborArray[i] && e.target === neighborArray[j])
+            );
+            if (hasEdge1 || hasEdge2) {
+              actualConnections++;
+            }
+          }
+        }
+        const possibleConnections = neighborCount * (neighborCount - 1) / 2;
+        clusteringSum += actualConnections / possibleConnections;
+      }
+    }
+    const clustering = nodes.length > 0 ? clusteringSum / nodes.length : 0;
+    
+    // 边界节点数（连接到合法图的节点）
+    let boundaryNodes = 0;
+    for (const node of nodes) {
+      // 检查该节点是否连接到合法图（有出边指向合法图）
+      const hasBoundaryConnection = edges.some(e => 
+        e.source === node && !nodes.includes(e.target)
+      );
+      if (hasBoundaryConnection) {
+        boundaryNodes++;
+      }
+    }
+
+    return {
+      size: nodes.length,
+      inDegree: totalInDegree,
+      outDegree: totalOutDegree,
+      avgDegree,
+      density,
+      clustering,
+      boundaryNodes
+    };
+  }
+
+  /**
+   * 计算图深度（最长路径）
+   */
+  private calculateGraphDepth(nodes: string[], edges: Array<{ source: string; target: string }>): number {
+    if (nodes.length === 0) return 0;
+    if (nodes.length === 1) return 1;
+    
+    let maxDepth = 1;
+    
+    // 对每个节点作为起点进行BFS
+    for (const startNode of nodes) {
+      const visited = new Set<string>();
+      const queue: Array<[string, number]> = [[startNode, 1]];
+      
+      while (queue.length > 0) {
+        const [current, depth] = queue.shift()!;
+        if (visited.has(current)) continue;
+        
+        visited.add(current);
+        maxDepth = Math.max(maxDepth, depth);
+        
+        // 添加邻居
+        const neighbors = edges.filter(e => e.source === current).map(e => e.target);
+        for (const neighbor of neighbors) {
+          if (!visited.has(neighbor)) {
+            queue.push([neighbor, depth + 1]);
+          }
+        }
+      }
+    }
+    
+    return maxDepth;
+  }
+
+  /**
+   * 计算图广度（所有节点的入度之和）
+   */
+  private calculateGraphBreadth(nodes: string[], recipeGraph: Record<string, string[]>): number {
+    let breadth = 0;
+    
+    for (const node of nodes) {
+      // 计算该节点被依赖的次数（入度）
+      let inDegree = 0;
+      for (const [item, deps] of Object.entries(recipeGraph)) {
+        if (deps.includes(node)) {
+          inDegree++;
+        }
+      }
+      breadth += inDegree;
+    }
+    
+    return breadth;
+  }
+
+  /**
+   * 计算系统统计信息
+   */
+  private async calculateSystemStats(
+    reachableItems: Set<string>,
+    unreachableGraphs: UnreachableGraph[],
+    recipes: Recipe[],
+    itemToRecipes: Record<string, Recipe[]>
+  ): Promise<GraphSystemStats> {
+    const totalValidItems = reachableItems.size;
+    const totalUnreachableItems = unreachableGraphs.reduce((sum, graph) => sum + graph.nodes.length, 0);
+    const unreachableGraphCount = unreachableGraphs.length;
+    
+    // 统计图类型
+    const graphTypes: Record<string, number> = {};
+    for (const graph of unreachableGraphs) {
+      graphTypes[graph.type] = (graphTypes[graph.type] || 0) + 1;
+    }
+
+    // 计算合法图的统计信息
+    const validGraphStats = await this.calculateValidGraphStats(reachableItems, recipes, itemToRecipes);
+
+    return {
+      totalValidItems,
+      totalUnreachableItems,
+      unreachableGraphCount,
+      graphTypes,
+      validGraphStats
+    };
+  }
+
+  /**
+   * 计算合法图统计信息
+   */
+  private async calculateValidGraphStats(
+    reachableItems: Set<string>,
+    recipes: Recipe[],
+    itemToRecipes: Record<string, Recipe[]>
+  ): Promise<GraphSystemStats['validGraphStats']> {
+    let maxDepth = 0;
+    let totalDepth = 0;
+    let maxWidth = 0;
+    let totalWidth = 0;
+    let maxBreadth = 0;
+    let totalBreadth = 0;
+    let count = 0;
+
+    // 对每个可达物品计算路径统计
+    for (const item of reachableItems) {
+      try {
+        const result = await this.searchPath(item);
+        if (result) {
+          const { stats } = result;
+          maxDepth = Math.max(maxDepth, stats.depth);
+          totalDepth += stats.depth;
+          maxWidth = Math.max(maxWidth, stats.width);
+          totalWidth += stats.width;
+          maxBreadth = Math.max(maxBreadth, stats.breadth);
+          totalBreadth += stats.breadth;
+          count++;
+        }
+      } catch (error) {
+        // 忽略计算错误
+      }
+    }
+
+    const avgDepth = count > 0 ? totalDepth / count : 0;
+    const avgWidth = count > 0 ? totalWidth / count : 0;
+    const avgBreadth = count > 0 ? totalBreadth / count : 0;
+
+    return {
+      maxDepth,
+      avgDepth,
+      maxWidth,
+      avgWidth,
+      maxBreadth,
+      avgBreadth
     };
   }
 }

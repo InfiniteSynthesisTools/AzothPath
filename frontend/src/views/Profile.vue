@@ -117,7 +117,6 @@
                 v-for="recipe in likedRecipes" 
                 :key="recipe.id" 
                 class="recipe-item"
-                @click="$router.push(`/recipes/${recipe.id}`)"
               >
                 <div class="recipe-content">
                   <div class="recipe-formula">
@@ -481,14 +480,6 @@ onMounted(async () => {
   padding: 16px;
   border: 1px solid #e4e7ed;
   border-radius: 8px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.recipe-item:hover {
-  border-color: #409eff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
-  transform: translateY(-2px);
 }
 
 .recipe-content {

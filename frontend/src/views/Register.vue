@@ -60,7 +60,7 @@ const formRef = ref();
 const loading = ref(false);
 
 // 自定义验证器：确认密码
-const validateConfirmPassword = (value: any, callback: any) => {
+const validateConfirmPassword = (_rule: any, value: any, callback: any) => {
   if (value === '') {
     callback(new Error('请再次输入密码'));
   } else if (value !== form.value.password) {

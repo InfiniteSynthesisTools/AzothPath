@@ -14,6 +14,7 @@ export interface ImportTask {
   duplicate_count: number;
   status: 'processing' | 'completed' | 'failed';
   error_details?: string;
+  notification_deleted: number;  // 0=未删除, 1=已删除
   created_at: string;
   updated_at: string;
 }
@@ -73,8 +74,8 @@ export class ImportService {
 
     // 创建任务汇总记录
     const taskResult = await database.run(
-      'INSERT INTO import_tasks (user_id, total_count, success_count, failed_count, duplicate_count, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-      [userId, totalCount, 0, 0, 0, 'processing', getCurrentUTC8TimeForDB(), getCurrentUTC8TimeForDB()]
+      'INSERT INTO import_tasks (user_id, total_count, success_count, failed_count, duplicate_count, status, notification_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, totalCount, 0, 0, 0, 'processing', 0, getCurrentUTC8TimeForDB(), getCurrentUTC8TimeForDB()]
     );
 
     const taskId = taskResult.lastID!;
@@ -181,8 +182,8 @@ export class ImportService {
     const { page = 1, limit = 20, status } = params;
     const offset = (page - 1) * limit;
 
-    // 查询任务汇总表
-    let sql = 'SELECT * FROM import_tasks WHERE user_id = ?';
+    // 查询任务汇总表 - 只显示未删除通知的任务
+    let sql = 'SELECT * FROM import_tasks WHERE user_id = ? AND notification_deleted = 0';
     const sqlParams: any[] = [userId];
 
     if (status !== undefined) {
@@ -196,7 +197,7 @@ export class ImportService {
     const tasks = await database.all<ImportTask>(sql, sqlParams);
 
     // 获取总数
-    let countSql = 'SELECT COUNT(*) as count FROM import_tasks WHERE user_id = ?';
+    let countSql = 'SELECT COUNT(*) as count FROM import_tasks WHERE user_id = ? AND notification_deleted = 0';
     const countParams: any[] = [userId];
     if (status !== undefined) {
       countSql += ' AND status = ?';
@@ -209,6 +210,47 @@ export class ImportService {
       tasks,
       total: totalResult?.count || 0
     };
+  }
+
+  /**
+   * 删除导入任务通知
+   * @param taskId 任务ID
+   * @param userId 用户ID（用于权限验证）
+   */
+  async deleteNotification(taskId: number, userId: number): Promise<void> {
+    // 验证任务是否存在且属于该用户
+    const task = await this.getImportTask(taskId);
+    if (!task) {
+      throw new Error('导入任务不存在');
+    }
+
+    if (task.user_id !== userId) {
+      throw new Error('没有权限删除此任务的通知');
+    }
+
+    // 只有已完成的任务才能删除通知
+    if (task.status !== 'completed') {
+      throw new Error('只有已完成的任务才能删除通知');
+    }
+
+    // 更新通知删除状态
+    await database.run(
+      'UPDATE import_tasks SET notification_deleted = 1, updated_at = ? WHERE id = ?',
+      [getCurrentUTC8TimeForDB(), taskId]
+    );
+
+    logger.info(`用户 ${userId} 删除了任务 ${taskId} 的通知`);
+  }
+
+  /**
+   * 获取用户未删除通知的已完成任务
+   */
+  async getUnreadCompletedTasks(userId: number): Promise<ImportTask[]> {
+    const tasks = await database.all<ImportTask>(
+      'SELECT * FROM import_tasks WHERE user_id = ? AND status = ? AND notification_deleted = 0 ORDER BY created_at DESC',
+      [userId, 'completed']
+    );
+    return tasks;
   }
 }
 

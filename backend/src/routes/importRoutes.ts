@@ -196,4 +196,49 @@ router.get('/validation-status', authMiddleware, async (req: AuthRequest, res: R
   }
 });
 
+/**
+ * DELETE /api/import-tasks/:id/notification
+ * 删除导入任务通知
+ */
+router.delete('/:id/notification', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.id);
+    
+    await importService.deleteNotification(taskId, req.userId!);
+
+    res.json({
+      code: 200,
+      message: '通知删除成功'
+    });
+  } catch (error: any) {
+    logger.error('删除导入任务通知失败', error);
+    res.status(400).json({
+      code: 400,
+      message: error.message || '删除通知失败'
+    });
+  }
+});
+
+/**
+ * GET /api/import-tasks/unread-completed
+ * 获取用户未读的已完成任务（用于通知）
+ */
+router.get('/unread-completed', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const tasks = await importService.getUnreadCompletedTasks(req.userId!);
+
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: tasks
+    });
+  } catch (error: any) {
+    logger.error('获取未读已完成任务失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取未读任务失败'
+    });
+  }
+});
+
 export default router;

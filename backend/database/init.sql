@@ -103,6 +103,7 @@ CREATE TABLE IF NOT EXISTS import_tasks (
   duplicate_count INTEGER DEFAULT 0,  -- 重复数
   status TEXT DEFAULT 'processing',  -- processing/completed/failed
   error_details TEXT,  -- 错误详情（JSON）
+  notification_deleted INTEGER DEFAULT 0,  -- 通知是否被用户删除 (0=未删除, 1=已删除)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

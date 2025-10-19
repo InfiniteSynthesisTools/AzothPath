@@ -305,10 +305,18 @@ const archiveNotification = (notificationId: number) => {
   }
 };
 
-const clearCompletedTasks = () => {
-  // 由于uploadTasks是计算属性，我们无法直接修改它
-  // 这个功能现在由导入任务页面处理
-  ElMessage.success('已完成的任务会自动从通知面板中移除');
+const clearCompletedTasks = async () => {
+  try {
+    const clearedCount = await importStore.clearAllCompletedNotifications();
+    if (clearedCount > 0) {
+      ElMessage.success(`已清理 ${clearedCount} 个已完成任务的通知`);
+    } else {
+      ElMessage.info('没有需要清理的已完成任务');
+    }
+  } catch (error) {
+    console.error('清理已完成任务失败:', error);
+    ElMessage.error('清理任务失败，请稍后重试');
+  }
 };
 
 // 轮询更新处理中的任务状态

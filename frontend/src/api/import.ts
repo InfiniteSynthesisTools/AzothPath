@@ -9,6 +9,7 @@ export interface ImportTask {
   duplicate_count: number;
   status: 'processing' | 'completed' | 'failed';
   error_details?: string;
+  notification_deleted: number;  // 0=未删除, 1=已删除
   created_at: string;
   updated_at: string;
 }
@@ -68,5 +69,15 @@ export const importApi = {
       `/import-tasks/${taskId}/contents`,
       { params }
     );
+  },
+
+  // 删除导入任务通知
+  deleteNotification(taskId: number): Promise<void> {
+    return api.delete(`/import-tasks/${taskId}/notification`);
+  },
+
+  // 获取未读的已完成任务
+  getUnreadCompletedTasks(): Promise<ImportTask[]> {
+    return api.get<ImportTask[]>('/import-tasks/unread-completed');
   }
 };

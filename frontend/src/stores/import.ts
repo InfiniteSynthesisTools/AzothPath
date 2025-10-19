@@ -105,6 +105,44 @@ export const useImportStore = defineStore('import', () => {
     return poll();
   };
 
+  // 删除导入任务通知
+  const deleteNotification = async (taskId: number) => {
+    loading.value = true;
+    try {
+      await importApi.deleteNotification(taskId);
+      // 从列表中移除已删除通知的任务
+      importTasks.value = importTasks.value.filter((t: ImportTask) => t.id !== taskId);
+      total.value -= 1;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 清理所有已完成任务的通知
+  const clearAllCompletedNotifications = async () => {
+    loading.value = true;
+    try {
+      // 获取所有已完成的任务
+      const completedTasks = importTasks.value.filter((t: ImportTask) => 
+        t.status === 'completed' || t.status === 'failed'
+      );
+      
+      // 批量删除所有已完成任务的通知
+      const deletePromises = completedTasks.map(task => 
+        importApi.deleteNotification(task.id)
+      );
+      
+      await Promise.all(deletePromises);
+      
+      // 重新获取任务列表，确保与数据库同步
+      await fetchImportTasks();
+      
+      return completedTasks.length;
+    } finally {
+      loading.value = false;
+    }
+  };
+
   return {
     // 状态
     importTasks,
@@ -118,6 +156,8 @@ export const useImportStore = defineStore('import', () => {
     fetchTaskContents,
     fetchTaskSummary,
     deleteImportTask,
-    pollTaskStatus
+    pollTaskStatus,
+    deleteNotification,
+    clearAllCompletedNotifications
   };
 });

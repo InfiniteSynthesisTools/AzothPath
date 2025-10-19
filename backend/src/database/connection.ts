@@ -8,7 +8,7 @@ const DB_PATH = process.env.DB_PATH
   ? path.resolve(path.join(__dirname, '../../'), process.env.DB_PATH)
   : path.resolve(path.join(__dirname, '../../'), 'database/azothpath.db');
 
-const INIT_SQL_PATH = path.resolve(path.join(__dirname, '../../../'), 'database/init.sql');
+const INIT_SQL_PATH = path.resolve(path.join(__dirname, '../../'), 'database/init.sql');
 
 // 确保数据库目录存在
 const dbDir = path.dirname(DB_PATH);

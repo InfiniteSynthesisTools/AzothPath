@@ -160,9 +160,13 @@
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Bell, ChatDotRound, Close, SuccessFilled, WarningFilled, InfoFilled } from '@element-plus/icons-vue';
+import { useImportStore } from '@/stores/import';
 
 // 侧边栏状态
 const isOpen = ref(false);
+
+// 导入任务存储
+const importStore = useImportStore();
 
 // 通知数据 - 从本地存储加载或使用默认数据
 const loadNotifications = () => {
@@ -202,27 +206,21 @@ const saveNotifications = () => {
 // 监听通知变化并保存
 watch(notifications, saveNotifications, { deep: true });
 
-// 上传任务数据
-const uploadTasks = ref([
-  {
-    id: 1,
-    total_count: 100,
-    success_count: 85,
-    failed_count: 10,
-    duplicate_count: 5,
-    status: 'completed',
-    created_at: new Date(Date.now() - 30 * 60 * 1000).toISOString()
-  },
-  {
-    id: 2,
-    total_count: 50,
-    success_count: 20,
-    failed_count: 0,
-    duplicate_count: 0,
-    status: 'processing',
-    created_at: new Date(Date.now() - 5 * 60 * 1000).toISOString()
-  }
-]);
+// 上传任务数据 - 使用实际的导入任务数据
+const uploadTasks = computed(() => {
+  // 只显示处理中的任务和最近完成的任务（最近1小时内）
+  const now = new Date();
+  const oneHourAgo = new Date(now.getTime() - 60 * 60 * 1000);
+  
+  return importStore.importTasks.filter(task => {
+    // 显示所有处理中的任务
+    if (task.status === 'processing') return true;
+    
+    // 显示最近1小时内完成或失败的任务
+    const taskTime = new Date(task.created_at);
+    return taskTime > oneHourAgo;
+  });
+});
 
 // 计算属性
 const unarchivedNotifications = computed(() => {
@@ -315,29 +313,28 @@ const archiveNotification = (notificationId: number) => {
 };
 
 const clearCompletedTasks = () => {
-  uploadTasks.value = uploadTasks.value.filter(task => task.status === 'processing');
-  ElMessage.success('已清除已完成的任务');
+  // 由于uploadTasks是计算属性，我们无法直接修改它
+  // 这个功能现在由导入任务页面处理
+  ElMessage.success('已完成的任务会自动从通知面板中移除');
 };
 
-// 模拟实时更新上传任务进度
+// 轮询更新处理中的任务状态
 let progressInterval: number | null = null;
 
-const simulateProgressUpdate = () => {
-  const processingTask = uploadTasks.value.find(task => task.status === 'processing');
-  if (processingTask) {
-    if (processingTask.success_count < processingTask.total_count) {
-      processingTask.success_count += Math.floor(Math.random() * 5) + 1;
-      if (processingTask.success_count >= processingTask.total_count) {
-        processingTask.success_count = processingTask.total_count;
-        processingTask.status = 'completed';
-      }
-    }
+const pollProcessingTasks = () => {
+  // 检查是否有处理中的任务，如果有则刷新任务列表
+  const hasProcessingTasks = importStore.importTasks.some(task => task.status === 'processing');
+  if (hasProcessingTasks) {
+    importStore.fetchImportTasks();
   }
 };
 
 onMounted(() => {
-  // 每3秒更新一次进度
-  progressInterval = window.setInterval(simulateProgressUpdate, 3000);
+  // 加载当前用户的导入任务
+  importStore.fetchImportTasks();
+  
+  // 每5秒检查一次处理中的任务状态
+  progressInterval = window.setInterval(pollProcessingTasks, 5000);
 });
 
 onUnmounted(() => {

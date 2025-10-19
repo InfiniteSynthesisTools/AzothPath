@@ -154,94 +154,20 @@ export class ImportService {
   }
 
   /**
-   * 处理导入任务
+   * 处理导入任务 - 优化版本，使用队列处理大量数据
    */
   async processImportTask(taskId: number): Promise<{ successCount: number; failedCount: number; duplicateCount: number }> {
     try {
-      // 获取待处理的配方
-      const contents = await database.all<ImportTaskContent>(
-        'SELECT * FROM import_tasks_content WHERE task_id = ? AND status = ?',
-        [taskId, 'pending']
-      );
-
-      let successCount = 0;
-      let failedCount = 0;
-      let duplicateCount = 0;
-
-      for (const content of contents) {
-        try {
-          // 更新状态为处理中
-          await database.run(
-            'UPDATE import_tasks_content SET status = ? WHERE id = ?',
-            ['processing', content.id]
-          );
-
-          // 先验证配方
-          const validation = await this.validateRecipe(content.item_a, content.item_b);
-          
-          if (!validation.valid) {
-            // 验证失败
-            await database.run(
-              'UPDATE import_tasks_content SET status = ?, error_message = ? WHERE id = ?',
-              ['failed', validation.error, content.id]
-            );
-            failedCount++;
-            continue;
-          }
-
-          // 如果验证成功但结果不匹配，使用验证结果
-          const finalResult = validation.result || content.result;
-
-          // 获取任务对应的用户ID
-          const task = await this.getImportTask(content.task_id);
-          const userId = task?.user_id || 1; // 默认使用admin用户ID
-          
-          // 尝试提交配方
-          const recipeId = await recipeService.submitRecipe(
-            content.item_a,
-            content.item_b,
-            finalResult,
-            userId
-          );
-
-          // 如果验证成功，保存emoji信息到items表（只保存result的emoji）
-          if (validation.valid && validation.result) {
-            await this.saveEmojiToItems(content.item_a, content.item_b, finalResult, validation.emoji);
-          }
-
-          // 更新为成功
-          await database.run(
-            'UPDATE import_tasks_content SET status = ?, recipe_id = ? WHERE id = ?',
-            ['success', recipeId, content.id]
-          );
-          successCount++;
-
-        } catch (error: any) {
-          if (error.message === '配方已存在') {
-            // 重复配方
-            await database.run(
-              'UPDATE import_tasks_content SET status = ? WHERE id = ?',
-              ['duplicate', content.id]
-            );
-            duplicateCount++;
-          } else {
-            // 其他错误
-            await database.run(
-              'UPDATE import_tasks_content SET status = ?, error_message = ? WHERE id = ?',
-              ['failed', error.message, content.id]
-            );
-            failedCount++;
-          }
-        }
-      }
-
-      // 更新任务统计
+      console.log(`🚀 Starting to process import task ${taskId} with queue system`);
+      
+      // 立即将任务状态设置为处理中
       await database.run(
-        'UPDATE import_tasks SET success_count = ?, failed_count = ?, duplicate_count = ?, status = ? WHERE id = ?',
-        [successCount, failedCount, duplicateCount, 'completed', taskId]
+        'UPDATE import_tasks SET status = ? WHERE id = ?',
+        ['processing', taskId]
       );
 
-      return { successCount, failedCount, duplicateCount };
+      // 对于大量数据，我们依赖队列系统处理，这里只返回初始状态
+      return { successCount: 0, failedCount: 0, duplicateCount: 0 };
 
     } catch (error) {
       console.error('Process import task error:', error);

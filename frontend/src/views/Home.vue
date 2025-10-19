@@ -128,7 +128,7 @@ const stats = ref({
   invalid_recipes: 0,
   circular_recipes: 0,
   circular_items: 0,
-  base_items: 6
+  base_items: 5
 });
 
 const latestRecipes = ref<RecipeWithEmoji[]>([]);
@@ -393,5 +393,3 @@ onMounted(() => {
   color: #656d76;
 }
 </style>
-
-

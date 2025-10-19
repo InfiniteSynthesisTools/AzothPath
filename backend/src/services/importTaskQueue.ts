@@ -4,8 +4,8 @@ import axios from 'axios';
 // 外部验证 API 配置
 const VALIDATION_API_URL = process.env.VALIDATION_API_URL || 'https://hc.tsdo.in/api';
 const MAX_RETRY_COUNT = 3;
-const QUEUE_INTERVAL = 5000; // 5秒检查一次
-const CONCURRENT_LIMIT = 5; // 并发处理数量
+const QUEUE_INTERVAL = 2000; // 2秒检查一次，提高响应速度
+const CONCURRENT_LIMIT = 10; // 提高并发处理数量
 
 interface ImportTaskContent {
   id: number;

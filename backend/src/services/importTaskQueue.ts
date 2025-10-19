@@ -4,11 +4,11 @@ import { apiConfig } from '../config/api';
 import axios from 'axios';
 import { recipeService } from './recipeService';
 
-// 外部验证 API 配置
-const VALIDATION_API_URL = process.env.VALIDATION_API_URL || 'https://hc.tsdo.in/api';
-const MAX_RETRY_COUNT = 3;
-const QUEUE_INTERVAL = 2000; // 2秒检查一次，提高响应速度
-const CONCURRENT_LIMIT = 10; // 提高并发处理数量
+// 任务队列配置
+const MAX_RETRY_COUNT = apiConfig.retryCount;
+const QUEUE_INTERVAL = 5000; // 5秒检查一次
+const CONCURRENT_LIMIT = 10; // 每次处理10个任务，避免触发限流
+const REQUEST_DELAY = 1000; // 请求间隔 1 秒
 
 interface ImportTaskContent {
   id: number;
@@ -104,9 +104,12 @@ class ImportTaskQueue {
 
       logger.info(`发现${pendingTasks.length}个待处理任务`);
 
-      // 并发处理任务
-      const promises = pendingTasks.map((task: ImportTaskContent) => this.processTask(task));
-      await Promise.allSettled(promises);
+      // 串行处理任务，避免 API 限流（每个请求间隔 REQUEST_DELAY 秒）
+      for (const task of pendingTasks) {
+        await this.processTask(task);
+        // 请求间隔延迟，避免触发 429 限流
+        await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
+      }
     } catch (error) {
       logger.error('查询待处理任务失败', error);
       throw error;

@@ -3,10 +3,10 @@ import path from 'path';
 import fs from 'fs';
 import { logger } from '../utils/logger';
 
-// 数据库路径配置 - 默认使用项目根目录下的 database 文件夹
+// 数据库路径配置 - 默认使用 backend 目录下的 database 文件夹
 const DB_PATH = process.env.DB_PATH 
   ? path.resolve(path.join(__dirname, '../../'), process.env.DB_PATH)
-  : path.resolve(path.join(__dirname, '../../../'), 'database/azothpath.db');
+  : path.resolve(path.join(__dirname, '../../'), 'database/azothpath.db');
 
 const INIT_SQL_PATH = path.resolve(path.join(__dirname, '../../../'), 'database/init.sql');
 

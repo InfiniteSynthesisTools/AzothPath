@@ -238,7 +238,13 @@ const hasCompletedTasks = computed(() => {
 
 // 方法
 const toggleSidebar = () => {
-  isOpen.value = !isOpen.value;
+  const willOpen = !isOpen.value;
+  isOpen.value = willOpen;
+  
+  // 打开侧边栏时加载任务数据
+  if (willOpen) {
+    importStore.fetchImportTasks();
+  }
 };
 
 const calculateProgress = (task: any) => {
@@ -309,6 +315,9 @@ const clearCompletedTasks = () => {
 let progressInterval: number | null = null;
 
 const pollProcessingTasks = () => {
+  // 只在侧边栏打开时才轮询
+  if (!isOpen.value) return;
+  
   // 检查是否有处理中的任务，如果有则刷新任务列表
   const hasProcessingTasks = importStore.importTasks.some(task => task.status === 'processing');
   if (hasProcessingTasks) {
@@ -316,18 +325,36 @@ const pollProcessingTasks = () => {
   }
 };
 
-onMounted(() => {
-  // 加载当前用户的导入任务
-  importStore.fetchImportTasks();
-  
-  // 每5秒检查一次处理中的任务状态
+// 启动轮询
+const startPolling = () => {
+  if (progressInterval) return; // 避免重复启动
   progressInterval = window.setInterval(pollProcessingTasks, 5000);
+};
+
+// 停止轮询
+const stopPolling = () => {
+  if (progressInterval) {
+    clearInterval(progressInterval);
+    progressInterval = null;
+  }
+};
+
+// 监听侧边栏打开/关闭状态
+watch(isOpen, (newVal) => {
+  if (newVal) {
+    // 侧边栏打开：启动轮询
+    startPolling();
+  } else {
+    // 侧边栏关闭：停止轮询
+    stopPolling();
+  }
+});
+
+onMounted(() => {
 });
 
 onUnmounted(() => {
-  if (progressInterval) {
-    clearInterval(progressInterval);
-  }
+  stopPolling();
 });
 </script>
 

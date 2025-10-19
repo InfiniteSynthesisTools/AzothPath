@@ -370,10 +370,6 @@ export class RecipeService {
       throw new Error('配方已存在');
     }
 
-    // TODO: 调用外部 API 验证配方有效性
-    // const isValid = await this.validateRecipeWithAPI(itemA, itemB, result);
-    // if (!isValid) throw new Error('配方验证失败');
-
     // 记录贡献分
     let contributionPoints = 0;
 

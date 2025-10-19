@@ -3,12 +3,12 @@ import { logger } from '../utils/logger';
 import { apiConfig } from '../config/api';
 import axios from 'axios';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
+import { validationLimiter } from '../utils/validationLimiter';
 
 // 任务队列配置
 const MAX_RETRY_COUNT = apiConfig.retryCount;
-const QUEUE_INTERVAL = 5000; // 5秒检查一次
+const QUEUE_INTERVAL = 100; // 5秒检查一次
 const CONCURRENT_LIMIT = 10; // 每次处理10个任务，避免触发限流
-const REQUEST_DELAY = 1000; // 请求间隔 1 秒
 
 interface ImportTaskContent {
   id: number;
@@ -108,6 +108,8 @@ class ImportTaskQueue {
   private async processPendingTasks(): Promise<boolean> {
     // 查询待处理的任务（status='pending' 且重试次数<3）
     try {
+      const queryStartTime = Date.now();
+      
       const pendingTasks = await database.all<ImportTaskContent>(
         `SELECT * FROM import_tasks_content 
          WHERE status = 'pending' AND retry_count < ? 
@@ -116,16 +118,27 @@ class ImportTaskQueue {
         [MAX_RETRY_COUNT, CONCURRENT_LIMIT]
       );
 
+      const queryDuration = Date.now() - queryStartTime;
+      logger.info(`数据库查询耗时: ${queryDuration}ms, 查询到${pendingTasks.length}个待处理任务`);
+
       if (pendingTasks.length === 0) {
         return false; // 没有待处理任务
       }
 
       logger.info(`发现${pendingTasks.length}个待处理任务`);
 
-      // 串行处理任务，避免 API 限流（每个请求间隔 REQUEST_DELAY 秒）
-      for (const task of pendingTasks) {
-        await this.processTask(task);
-      }
+      // 并行处理所有任务，但HTTP请求会通过ValidationLimiter串行化
+      const queueStatus = validationLimiter.getQueueStatus();
+      logger.debug(`当前验证队列: ${queueStatus.queueLength}个待验证, 处理中: ${queueStatus.isProcessing}`);
+      
+      const processingStartTime = Date.now();
+      
+      await Promise.all(
+        pendingTasks.map(task => this.processTask(task))
+      );
+      
+      const processingDuration = Date.now() - processingStartTime;
+      logger.info(`批次处理完成，耗时: ${processingDuration}ms (平均: ${Math.round(processingDuration / pendingTasks.length)}ms/任务)`);
       
       return true; // 有任务被处理
     } catch (error) {
@@ -144,27 +157,39 @@ class ImportTaskQueue {
     }
 
     this.processingIds.add(task.id);
+    const taskStartTime = Date.now();
+    let checkDuplicateTime = 0;
+    let validateTime = 0;
+    let dbWriteTime = 0;
 
     try {
       logger.debug(`处理任务${task.id}: ${task.item_a} + ${task.item_b} = ${task.result}`);
 
       // 1. 检查是否已存在相同配方（去重）
+      const checkStart = Date.now();
       const existingRecipe = await this.checkDuplicateRecipe(task);
+      checkDuplicateTime = Date.now() - checkStart;
+      
       if (existingRecipe) {
         await this.markAsDuplicate(task, existingRecipe.id);
+        logger.debug(`任务${task.id}耗时: 总${Date.now() - taskStartTime}ms (去重检查: ${checkDuplicateTime}ms)`);
         return;
       }
 
       // 2. 调用外部 API 验证
+      const validateStart = Date.now();
       const validationResult = await this.validateRecipe(task);
+      validateTime = Date.now() - validateStart;
 
       if (!validationResult.success) {
         // 验证失败，增加重试次数
         await this.incrementRetry(task, validationResult.error || 'Unknown error');
+        logger.debug(`任务${task.id}验证失败，耗时: ${validateTime}ms`);
         return;
       }
 
       // 3. 验证成功，插入到 recipes 表
+      const dbStart = Date.now();
       const recipeId = await this.insertRecipe(task);
 
       // 4. 更新物品字典（包括保存 emoji）
@@ -175,8 +200,10 @@ class ImportTaskQueue {
 
       // 6. 更新任务统计
       await this.updateTaskStats(task.task_id);
+      dbWriteTime = Date.now() - dbStart;
 
-      logger.success(`任务${task.id}处理成功`);
+      const totalTime = Date.now() - taskStartTime;
+      logger.success(`任务${task.id}处理成功，耗时: 总${totalTime}ms (去重: ${checkDuplicateTime}ms, API验证: ${validateTime}ms, 数据库写入: ${dbWriteTime}ms)`);
     } catch (error: any) {
       logger.error(`处理任务${task.id}失败:`, error);
       await this.incrementRetry(task, error.message);
@@ -204,66 +231,69 @@ class ImportTaskQueue {
   }
 
   /**
-   * 调用外部 API 验证配方
+   * 调用外部 API 验证配方（通过全局限速器）
    */
   private async validateRecipe(task: ImportTaskContent): Promise<{ success: boolean; error?: string; emoji?: string }> {
-    try {
-      logger.debug(`验证配方: ${task.item_a} + ${task.item_b}`);
-      const response = await axios.get(apiConfig.validationApiUrl, {
-        params: {
-          itemA: task.item_a,
-          itemB: task.item_b
-        },
-        timeout: apiConfig.timeout,
-        headers: apiConfig.headers
-      });
+    // 使用全局限速器包装 HTTP 请求
+    return validationLimiter.limitValidation(async () => {
+      try {
+        logger.debug(`验证配方: ${task.item_a} + ${task.item_b}`);
+        const response = await axios.get(apiConfig.validationApiUrl, {
+          params: {
+            itemA: task.item_a,
+            itemB: task.item_b
+          },
+          timeout: apiConfig.timeout,
+          headers: apiConfig.headers
+        });
 
-      logger.debug(`API响应: ${response.status}`, response.data);
+        logger.debug(`API响应: ${response.status}`, response.data);
 
-      if (response.status === 200) {
-        const data = response.data;
-        if (data.item && data.item !== '') {
-          // 验证返回的结果是否匹配
-          if (data.item !== task.result) {
-            return {
-              success: false,
-              error: `结果不匹配: 预期 "${task.result}", 实际 "${data.item}"`
-            };
+        if (response.status === 200) {
+          const data = response.data;
+          if (data.item && data.item !== '') {
+            // 验证返回的结果是否匹配
+            if (data.item !== task.result) {
+              return {
+                success: false,
+                error: `结果不匹配: 预期 "${task.result}", 实际 "${data.item}"`
+              };
+            }
+            logger.debug(`验证成功: ${task.item_a} + ${task.item_b} = ${data.item}`);
+            return { success: true, emoji: data.emoji };
+          } else {
+            logger.debug(`验证失败: 无法合成 ${task.item_a} + ${task.item_b}`);
+            return { success: false, error: '无法合成' };
           }
-          logger.debug(`验证成功: ${task.item_a} + ${task.item_b} = ${data.item}`);
-          return { success: true, emoji: data.emoji };
         } else {
-          logger.debug(`验证失败: 无法合成 ${task.item_a} + ${task.item_b}`);
-          return { success: false, error: '无法合成' };
+          logger.warn(`API错误状态: ${response.status}`);
+          return { success: false, error: `API返回状态: ${response.status}` };
         }
-      } else {
-        logger.warn(`API错误状态: ${response.status}`);
-        return { success: false, error: `API返回状态: ${response.status}` };
-      }
-    } catch (error: any) {
-      logger.error(`验证异常: ${error.message}`);
-      
-      if (error.response) {
-        const status = error.response.status;
-        logger.warn(`错误响应: ${status}`, error.response.data);
+      } catch (error: any) {
+        logger.error(`验证异常: ${error.message}`);
         
-        if (status === 400) {
-          return { success: false, error: '这两个物件不能合成' };
-        } else if (status === 403) {
-          return { success: false, error: '包含非法物件（还没出现过的物件）' };
+        if (error.response) {
+          const status = error.response.status;
+          logger.warn(`错误响应: ${status}`, error.response.data);
+          
+          if (status === 400) {
+            return { success: false, error: '这两个物件不能合成' };
+          } else if (status === 403) {
+            return { success: false, error: '包含非法物件（还没出现过的物件）' };
+          } else {
+            return { success: false, error: `验证失败，状态码: ${status}` };
+          }
+        } else if (error.code === 'ECONNABORTED') {
+          return { success: false, error: '验证超时，请稍后重试' };
         } else {
-          return { success: false, error: `验证失败，状态码: ${status}` };
+          // 网络错误，可以重试
+          return {
+            success: false,
+            error: `网络错误: ${error.message}`
+          };
         }
-      } else if (error.code === 'ECONNABORTED') {
-        return { success: false, error: '验证超时，请稍后重试' };
-      } else {
-        // 网络错误，可以重试
-        return {
-          success: false,
-          error: `网络错误: ${error.message}`
-        };
       }
-    }
+    });
   }
 
   /**
@@ -405,22 +435,6 @@ class ImportTaskQueue {
     );
 
     logger.info(`任务${taskId}统计更新: ${stats.success}成功, ${stats.failed}失败, ${stats.duplicate}重复, ${pending}待处理`);
-  }
-
-  /**
-   * 手动触发处理特定任务
-   */
-  async processTaskById(taskId: number) {
-    const task = await database.get<ImportTaskContent>(
-      'SELECT * FROM import_tasks_content WHERE id = ?',
-      [taskId]
-    );
-
-    if (!task) {
-      throw new Error(`Task ${taskId} not found`);
-    }
-
-    await this.processTask(task);
   }
 
   /**

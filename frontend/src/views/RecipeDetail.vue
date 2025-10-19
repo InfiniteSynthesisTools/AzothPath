@@ -260,6 +260,8 @@ onMounted(() => {
 .emoji-large {
   font-size: 32px;
   line-height: 1;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
+  font-variant-emoji: emoji; /* 强制使用彩色 emoji */
 }
 
 .item-name-large, .result-name-large {
@@ -398,6 +400,8 @@ onMounted(() => {
 
 .emoji {
   font-size: 18px;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
+  font-variant-emoji: emoji; /* 强制使用彩色 emoji */
 }
 
 .material-name, .result-name {

@@ -5,6 +5,7 @@ import 'element-plus/dist/index.css';
 import * as ElementPlusIconsVue from '@element-plus/icons-vue';
 import router from './router';
 import App from './App.vue';
+import './utils/emojiFontMonitor'; // 引入 Emoji 字体加载监控
 
 // 创建应用实例
 const app = createApp(App);

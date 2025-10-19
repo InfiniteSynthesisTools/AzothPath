@@ -338,6 +338,8 @@ onMounted(() => {
 .emoji {
   font-size: 16px;
   line-height: 1;
+  font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
+  font-variant-emoji: emoji; /* 强制使用彩色 emoji */
 }
 
 .text {

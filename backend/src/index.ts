@@ -31,7 +31,7 @@ try {
 }
 
 const app: Application = express();
-const PORT = parseInt(process.env.PORT || '3000', 10);
+const PORT = parseInt(process.env.PORT || '19198', 10);
 
 // 中间件
 app.use(cors());

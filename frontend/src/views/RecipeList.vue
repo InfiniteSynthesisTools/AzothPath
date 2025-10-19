@@ -6,7 +6,7 @@
         <el-input
           v-model="searchText"
           placeholder="搜索配方（材料或结果）..."
-          style="max-width: 400px"
+          style="max-width: 500px"
           clearable
           @change="handleSearch"
         >
@@ -20,60 +20,37 @@
       </div>
 
       <el-card class="recipe-card">
-        <el-table :data="recipeStore.recipes" v-loading="recipeStore.loading">
-          <el-table-column label="材料A" width="180" align="center">
-            <template #default="{ row }">
-              <span class="item-with-emoji">
-                <span v-if="row.item_a_emoji" class="emoji">{{ row.item_a_emoji }}</span>
-                <span>{{ row.item_a }}</span>
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="材料B" width="180" align="center">
-            <template #default="{ row }">
-              <span class="item-with-emoji">
-                <span v-if="row.item_b_emoji" class="emoji">{{ row.item_b_emoji }}</span>
-                <span>{{ row.item_b }}</span>
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column label="结果" width="180" align="center">
-            <template #default="{ row }">
-              <span class="item-with-emoji">
-                <span v-if="row.result_emoji" class="emoji">{{ row.result_emoji }}</span>
-                <span>{{ row.result }}</span>
-              </span>
-            </template>
-          </el-table-column>
-          <el-table-column prop="creator_name" label="贡献者" width="120" align="center" />
-          <el-table-column prop="likes" label="点赞数" width="100" align="center">
-            <template #default="{ row }">
-              <span style="color: #f56c6c;">❤️ {{ row.likes || 0 }}</span>
-            </template>
-          </el-table-column>
-          <el-table-column label="操作" width="180" align="center">
-            <template #default="{ row }">
-              <el-button
-                :type="row.is_liked ? 'warning' : 'primary'"
-                size="small"
-                @click="handleLike(row)"
-              >
-                {{ row.is_liked ? '已赞' : '点赞' }}
+        <div class="recipe-grid" v-loading="loading">
+          <div 
+            v-for="group in groupedRecipes" 
+            :key="group.result"
+            class="result-item-card"
+            @click="viewGroupDetail(group.result)"
+          >
+            <div class="result-info">
+              <div class="result-icon">
+                <span v-if="group.result_emoji" class="emoji">{{ group.result_emoji }}</span>
+              </div>
+              <div class="result-details">
+                <h3 class="result-name">{{ group.result }}</h3>
+                <p class="recipe-count">{{ group.recipe_count }} 种合成方式</p>
+              </div>
+            </div>
+            <div class="result-actions">
+              <el-button type="primary" plain size="small">
+                查看配方
               </el-button>
-              <el-button size="small" @click="viewDetail(row.id)">
-                详情
-              </el-button>
-            </template>
-          </el-table-column>
-        </el-table>
+            </div>
+          </div>
+        </div>
 
         <div class="pagination">
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
-            :page-sizes="[10, 20, 50, 100]"
-            :total="recipeStore.total"
-            layout="total, sizes, prev, pager, next, jumper"
+            :page-sizes="[20, 40, 60]"
+            :total="total"
+            layout="total, sizes, prev, pager, next"
             @size-change="handlePageChange"
             @current-change="handlePageChange"
           />
@@ -86,40 +63,57 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
-import { useRecipeStore } from '@/stores';
+import { recipeApi } from '@/api';
+import { ElMessage } from 'element-plus';
 
 const router = useRouter();
-const recipeStore = useRecipeStore();
 
+const loading = ref(false);
 const searchText = ref('');
 const currentPage = ref(1);
 const pageSize = ref(20);
+const total = ref(0);
+const groupedRecipes = ref<any[]>([]);
+
+const loadData = async () => {
+  loading.value = true;
+  try {
+    const response = await recipeApi.listGrouped({
+      search: searchText.value,
+      page: currentPage.value,
+      limit: pageSize.value
+    });
+    
+    groupedRecipes.value = response.grouped_recipes || [];
+    total.value = response.total || 0;
+  } catch (error) {
+    console.error('获取配方列表失败:', error);
+    ElMessage.error('获取配方列表失败');
+  } finally {
+    loading.value = false;
+  }
+};
 
 const handleSearch = () => {
-  recipeStore.fetchRecipes({
-    search: searchText.value,
-    page: 1,
-    limit: pageSize.value
-  });
+  currentPage.value = 1;
+  loadData();
 };
 
-const handlePageChange = (page: number) => {
-  recipeStore.fetchRecipes({
-    page,
-    limit: pageSize.value
-  });
+const handlePageChange = () => {
+  loadData();
 };
 
-const handleLike = async (row: any) => {
-  await recipeStore.toggleLike(row.id);
-};
 
-const viewDetail = (id: number) => {
-  router.push(`/recipes/${id}`);
+const viewGroupDetail = (resultName: string) => {
+  // 跳转到第一个配方的详情页面，或者可以创建一个专门的页面显示该结果物品的所有配方
+  const group = groupedRecipes.value.find(g => g.result === resultName);
+  if (group && group.recipes.length > 0) {
+    router.push(`/recipes/${group.recipes[0].id}`);
+  }
 };
 
 onMounted(() => {
-  recipeStore.fetchRecipes({ page: 1, limit: pageSize.value });
+  loadData();
 });
 </script>
 
@@ -130,9 +124,9 @@ onMounted(() => {
 }
 
 .page-container {
-  max-width: 1200px;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 30px 20px;
+  padding: 20px;
 }
 
 .page-header {
@@ -145,15 +139,21 @@ onMounted(() => {
 }
 
 .page-header h1 {
-  font-size: 28px;
+  font-size: 24px;
   color: #303133;
   margin: 0;
   flex-shrink: 0;
+  font-weight: 500;
 }
 
 .page-header .el-input {
   flex-shrink: 0;
-  min-width: 300px;
+  min-width: 350px;
+}
+
+.page-header .el-input :deep(.el-input__wrapper) {
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 768px) {
@@ -167,12 +167,189 @@ onMounted(() => {
     width: 100%;
     min-width: auto;
   }
+  
+  .recipe-grid {
+    grid-template-columns: 1fr;
+    padding: 10px 0;
+  }
+  
+  .result-item-card {
+    padding: 8px;
+  }
+  
+  .result-icon {
+    width: 36px;
+    height: 36px;
+  }
+  
+  .result-icon .emoji {
+    font-size: 18px;
+  }
+  
 }
 
 .recipe-card {
   background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+/* 配方网格布局 - 美观多列卡片 */
+.recipe-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
+}
+
+/* 合成物卡片 - 紧凑版 */
+.result-item-card {
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  padding: 10px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  text-align: left;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.result-info {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+}
+
+.result-icon {
+  width: 40px;
+  height: 40px;
+  background: #e8f4fd;
+  border: 1px solid #b3d9ff;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.result-icon .emoji {
+  font-size: 20px;
+}
+
+.result-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.result-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0;
+}
+
+.recipe-count {
+  font-size: 11px;
+  color: #6b7280;
+  margin: 0;
+}
+
+.result-actions {
+  flex-shrink: 0;
+}
+
+.result-actions .el-button {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* 配方公式 */
+.recipe-formula {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.material-item, .result-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  border-radius: 6px;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  min-width: 60px;
+  justify-content: center;
+}
+
+.result-item {
+  background: #e8f4fd;
+  border-color: #b3d9ff;
+}
+
+.item-name, .result-name {
+  font-weight: 500;
+  color: #495057;
+  font-size: 13px;
+}
+
+.result-name {
+  color: #1f2937;
+}
+
+.operator {
+  font-size: 16px;
+  font-weight: 600;
+  color: #6b7280;
+  margin: 0 4px;
+}
+
+/* 配方信息 */
+.recipe-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.recipe-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.creator {
+  color: #6b7280;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.likes {
+  color: #ef4444;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.recipe-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.recipe-actions .el-button {
+  font-size: 11px;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 500;
+}
+
+/* 分页样式 */
 .pagination {
   margin-top: 20px;
   display: flex;
@@ -185,12 +362,6 @@ onMounted(() => {
 }
 
 /* Emoji 样式 */
-.item-with-emoji {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
 .emoji {
   font-size: 16px;
   line-height: 1;

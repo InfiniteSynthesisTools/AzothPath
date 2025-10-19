@@ -1,0 +1,60 @@
+/**
+ * 外部API配置
+ * 统一管理所有外部API的配置
+ */
+
+export interface ApiConfig {
+  validationApiUrl: string;
+  timeout: number;
+  retryCount: number;
+  headers: Record<string, string>;
+}
+
+/**
+ * 获取API配置
+ */
+export function getApiConfig(): ApiConfig {
+  return {
+    // 外部验证API配置
+    validationApiUrl: process.env.VALIDATION_API_URL || 'https://hc.tsdo.in/api',
+    
+    // 请求配置
+    timeout: parseInt(process.env.API_TIMEOUT || '5000'),
+    retryCount: parseInt(process.env.API_RETRY_COUNT || '3'),
+    
+    // 请求头配置
+    headers: {
+      'Accept': 'application/json',
+      'User-Agent': 'AzothPath/1.0',
+      'Content-Type': 'application/json'
+    }
+  };
+}
+
+/**
+ * 验证API配置
+ */
+export function validateApiConfig(): void {
+  const config = getApiConfig();
+  
+  if (!config.validationApiUrl) {
+    throw new Error('VALIDATION_API_URL 环境变量未设置');
+  }
+  
+  try {
+    new URL(config.validationApiUrl);
+  } catch (error) {
+    throw new Error(`无效的 VALIDATION_API_URL: ${config.validationApiUrl}`);
+  }
+  
+  if (config.timeout <= 0) {
+    throw new Error('API_TIMEOUT 必须大于0');
+  }
+  
+  if (config.retryCount < 0) {
+    throw new Error('API_RETRY_COUNT 不能为负数');
+  }
+}
+
+// 导出默认配置
+export const apiConfig = getApiConfig();

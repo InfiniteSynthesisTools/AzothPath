@@ -1,12 +1,13 @@
 import { database } from '../database/connection';
+import { logger } from '../utils/logger';
 
 export interface Recipe {
   id: number;
   item_a: string;
   item_b: string;
   result: string;
-  user_id: number;  // 数据库字段名
-  likes: number;  // 点赞数（冗余字段）
+  user_id: number;
+  likes: number;
   created_at: string;
 }
 
@@ -49,7 +50,6 @@ export interface UnreachableGraphStats {
   density: number;         // 图密度
   clustering: number;      // 聚类系数
   boundaryNodes: number;   // 边界节点数（可能连接到合法图的节点）
-  // 移除树状统计指标
 }
 
 export interface GraphSystemStats {
@@ -69,7 +69,11 @@ export interface GraphSystemStats {
 
 export class RecipeService {
   /**
-   * 获取配方列表
+   * 获取配方列表（优化版本）
+   * 性能优化：
+   * 1. 使用JOIN替代子查询
+   * 2. 优化索引策略
+   * 3. 支持游标分页
    */
   async getRecipes(params: {
     page?: number;
@@ -77,65 +81,274 @@ export class RecipeService {
     search?: string;
     orderBy?: string;
     userId?: number;
+    result?: string;
+    cursor?: string; // 游标分页
   }) {
-    const { page = 1, limit = 20, search, orderBy = 'created_at', userId } = params;
-    const offset = (page - 1) * limit;
-
+    const { page = 1, limit = 20, search, orderBy = 'created_at', userId, result, cursor } = params;
+    
+    // 使用JOIN替代子查询，大幅提升性能
     let sql = `
-      SELECT r.*, u.name as creator_name,
-             (SELECT emoji FROM items WHERE name = r.item_a) as item_a_emoji,
-             (SELECT emoji FROM items WHERE name = r.item_b) as item_b_emoji,
-             (SELECT emoji FROM items WHERE name = r.result) as result_emoji,
-             ${userId ? 'EXISTS(SELECT 1 FROM recipe_likes WHERE recipe_id = r.id AND user_id = ?) as is_liked' : '0 as is_liked'}
+      SELECT r.*, 
+             u.name as creator_name,
+             ia.emoji as item_a_emoji,
+             ib.emoji as item_b_emoji,
+             ir.emoji as result_emoji,
+             ${userId ? 'CASE WHEN rl.id IS NOT NULL THEN 1 ELSE 0 END as is_liked' : '0 as is_liked'}
       FROM recipes r
       LEFT JOIN user u ON r.user_id = u.id
+      LEFT JOIN items ia ON ia.name = r.item_a
+      LEFT JOIN items ib ON ib.name = r.item_b  
+      LEFT JOIN items ir ON ir.name = r.result
+      ${userId ? 'LEFT JOIN recipe_likes rl ON rl.recipe_id = r.id AND rl.user_id = ?' : ''}
     `;
+    
     const sqlParams: any[] = [];
-
-    // 如果提供了userId，添加到参数列表
     if (userId) {
       sqlParams.push(userId);
     }
 
+    // 优化搜索条件
+    const conditions = [];
     if (search) {
-      sql += ` WHERE r.item_a LIKE ? OR r.item_b LIKE ? OR r.result LIKE ?`;
-      const searchPattern = `%${search}%`;
-      sqlParams.push(searchPattern, searchPattern, searchPattern);
+      // 优先精确匹配，然后模糊匹配
+      conditions.push(`(r.item_a = ? OR r.item_b = ? OR r.result = ? OR 
+                       r.item_a LIKE ? OR r.item_b LIKE ? OR r.result LIKE ?)`);
+      sqlParams.push(search, search, search, `%${search}%`, `%${search}%`, `%${search}%`);
     }
 
-    // 使用白名单验证 orderBy 参数
-    const validOrderBy = ['created_at', 'likes'].includes(orderBy) ? orderBy : 'created_at';
-    sql += ` ORDER BY r.${validOrderBy} DESC LIMIT ? OFFSET ?`;
-    sqlParams.push(limit, offset);
+    if (result) {
+      conditions.push('r.result = ?');
+      sqlParams.push(result);
+    }
+
+    // 游标分页优化（推荐）或传统分页
+    if (cursor) {
+      // 游标分页 - 性能最佳
+      conditions.push(`r.id < ?`);
+      sqlParams.push(cursor);
+    }
+
+    if (conditions.length > 0) {
+      sql += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    // 优化排序
+    const validOrderBy = ['created_at', 'likes', 'id'].includes(orderBy) ? orderBy : 'created_at';
+    sql += ` ORDER BY r.${validOrderBy} DESC, r.id DESC`;
+    
+    if (cursor) {
+      sql += ` LIMIT ?`;
+      sqlParams.push(limit);
+    } else {
+      // 传统分页
+      sql += ` LIMIT ? OFFSET ?`;
+      sqlParams.push(limit, (page - 1) * limit);
+    }
 
     const recipes = await database.all(sql, sqlParams);
 
-    // 获取总数
-    let countSql = 'SELECT COUNT(*) as count FROM recipes';
-    const countParams: any[] = [];
-    if (search) {
-      countSql += ` WHERE item_a LIKE ? OR item_b LIKE ? OR result LIKE ?`;
-      const searchPattern = `%${search}%`;
-      countParams.push(searchPattern, searchPattern, searchPattern);
+    // 异步获取总数（避免阻塞主查询）
+    // 构建计数查询的参数（排除分页参数）
+    const countParams = [];
+    let paramIndex = 0;
+    
+    // 跳过userId参数（计数查询不需要）
+    if (userId) {
+      paramIndex++;
     }
-    const totalResult = await database.get<{ count: number }>(countSql, countParams);
+    
+    // search参数（6个）
+    if (search) {
+      countParams.push(...sqlParams.slice(paramIndex, paramIndex + 6));
+      paramIndex += 6;
+    }
+    
+    // result参数
+    if (result) {
+      countParams.push(sqlParams[paramIndex++]);
+    }
+    
+    // cursor参数
+    if (cursor) {
+      countParams.push(sqlParams[paramIndex++]);
+    }
+    
+    const totalPromise = this.getCountAsync(countParams, conditions);
 
     return {
       recipes,
-      total: totalResult?.count || 0,
+      total: await totalPromise,
+      page,
+      limit,
+      hasMore: recipes.length === limit,
+      nextCursor: recipes.length > 0 ? recipes[recipes.length - 1].id : null
+    };
+  }
+
+  /**
+   * 异步获取总数（避免阻塞主查询）
+   */
+  private async getCountAsync(baseParams: any[], conditions: string[]): Promise<number> {
+    let countSql = 'SELECT COUNT(*) as count FROM recipes r';
+    if (conditions.length > 0) {
+      countSql += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    
+    try {
+      // 调试日志
+      logger.debug('getCountAsync SQL:', countSql);
+      logger.debug('getCountAsync params:', baseParams);
+      logger.debug('getCountAsync conditions:', conditions);
+      
+      const totalResult = await database.get<{ count: number }>(countSql, baseParams);
+      return totalResult?.count || 0;
+    } catch (error) {
+      logger.error('获取总数失败:', error);
+      logger.error('SQL:', countSql);
+      logger.error('参数:', baseParams);
+      return 0;
+    }
+  }
+
+  /**
+   * 获取按结果分组的配方列表（优化版本）
+   */
+  async getGroupedRecipes(params: {
+    page?: number;
+    limit?: number;
+    search?: string;
+    result?: string;
+    userId?: number;
+  }) {
+    const { page = 1, limit = 20, search, result, userId } = params;
+    const offset = (page - 1) * limit;
+
+    // 优化：使用JOIN获取结果物品和emoji
+    let resultSql = `
+      SELECT DISTINCT r.result,
+             ir.emoji as result_emoji,
+             COUNT(r.id) as recipe_count
+      FROM recipes r
+      LEFT JOIN items ir ON ir.name = r.result
+    `;
+    const resultParams: any[] = [];
+
+    const conditions = [];
+    if (search) {
+      conditions.push(`(r.item_a = ? OR r.item_b = ? OR r.result = ? OR 
+                       r.item_a LIKE ? OR r.item_b LIKE ? OR r.result LIKE ?)`);
+      resultParams.push(search, search, search, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+
+    if (result) {
+      conditions.push('r.result = ?');
+      resultParams.push(result);
+    }
+
+    if (conditions.length > 0) {
+      resultSql += ` WHERE ${conditions.join(' AND ')}`;
+    }
+
+    resultSql += ` GROUP BY r.result ORDER BY recipe_count DESC, r.result LIMIT ? OFFSET ?`;
+    resultParams.push(limit, offset);
+
+    const results = await database.all(resultSql, resultParams);
+
+    // 为每个结果物品获取所有配方（优化：使用JOIN替代子查询）
+    const groupedRecipes = [];
+    for (const resultItem of results) {
+      let recipeSql = `
+        SELECT r.*, u.name as creator_name,
+               ia.emoji as item_a_emoji,
+               ib.emoji as item_b_emoji,
+               ir.emoji as result_emoji,
+               ${userId ? 'CASE WHEN rl.id IS NOT NULL THEN 1 ELSE 0 END as is_liked' : '0 as is_liked'}
+        FROM recipes r
+        LEFT JOIN user u ON r.user_id = u.id
+        LEFT JOIN items ia ON ia.name = r.item_a
+        LEFT JOIN items ib ON ib.name = r.item_b  
+        LEFT JOIN items ir ON ir.name = r.result
+        ${userId ? 'LEFT JOIN recipe_likes rl ON rl.recipe_id = r.id AND rl.user_id = ?' : ''}
+        WHERE r.result = ?
+        ORDER BY r.likes DESC, r.created_at DESC
+      `;
+      
+      const recipeParams = userId ? [userId, resultItem.result] : [resultItem.result];
+      const recipes = await database.all(recipeSql, recipeParams);
+
+      groupedRecipes.push({
+        result: resultItem.result,
+        result_emoji: resultItem.result_emoji,
+        recipe_count: resultItem.recipe_count,
+        recipes: recipes
+      });
+    }
+
+    // 异步获取总数
+    // 构建计数查询的参数（排除分页参数）
+    const countParams = [];
+    let paramIndex = 0;
+    
+    // search参数（6个）
+    if (search) {
+      countParams.push(...resultParams.slice(paramIndex, paramIndex + 6));
+      paramIndex += 6;
+    }
+    
+    // result参数
+    if (result) {
+      countParams.push(resultParams[paramIndex++]);
+    }
+    
+    const totalPromise = this.getGroupedCountAsync(countParams, conditions);
+
+    return {
+      grouped_recipes: groupedRecipes,
+      total: await totalPromise,
       page,
       limit
     };
   }
 
   /**
-   * 获取配方详情
+   * 异步获取分组查询的总数
+   */
+  private async getGroupedCountAsync(baseParams: any[], conditions: string[]): Promise<number> {
+    let countSql = 'SELECT COUNT(DISTINCT result) as count FROM recipes r';
+    if (conditions.length > 0) {
+      countSql += ` WHERE ${conditions.join(' AND ')}`;
+    }
+    
+    try {
+      // 调试日志
+      logger.debug('getGroupedCountAsync SQL:', countSql);
+      logger.debug('getGroupedCountAsync params:', baseParams);
+      logger.debug('getGroupedCountAsync conditions:', conditions);
+      
+      const totalResult = await database.get<{ count: number }>(countSql, baseParams);
+      return totalResult?.count || 0;
+    } catch (error) {
+      logger.error('获取分组总数失败:', error);
+      logger.error('SQL:', countSql);
+      logger.error('参数:', baseParams);
+      return 0;
+    }
+  }
+
+  /**
+   * 获取配方详情（优化版本）
    */
   async getRecipeById(id: number) {
     const recipe = await database.get(
-      `SELECT r.*, u.name as creator_name
+      `SELECT r.*, u.name as creator_name,
+              ia.emoji as item_a_emoji,
+              ib.emoji as item_b_emoji,
+              ir.emoji as result_emoji
        FROM recipes r
        LEFT JOIN user u ON r.user_id = u.id
+       LEFT JOIN items ia ON ia.name = r.item_a
+       LEFT JOIN items ib ON ib.name = r.item_b  
+       LEFT JOIN items ir ON ir.name = r.result
        WHERE r.id = ?`,
       [id]
     );
@@ -179,7 +392,7 @@ export class RecipeService {
       [itemA, itemB, result, creatorId, 0]
     );
     contributionPoints += 1; // 新配方 +1 分
-    console.log(`✅ New recipe added: ${itemA} + ${itemB} = ${result}, +1 point`);
+    logger.success(`新配方添加: ${itemA} + ${itemB} = ${result}, +1分`);
 
     // 自动收录新物品（每个新物品 +2 分）
     // 注意: 用户可能乱序导入，所以 item_a、item_b、result 都可能是新物品
@@ -195,10 +408,10 @@ export class RecipeService {
         [contributionPoints, creatorId]
       );
       const newItemCount = (itemAPoints + itemBPoints + resultPoints) / 2;
-      console.log(`💰 User ${creatorId} earned ${contributionPoints} points (1 recipe + ${newItemCount} new items)`);
+      logger.info(`用户${creatorId}获得${contributionPoints}分 (1个配方 + ${newItemCount}个新物品)`);
     }
 
-    return recipeResult.lastID;
+    return recipeResult.lastID!;
   }
 
   /**
@@ -215,14 +428,14 @@ export class RecipeService {
   private async ensureItemExists(itemName: string): Promise<number> {
     const existing = await database.get('SELECT * FROM items WHERE name = ?', [itemName]);
     if (!existing) {
-    // 基础材料列表（与数据库初始化保持一致）
-    const baseItems = ['金', '木', '水', '火', '土'];
-    const isBase = baseItems.includes(itemName);
+      // 基础材料列表（与数据库初始化保持一致）
+      const baseItems = ['金', '木', '水', '火', '土'];
+      const isBase = baseItems.includes(itemName);
       await database.run(
         'INSERT INTO items (name, is_base) VALUES (?, ?)',
         [itemName, isBase ? 1 : 0]
       );
-      console.log(`📝 New item added to dictionary: ${itemName}, +2 points`);
+      logger.info(`新物品添加到词典: ${itemName}, +2分`);
       return 2; // 新物品 +2 分
     }
     return 0; // 已存在物品不加分
@@ -278,7 +491,12 @@ export class RecipeService {
       total_recipes: recipesCount?.count || 0,
       total_items: itemsCount?.count || 0,
       base_items: baseItemsCount?.count || 0,
-      craftable_items: craftableItemsCount?.count || 0,
+      reachable_items: craftableItemsCount?.count || 0,
+      unreachable_items: (itemsCount?.count || 0) - (craftableItemsCount?.count || 0) - (baseItemsCount?.count || 0),
+      valid_recipes: recipesCount?.count || 0,
+      invalid_recipes: 0,
+      circular_recipes: 0,
+      circular_items: 0,
       total_users: usersCount?.count || 0,
       active_tasks: tasksCount?.count || 0
     };
@@ -416,6 +634,80 @@ export class RecipeService {
   }
 
   /**
+   * 批量获取配方（用于大数据量场景）
+   */
+  async getRecipesBatch(params: {
+    batchSize?: number;
+    lastId?: number;
+    search?: string;
+    userId?: number;
+  }) {
+    const { batchSize = 1000, lastId = 0, search, userId } = params;
+    
+    let sql = `
+      SELECT r.*, 
+             u.name as creator_name,
+             ia.emoji as item_a_emoji,
+             ib.emoji as item_b_emoji,
+             ir.emoji as result_emoji,
+             ${userId ? 'CASE WHEN rl.id IS NOT NULL THEN 1 ELSE 0 END as is_liked' : '0 as is_liked'}
+      FROM recipes r
+      LEFT JOIN user u ON r.user_id = u.id
+      LEFT JOIN items ia ON ia.name = r.item_a
+      LEFT JOIN items ib ON ib.name = r.item_b  
+      LEFT JOIN items ir ON ir.name = r.result
+      ${userId ? 'LEFT JOIN recipe_likes rl ON rl.recipe_id = r.id AND rl.user_id = ?' : ''}
+      WHERE r.id > ?
+    `;
+    
+    const sqlParams: any[] = [];
+    if (userId) {
+      sqlParams.push(userId);
+    }
+    sqlParams.push(lastId);
+    
+    if (search) {
+      sql += ` AND (r.item_a LIKE ? OR r.item_b LIKE ? OR r.result LIKE ?)`;
+      sqlParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    
+    sql += ` ORDER BY r.id ASC LIMIT ?`;
+    sqlParams.push(batchSize);
+    
+    const recipes = await database.all(sql, sqlParams);
+    
+    return {
+      recipes,
+      hasMore: recipes.length === batchSize,
+      lastId: recipes.length > 0 ? recipes[recipes.length - 1].id : lastId
+    };
+  }
+
+  /**
+   * 创建优化索引
+   */
+  async createOptimizedIndexes() {
+    const indexes = [
+      // 复合索引优化搜索
+      'CREATE INDEX IF NOT EXISTS idx_recipes_search ON recipes(item_a, item_b, result)',
+      'CREATE INDEX IF NOT EXISTS idx_recipes_result_created ON recipes(result, created_at DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_recipes_result_likes ON recipes(result, likes DESC)',
+      
+      // 覆盖索引优化
+      'CREATE INDEX IF NOT EXISTS idx_recipes_cover ON recipes(id, created_at, likes, user_id)',
+    ];
+
+    for (const indexSql of indexes) {
+      try {
+        await database.run(indexSql);
+        logger.info('索引创建成功:', indexSql);
+      } catch (error) {
+        logger.error('索引创建失败:', error);
+      }
+    }
+  }
+
+  /**
    * 检测和分析不可及图
    */
   async analyzeUnreachableGraphs(): Promise<{ unreachableGraphs: UnreachableGraph[]; systemStats: GraphSystemStats }> {
@@ -433,7 +725,7 @@ export class RecipeService {
     // 分析可达性
     const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
     
-    // 构建不可及图
+    // 构建不可达图
     const unreachableGraphs = this.buildUnreachableGraphs(unreachableItems, recipeGraph);
     
     // 计算系统统计
@@ -511,7 +803,7 @@ export class RecipeService {
   }
 
   /**
-   * 构建不可及图
+   * 构建不可达图
    */
   private buildUnreachableGraphs(unreachableItems: Set<string>, recipeGraph: Record<string, string[]>): UnreachableGraph[] {
     const visited = new Set<string>();
@@ -897,3 +1189,4 @@ export class RecipeService {
 }
 
 export const recipeService = new RecipeService();
+

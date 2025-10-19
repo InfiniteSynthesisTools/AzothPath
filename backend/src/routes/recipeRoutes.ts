@@ -3,6 +3,8 @@ import * as jwt from 'jsonwebtoken';
 import { recipeService } from '../services/recipeService';
 import { authMiddleware, AuthRequest } from '../middlewares/auth';
 import { userService } from '../services/userService';
+import { logger } from '../utils/logger';
+import { rateLimits } from '../middlewares/rateLimiter';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'development_secret_key';
 
@@ -18,6 +20,8 @@ router.get('/', async (req: Request, res: Response) => {
     const limit = parseInt(req.query.limit as string) || 20;
     const search = req.query.search as string;
     const orderBy = req.query.orderBy as string;
+    const result = req.query.result as string;
+    const cursor = req.query.cursor as string; // 新增游标分页支持
 
     // 尝试从认证信息中获取用户ID
     let userId: number | undefined;
@@ -30,21 +34,67 @@ router.get('/', async (req: Request, res: Response) => {
       }
     } catch (error) {
       // 如果token验证失败，继续执行但不传递userId
-      console.log('Token verification failed, proceeding without user context');
+      logger.debug('Token验证失败，继续执行（无用户上下文）');
     }
 
-    const result = await recipeService.getRecipes({ page, limit, search, orderBy, userId });
+    const recipes = await recipeService.getRecipes({ page, limit, search, orderBy, userId, result, cursor });
 
     res.json({
       code: 200,
       message: '获取成功',
-      data: result
+      data: recipes
     });
   } catch (error: any) {
-    console.error('Get recipes error:', error);
+    logger.error('获取配方列表失败', error);
     res.status(500).json({
       code: 500,
       message: error.message || '获取配方列表失败'
+    });
+  }
+});
+
+/**
+ * GET /api/recipes/grouped
+ * 获取按结果分组的配方列表
+ */
+router.get('/grouped', async (req: Request, res: Response) => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 20;
+    const search = req.query.search as string;
+    const result = req.query.result as string;
+
+    // 尝试从认证信息中获取用户ID
+    let userId: number | undefined;
+    try {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
+        userId = decoded.userId;
+      }
+    } catch (error) {
+      logger.debug('Token验证失败，继续执行（无用户上下文）');
+    }
+
+    const groupedRecipes = await recipeService.getGroupedRecipes({ 
+      page, 
+      limit, 
+      search, 
+      result, 
+      userId 
+    });
+
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: groupedRecipes
+    });
+  } catch (error: any) {
+    logger.error('获取分组配方列表失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取分组配方列表失败'
     });
   }
 });
@@ -64,7 +114,7 @@ router.get('/:id', async (req: Request, res: Response) => {
       data: recipe
     });
   } catch (error: any) {
-    console.error('Get recipe error:', error);
+    logger.error('获取配方详情失败', error);
     res.status(404).json({
       code: 404,
       message: error.message || '配方不存在'
@@ -76,7 +126,7 @@ router.get('/:id', async (req: Request, res: Response) => {
  * POST /api/recipes/submit
  * 提交配方（需要认证）
  */
-router.post('/submit', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/submit', authMiddleware, rateLimits.strict, async (req: AuthRequest, res: Response) => {
   try {
     const { item_a, item_b, result } = req.body;
 
@@ -107,8 +157,7 @@ router.post('/submit', authMiddleware, async (req: AuthRequest, res: Response) =
 
     const recipeId = await recipeService.submitRecipe(item_a, item_b, result, req.userId!);
 
-    // 增加用户贡献度
-    await userService.incrementContribution(req.userId!, 1);
+    // 注意：贡献分增加已经在 recipeService.submitRecipe 中处理了，包括任务自动完成奖励
 
     res.status(201).json({
       code: 201,
@@ -116,7 +165,7 @@ router.post('/submit', authMiddleware, async (req: AuthRequest, res: Response) =
       data: { id: recipeId }
     });
   } catch (error: any) {
-    console.error('Submit recipe error:', error);
+    logger.error('提交配方失败', error);
     res.status(400).json({
       code: 400,
       message: error.message || '提交配方失败'
@@ -128,7 +177,7 @@ router.post('/submit', authMiddleware, async (req: AuthRequest, res: Response) =
  * POST /api/recipes/:id/like
  * 点赞/取消点赞配方（需要认证）
  */
-router.post('/:id/like', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/:id/like', authMiddleware, rateLimits.general, async (req: AuthRequest, res: Response) => {
   try {
     const recipeId = parseInt(req.params.id);
     const result = await recipeService.toggleLike(recipeId, req.userId!);
@@ -139,7 +188,7 @@ router.post('/:id/like', authMiddleware, async (req: AuthRequest, res: Response)
       data: result
     });
   } catch (error: any) {
-    console.error('Toggle like error:', error);
+    logger.error('切换点赞状态失败', error);
     res.status(500).json({
       code: 500,
       message: error.message || '操作失败'
@@ -169,7 +218,7 @@ router.get('/path/:item', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Search path error:', error);
+    logger.error('搜索路径失败', error);
     res.status(500).json({
       code: 500,
       message: error.message || '搜索路径失败'
@@ -191,10 +240,79 @@ router.get('/graph/stats', async (req: Request, res: Response) => {
       data: stats
     });
   } catch (error: any) {
-    console.error('Get graph stats error:', error);
+    logger.error('获取图表统计失败', error);
     res.status(500).json({
       code: 500,
       message: error.message || '获取统计信息失败'
+    });
+  }
+});
+
+/**
+ * GET /api/recipes/batch
+ * 批量获取配方（用于大数据量场景）
+ */
+router.get('/batch', async (req: Request, res: Response) => {
+  try {
+    const batchSize = parseInt(req.query.batchSize as string) || 1000;
+    const lastId = parseInt(req.query.lastId as string) || 0;
+    const search = req.query.search as string;
+
+    // 尝试从认证信息中获取用户ID
+    let userId: number | undefined;
+    try {
+      const authHeader = req.headers.authorization;
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        const token = authHeader.substring(7);
+        const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
+        userId = decoded.userId;
+      }
+    } catch (error) {
+      logger.debug('Token验证失败，继续执行（无用户上下文）');
+    }
+
+    const result = await recipeService.getRecipesBatch({ batchSize, lastId, search, userId });
+
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: result
+    });
+  } catch (error: any) {
+    logger.error('批量获取配方失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '批量获取配方失败'
+    });
+  }
+});
+
+/**
+ * POST /api/recipes/optimize
+ * 创建优化索引（管理员功能）
+ */
+router.post('/optimize', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    // 检查管理员权限
+    const user = await userService.getCurrentUser(req.userId!);
+    if (!user || user.auth < 9) {
+      return res.status(403).json({
+        code: 403,
+        message: '权限不足'
+      });
+    }
+
+    await recipeService.createOptimizedIndexes();
+
+    res.json({
+      code: 200,
+      message: '索引优化完成'
+    });
+  } catch (error: any) {
+    logger.error('创建优化索引失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '创建优化索引失败'
     });
   }
 });

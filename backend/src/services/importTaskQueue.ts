@@ -1,5 +1,8 @@
 import { database } from '../database/connection';
+import { logger } from '../utils/logger';
+import { apiConfig } from '../config/api';
 import axios from 'axios';
+import { recipeService } from './recipeService';
 
 // 外部验证 API 配置
 const VALIDATION_API_URL = process.env.VALIDATION_API_URL || 'https://hc.tsdo.in/api';
@@ -13,10 +16,12 @@ interface ImportTaskContent {
   item_a: string;
   item_b: string;
   result: string;
-  status: number;
+  status: 'pending' | 'processing' | 'success' | 'failed' | 'duplicate';
   retry_count: number;
   error_message: string | null;
   recipe_id: number | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ValidationResponse {
@@ -32,14 +37,23 @@ class ImportTaskQueue {
   /**
    * 启动任务队列处理器
    */
-  start() {
+  async start() {
     if (this.isRunning) {
-      console.log('⚠️  Import task queue is already running');
+      logger.warn('导入任务队列已在运行');
+      return;
+    }
+
+    // 等待数据库初始化完成
+    try {
+      await database.init();
+      logger.debug('数据库连接已确认，启动任务队列');
+    } catch (error) {
+      logger.error('数据库初始化失败，任务队列启动失败', error);
       return;
     }
 
     this.isRunning = true;
-    console.log('🚀 Import task queue started');
+    logger.success('导入任务队列已启动');
     this.processLoop();
   }
 
@@ -48,7 +62,7 @@ class ImportTaskQueue {
    */
   stop() {
     this.isRunning = false;
-    console.log('🛑 Import task queue stopped');
+    logger.info('导入任务队列已停止');
   }
 
   /**
@@ -57,9 +71,10 @@ class ImportTaskQueue {
   private async processLoop() {
     while (this.isRunning) {
       try {
+        logger.info('任务队列循环开始');
         await this.processPendingTasks();
       } catch (error) {
-        console.error('❌ Error in task queue loop:', error);
+        logger.error('任务队列循环错误', error);
       }
 
       // 等待下一轮
@@ -71,24 +86,31 @@ class ImportTaskQueue {
    * 处理待处理的任务
    */
   private async processPendingTasks() {
-    // 查询待处理的任务（status=0 且重试次数<3）
-    const pendingTasks = await database.all<ImportTaskContent>(
-      `SELECT * FROM import_tasks_content 
-       WHERE status = 0 AND retry_count < ? 
-       ORDER BY created_at ASC 
-       LIMIT ?`,
-      [MAX_RETRY_COUNT, CONCURRENT_LIMIT]
-    );
+    // 查询待处理的任务（status='pending' 且重试次数<3）
+    logger.info('查询待处理任务');
+    try {
+      const pendingTasks = await database.all<ImportTaskContent>(
+        `SELECT * FROM import_tasks_content 
+         WHERE status = 'pending' AND retry_count < ? 
+         ORDER BY created_at ASC 
+         LIMIT ?`,
+        [MAX_RETRY_COUNT, CONCURRENT_LIMIT]
+      );
+      logger.info(`查询到${pendingTasks.length}个待处理任务`);
 
-    if (pendingTasks.length === 0) {
-      return; // 没有待处理任务
+      if (pendingTasks.length === 0) {
+        return; // 没有待处理任务
+      }
+
+      logger.info(`发现${pendingTasks.length}个待处理任务`);
+
+      // 并发处理任务
+      const promises = pendingTasks.map((task: ImportTaskContent) => this.processTask(task));
+      await Promise.allSettled(promises);
+    } catch (error) {
+      logger.error('查询待处理任务失败', error);
+      throw error;
     }
-
-    console.log(`📋 Found ${pendingTasks.length} pending task(s) to process`);
-
-    // 并发处理任务
-    const promises = pendingTasks.map((task: ImportTaskContent) => this.processTask(task));
-    await Promise.allSettled(promises);
   }
 
   /**
@@ -103,7 +125,7 @@ class ImportTaskQueue {
     this.processingIds.add(task.id);
 
     try {
-      console.log(`🔄 Processing task ${task.id}: ${task.item_a} + ${task.item_b} = ${task.result}`);
+      logger.debug(`处理任务${task.id}: ${task.item_a} + ${task.item_b} = ${task.result}`);
 
       // 1. 检查是否已存在相同配方（去重）
       const existingRecipe = await this.checkDuplicateRecipe(task);
@@ -165,20 +187,17 @@ class ImportTaskQueue {
    */
   private async validateRecipe(task: ImportTaskContent): Promise<{ success: boolean; error?: string; emoji?: string }> {
     try {
-      console.log(`🔍 验证配方: ${task.item_a} + ${task.item_b}`);
-      const response = await axios.get(VALIDATION_API_URL, {
+      logger.debug(`验证配方: ${task.item_a} + ${task.item_b}`);
+      const response = await axios.get(apiConfig.validationApiUrl, {
         params: {
           itemA: task.item_a,
           itemB: task.item_b
         },
-        timeout: 3000, // 3秒超时
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'AzothPath/1.0'
-        }
+        timeout: apiConfig.timeout,
+        headers: apiConfig.headers
       });
 
-      console.log(`📡 API响应: ${response.status}`, response.data);
+      logger.debug(`API响应: ${response.status}`, response.data);
 
       if (response.status === 200) {
         const data = response.data;
@@ -190,22 +209,22 @@ class ImportTaskQueue {
               error: `结果不匹配: 预期 "${task.result}", 实际 "${data.item}"`
             };
           }
-          console.log(`✅ 验证成功: ${task.item_a} + ${task.item_b} = ${data.item}`);
+          logger.debug(`验证成功: ${task.item_a} + ${task.item_b} = ${data.item}`);
           return { success: true, emoji: data.emoji };
         } else {
-          console.log(`❌ 验证失败: 无法合成 ${task.item_a} + ${task.item_b}`);
+          logger.debug(`验证失败: 无法合成 ${task.item_a} + ${task.item_b}`);
           return { success: false, error: '无法合成' };
         }
       } else {
-        console.log(`❌ API错误状态: ${response.status}`);
+        logger.warn(`API错误状态: ${response.status}`);
         return { success: false, error: `API返回状态: ${response.status}` };
       }
     } catch (error: any) {
-      console.log(`❌ 验证异常: ${error.message}`);
+      logger.error(`验证异常: ${error.message}`);
       
       if (error.response) {
         const status = error.response.status;
-        console.log(`📡 错误响应: ${status}`, error.response.data);
+        logger.warn(`错误响应: ${status}`, error.response.data);
         
         if (status === 400) {
           return { success: false, error: '这两个物件不能合成' };
@@ -270,7 +289,7 @@ class ImportTaskQueue {
         'UPDATE items SET emoji = ? WHERE name = ?',
         [resultEmoji, items[2]]
       );
-      console.log(`💾 保存emoji: ${items[2]} = ${resultEmoji}`);
+      logger.debug(`保存emoji: ${items[2]} = ${resultEmoji}`);
     }
   }
 
@@ -280,9 +299,9 @@ class ImportTaskQueue {
   private async markAsSuccess(task: ImportTaskContent, recipeId: number) {
     await database.run(
       `UPDATE import_tasks_content 
-       SET status = 1, recipe_id = ?, updated_at = CURRENT_TIMESTAMP 
+       SET status = ?, recipe_id = ?, updated_at = CURRENT_TIMESTAMP 
        WHERE id = ?`,
-      [recipeId, task.id]
+      ['success', recipeId, task.id]
     );
   }
 
@@ -292,9 +311,9 @@ class ImportTaskQueue {
   private async markAsDuplicate(task: ImportTaskContent, existingRecipeId: number) {
     await database.run(
       `UPDATE import_tasks_content 
-       SET status = 1, recipe_id = ?, error_message = 'Duplicate recipe', updated_at = CURRENT_TIMESTAMP 
+       SET status = ?, recipe_id = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP 
        WHERE id = ?`,
-      [existingRecipeId, task.id]
+      ['duplicate', existingRecipeId, 'Duplicate recipe', task.id]
     );
 
     // 更新任务统计（duplicate_count）
@@ -305,7 +324,7 @@ class ImportTaskQueue {
       [task.task_id]
     );
 
-    console.log(`ℹ️  Task ${task.id} marked as duplicate (recipe_id: ${existingRecipeId})`);
+    logger.info(`任务${task.id}标记为重复 (recipe_id: ${existingRecipeId})`);
   }
 
   /**
@@ -313,7 +332,7 @@ class ImportTaskQueue {
    */
   private async incrementRetry(task: ImportTaskContent, errorMessage: string) {
     const newRetryCount = task.retry_count + 1;
-    const newStatus = newRetryCount >= MAX_RETRY_COUNT ? -1 : 0;
+    const newStatus = newRetryCount >= MAX_RETRY_COUNT ? 'failed' : 'pending';
 
     await database.run(
       `UPDATE import_tasks_content 
@@ -322,7 +341,7 @@ class ImportTaskQueue {
       [newRetryCount, newStatus, errorMessage, task.id]
     );
 
-    if (newStatus === -1) {
+    if (newStatus === 'failed') {
       console.log(`⚠️  Task ${task.id} failed after ${MAX_RETRY_COUNT} retries`);
       await this.updateTaskStats(task.task_id);
     } else {
@@ -343,9 +362,9 @@ class ImportTaskQueue {
     }>(
       `SELECT 
         COUNT(*) as total,
-        SUM(CASE WHEN status = 1 THEN 1 ELSE 0 END) as success,
-        SUM(CASE WHEN status = -1 THEN 1 ELSE 0 END) as failed,
-        SUM(CASE WHEN status = 1 AND error_message = 'Duplicate recipe' THEN 1 ELSE 0 END) as duplicate
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+        SUM(CASE WHEN status = 'duplicate' THEN 1 ELSE 0 END) as duplicate
        FROM import_tasks_content 
        WHERE task_id = ?`,
       [taskId]
@@ -353,7 +372,7 @@ class ImportTaskQueue {
 
     if (!stats) return;
 
-    const pending = stats.total - stats.success - stats.failed;
+    const pending = stats.total - stats.success - stats.failed - stats.duplicate;
     const taskStatus = pending > 0 ? 'processing' : 'completed';
 
     await database.run(
@@ -388,13 +407,13 @@ class ImportTaskQueue {
    */
   async resetFailedTasks(taskId?: number) {
     const sql = taskId
-      ? 'UPDATE import_tasks_content SET status = 0, retry_count = 0, error_message = NULL WHERE task_id = ? AND status = -1'
-      : 'UPDATE import_tasks_content SET status = 0, retry_count = 0, error_message = NULL WHERE status = -1';
+      ? 'UPDATE import_tasks_content SET status = ?, retry_count = 0, error_message = NULL WHERE task_id = ? AND status = ?'
+      : 'UPDATE import_tasks_content SET status = ?, retry_count = 0, error_message = NULL WHERE status = ?';
 
-    const params = taskId ? [taskId] : [];
+    const params = taskId ? ['pending', taskId, 'failed'] : ['pending', 'failed'];
     const result = await database.run(sql, params);
 
-    console.log(`🔄 Reset ${result.changes} failed task(s)`);
+    logger.info(`重置${result.changes}个失败任务`);
     return result.changes || 0;
   }
 }

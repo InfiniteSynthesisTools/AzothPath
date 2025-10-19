@@ -3,6 +3,9 @@
 # Azoth Path - 项目运行脚本
 # 用于快速启动前端和后端服务
 
+# 设置时区为 UTC+8 (中国标准时间)
+export TZ=Asia/Shanghai
+
 set -e  # 遇到错误立即退出
 
 # 颜色定义
@@ -121,7 +124,7 @@ JWT_SECRET=azoth-path-secret-key-change-in-production
 JWT_EXPIRES_IN=7d
 
 # 外部API配置（可选）
-GAME_API_ENDPOINT=https://api.example.com
+VALIDATION_API_URL=https://hc.tsdo.in/api
 
 # 日志配置
 LOG_LEVEL=info

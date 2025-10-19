@@ -1,6 +1,9 @@
 import { database } from '../database/connection';
 import { recipeService } from './recipeService';
+import { logger } from '../utils/logger';
+import { apiConfig } from '../config/api';
 import axios from 'axios';
+import { validationLimiter } from '../utils/validationLimiter';
 
 export interface ImportTask {
   id: number;
@@ -21,7 +24,7 @@ export interface ImportTaskContent {
   item_a: string;
   item_b: string;
   result: string;
-  status: number;  // 0=待处理, 1=成功, -1=失败
+  status: 'pending' | 'processing' | 'success' | 'failed' | 'duplicate';
   retry_count: number;  // 重试次数
   error_message?: string;
   recipe_id?: number;
@@ -34,55 +37,60 @@ export class ImportService {
    * 验证配方是否有效
    */
   async validateRecipe(itemA: string, itemB: string): Promise<{ valid: boolean; result?: string; error?: string; emoji?: string }> {
-    try {
-      console.log(`🔍 验证配方: ${itemA} + ${itemB}`);
-      const response = await axios.get('https://hc.tsdo.in/api', {
-        params: {
-          itemA: itemA,
-          itemB: itemB
-        },
-        timeout: 5000, // 5秒超时
-        headers: {
-          'Accept': 'application/json',
-          'User-Agent': 'AzothPath/1.0'
-        }
-      });
+    // 使用限速器限制验证频率
+    return await validationLimiter.limitValidation(async () => {
+      try {
+        logger.debug(`验证配方: ${itemA} + ${itemB}`);
+        const response = await axios.get(apiConfig.validationApiUrl, {
+          params: {
+            itemA: itemA,
+            itemB: itemB
+          },
+          timeout: apiConfig.timeout,
+          headers: apiConfig.headers
+        });
 
-      console.log(`📡 API响应: ${response.status}`, response.data);
+        logger.debug(`API响应: ${response.status}`, response.data);
 
-      if (response.status === 200) {
-        const data = response.data;
-        if (data.item && data.item !== '') {
-          console.log(`✅ 验证成功: ${itemA} + ${itemB} = ${data.item}`);
-          return { valid: true, result: data.item, emoji: data.emoji };
+        if (response.status === 200) {
+          const data = response.data;
+          if (data.item && data.item !== '') {
+            logger.debug(`验证成功: ${itemA} + ${itemB} = ${data.item}`);
+            return { valid: true, result: data.item, emoji: data.emoji };
+          } else {
+            logger.debug(`验证失败: 无法合成 ${itemA} + ${itemB}`);
+            return { valid: false, error: '无法合成' };
+          }
         } else {
-          console.log(`❌ 验证失败: 无法合成 ${itemA} + ${itemB}`);
-          return { valid: false, error: '无法合成' };
+          logger.warn(`API错误状态: ${response.status}`);
+          return { valid: false, error: `API返回状态: ${response.status}` };
         }
-      } else {
-        console.log(`❌ API错误状态: ${response.status}`);
-        return { valid: false, error: `API返回状态: ${response.status}` };
-      }
-    } catch (error: any) {
-      console.log(`❌ 验证异常: ${error.message}`);
-      if (error.response) {
-        const status = error.response.status;
-        console.log(`📡 错误响应: ${status}`, error.response.data);
-        if (status === 400) {
-          return { valid: false, error: '这两个物件不能合成' };
-        } else if (status === 403) {
-          return { valid: false, error: '包含非法物件（还没出现过的物件）' };
+      } catch (error: any) {
+        logger.error(`验证异常: ${error.message}`);
+        if (error.response) {
+          const status = error.response.status;
+          logger.warn(`错误响应: ${status}`, error.response.data);
+          if (status === 400) {
+            return { valid: false, error: '这两个物件不能合成' };
+          } else if (status === 403) {
+            return { valid: false, error: '包含非法物件（还没出现过的物件）' };
+          } else if (status === 429) {
+            // 处理API限速错误
+            logger.warn('API限速，等待后重试');
+            await new Promise(resolve => setTimeout(resolve, 2000)); // 等待2秒
+            throw error; // 重新抛出错误，让限速器处理重试
+          } else {
+            return { valid: false, error: `验证失败，状态码: ${status}` };
+          }
+        } else if (error.code === 'ECONNABORTED') {
+          return { valid: false, error: '验证超时，请稍后重试' };
         } else {
-          return { valid: false, error: `验证失败，状态码: ${status}` };
+          // 网络错误或其他问题，暂时跳过验证，允许配方通过
+          logger.warn(`验证API不可用，跳过验证: ${error.message}`);
+          return { valid: true, result: undefined };
         }
-      } else if (error.code === 'ECONNABORTED') {
-        return { valid: false, error: '验证超时，请稍后重试' };
-      } else {
-        // 网络错误或其他问题，暂时跳过验证，允许配方通过
-        console.warn(`验证API不可用，跳过验证: ${error.message}`);
-        return { valid: true, result: undefined };
       }
-    }
+    });
   }
 
   /**
@@ -92,10 +100,10 @@ export class ImportService {
     try {
       if (resultEmoji) {
         await database.run('UPDATE items SET emoji = ? WHERE name = ?', [resultEmoji, result]);
-        console.log(`💾 保存emoji: ${result} = ${resultEmoji}`);
+        logger.debug(`保存emoji: ${result} = ${resultEmoji}`);
       }
     } catch (error) {
-      console.warn('保存emoji失败:', error);
+      logger.warn('保存emoji失败', error);
     }
   }
 
@@ -135,14 +143,17 @@ export class ImportService {
    * 创建导入任务
    */
   async createImportTask(userId: number, recipes: Array<{ item_a: string; item_b: string; result: string }>): Promise<number> {
+    const totalCount = recipes.length;
+
+    // 创建任务汇总记录
     const taskResult = await database.run(
-      'INSERT INTO import_tasks (user_id, total_count, status) VALUES (?, ?, ?)',
-      [userId, recipes.length, 'processing']
+      'INSERT INTO import_tasks (user_id, total_count, success_count, failed_count, duplicate_count, status) VALUES (?, ?, ?, ?, ?, ?)',
+      [userId, totalCount, 0, 0, 0, 'processing']
     );
 
-    const taskId = taskResult.lastID;
+    const taskId = taskResult.lastID!;
 
-    // 创建任务明细
+    // 创建任务明细记录
     for (const recipe of recipes) {
       await database.run(
         'INSERT INTO import_tasks_content (task_id, item_a, item_b, result, status) VALUES (?, ?, ?, ?, ?)',
@@ -169,12 +180,15 @@ export class ImportService {
       // 对于大量数据，我们依赖队列系统处理，这里只返回初始状态
       return { successCount: 0, failedCount: 0, duplicateCount: 0 };
 
-    } catch (error) {
-      console.error('Process import task error:', error);
+    } catch (error: any) {
+      // 更新任务状态为失败
       await database.run(
-        'UPDATE import_tasks SET status = ?, error_details = ? WHERE id = ?',
-        ['failed', error instanceof Error ? error.message : 'Unknown error', taskId]
+        'UPDATE import_tasks SET status = ?, error_details = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
+        ['failed', JSON.stringify({ error: error.message }), taskId]
       );
+
+
+      logger.error('处理导入任务错误', error);
       throw error;
     }
   }
@@ -191,7 +205,7 @@ export class ImportService {
   }
 
   /**
-   * 获取导入任务明细
+   * 获取导入任务明细（按任务ID）
    */
   async getImportTaskContents(taskId: number, params: {
     page?: number;
@@ -204,7 +218,7 @@ export class ImportService {
     let sql = 'SELECT * FROM import_tasks_content WHERE task_id = ?';
     const sqlParams: any[] = [taskId];
 
-    if (status) {
+    if (status !== undefined) {
       sql += ' AND status = ?';
       sqlParams.push(status);
     }
@@ -217,7 +231,7 @@ export class ImportService {
     // 获取总数
     let countSql = 'SELECT COUNT(*) as count FROM import_tasks_content WHERE task_id = ?';
     const countParams: any[] = [taskId];
-    if (status) {
+    if (status !== undefined) {
       countSql += ' AND status = ?';
       countParams.push(status);
     }
@@ -231,7 +245,7 @@ export class ImportService {
   }
 
   /**
-   * 获取用户的导入任务列表
+   * 获取用户的导入任务批次列表
    */
   async getUserImportTasks(userId: number, params: {
     page?: number;
@@ -241,10 +255,11 @@ export class ImportService {
     const { page = 1, limit = 20, status } = params;
     const offset = (page - 1) * limit;
 
+    // 查询任务汇总表
     let sql = 'SELECT * FROM import_tasks WHERE user_id = ?';
     const sqlParams: any[] = [userId];
 
-    if (status) {
+    if (status !== undefined) {
       sql += ' AND status = ?';
       sqlParams.push(status);
     }
@@ -257,7 +272,7 @@ export class ImportService {
     // 获取总数
     let countSql = 'SELECT COUNT(*) as count FROM import_tasks WHERE user_id = ?';
     const countParams: any[] = [userId];
-    if (status) {
+    if (status !== undefined) {
       countSql += ' AND status = ?';
       countParams.push(status);
     }

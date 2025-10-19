@@ -116,7 +116,7 @@
           v-model:current-page="filters.page"
           v-model:page-size="filters.limit"
           :total="total"
-          :page-sizes="[12, 24, 48]"
+          :page-sizes="[20, 40, 60]"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="loadImportTasks"
           @size-change="loadImportTasks"
@@ -152,10 +152,10 @@
               <el-tag type="warning">{{ selectedTask.duplicate_count }}</el-tag>
             </el-descriptions-item>
             <el-descriptions-item label="创建时间">
-              {{ formatDate(selectedTask.created_at) }}
+              {{ formatDateTime(selectedTask.created_at) }}
             </el-descriptions-item>
             <el-descriptions-item label="更新时间">
-              {{ formatDate(selectedTask.updated_at) }}
+              {{ formatDateTime(selectedTask.updated_at) }}
             </el-descriptions-item>
           </el-descriptions>
 
@@ -199,6 +199,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { useImportStore } from '@/stores/import';
 import type { ImportTask, ImportTaskContent } from '@/types';
 import ImportTaskCard from '@/components/ImportTaskCard.vue';
+import { formatDateTime } from '@/utils/time';
 
 const importStore = useImportStore();
 
@@ -218,7 +219,7 @@ const loading = ref(false);
 // 筛选器
 const filters = ref({
   page: 1,
-  limit: 12,
+  limit: 20,
   status: '' as '' | 'processing' | 'completed' | 'failed',
   sortBy: 'created_at' as 'created_at' | 'total_count',
   sortOrder: 'desc' as 'asc' | 'desc'
@@ -353,10 +354,7 @@ const getContentStatusText = (status: string) => {
   }
 };
 
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString('zh-CN');
-};
+// 使用统一的时间工具函数，已在上方导入
 
 onMounted(() => {
   loadImportTasks();

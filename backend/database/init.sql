@@ -22,10 +22,11 @@ CREATE TABLE IF NOT EXISTS recipes (
   CHECK (item_a <= item_b)  -- 确保字典序 item_a <= item_b，允许相同材料
 );
 
+-- 基础索引
 CREATE INDEX IF NOT EXISTS idx_recipes_result ON recipes(result);
 CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
 CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at);
-CREATE INDEX IF NOT EXISTS idx_recipes_likes ON recipes(likes DESC);  -- 按点赞数排序
+CREATE INDEX IF NOT EXISTS idx_recipes_likes ON recipes(likes DESC);
 
 -- ====================================
 -- 2. items 表 (物品词典)
@@ -35,8 +36,7 @@ CREATE TABLE IF NOT EXISTS items (
   name TEXT UNIQUE NOT NULL,
   emoji TEXT,
   pinyin TEXT,
-  is_base INTEGER DEFAULT 0,  -- 0=false, 1=true
-  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  is_base INTEGER DEFAULT 0  -- 0=false, 1=true
 );
 
 CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
@@ -78,26 +78,30 @@ CREATE TABLE IF NOT EXISTS task (
   item_name TEXT NOT NULL,  -- 关联 items.name（应用层管理）
   prize INTEGER NOT NULL,
   status TEXT DEFAULT 'active',  -- active, completed
+  task_type TEXT DEFAULT 'find_recipe',  -- find_recipe: 寻找配方, find_more_recipes: 寻找更多配方
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  created_by_user_id INTEGER NOT NULL,  -- 关联 user.id（应用层管理）
   completed_by_recipe_id INTEGER,  -- 关联 recipes.id（应用层管理）
   completed_at DATETIME
 );
 
 CREATE INDEX IF NOT EXISTS idx_task_status ON task(status);
 CREATE INDEX IF NOT EXISTS idx_task_item_name ON task(item_name);
+CREATE INDEX IF NOT EXISTS idx_task_task_type ON task(task_type);
+CREATE INDEX IF NOT EXISTS idx_task_created_by_user_id ON task(created_by_user_id);
 
 -- ====================================
--- 5. import_tasks 表 (导入任务汇总)
+-- 5. import_tasks 表 (批量导入任务汇总)
 -- ====================================
 CREATE TABLE IF NOT EXISTS import_tasks (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   user_id INTEGER NOT NULL,  -- 关联 user.id（应用层管理）
-  total_count INTEGER DEFAULT 0,
-  success_count INTEGER DEFAULT 0,
-  failed_count INTEGER DEFAULT 0,
-  duplicate_count INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'processing',  -- processing, completed, failed
-  error_details TEXT,  -- JSON 格式存储错误详情
+  total_count INTEGER NOT NULL,  -- 总数
+  success_count INTEGER DEFAULT 0,  -- 成功数
+  failed_count INTEGER DEFAULT 0,  -- 失败数
+  duplicate_count INTEGER DEFAULT 0,  -- 重复数
+  status TEXT DEFAULT 'processing',  -- processing/completed/failed
+  error_details TEXT,  -- 错误详情（JSON）
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
@@ -107,15 +111,15 @@ CREATE INDEX IF NOT EXISTS idx_import_tasks_status ON import_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_import_tasks_created_at ON import_tasks(created_at);
 
 -- ====================================
--- 6. import_tasks_content 表 (导入任务明细)
+-- 6. import_tasks_content 表 (批量导入任务明细)
 -- ====================================
 CREATE TABLE IF NOT EXISTS import_tasks_content (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
-  task_id INTEGER NOT NULL,  -- 关联 import_tasks.id（应用层管理）
+  task_id INTEGER NOT NULL,  -- 关联 import_tasks.id
   item_a TEXT NOT NULL,
   item_b TEXT NOT NULL,
   result TEXT NOT NULL,
-  status INTEGER DEFAULT 0,  -- 0=待处理, 1=成功, -1=失败（超过3次重试）
+  status TEXT DEFAULT 'pending',  -- pending/processing/success/failed/duplicate
   retry_count INTEGER DEFAULT 0,  -- 重试次数
   error_message TEXT,  -- 错误信息
   recipe_id INTEGER,  -- 关联 recipes.id（应用层管理）
@@ -125,8 +129,18 @@ CREATE TABLE IF NOT EXISTS import_tasks_content (
 
 CREATE INDEX IF NOT EXISTS idx_import_tasks_content_task_id ON import_tasks_content(task_id);
 CREATE INDEX IF NOT EXISTS idx_import_tasks_content_status ON import_tasks_content(status);
-CREATE INDEX IF NOT EXISTS idx_import_tasks_content_created_at ON import_tasks_content(created_at);
-CREATE INDEX IF NOT EXISTS idx_import_tasks_content_retry ON import_tasks_content(status, retry_count) WHERE status = 0;
+
+-- ====================================
+-- 性能优化索引（针对上万条数据优化）
+-- ====================================
+
+-- 复合索引优化搜索和排序
+CREATE INDEX IF NOT EXISTS idx_recipes_search ON recipes(item_a, item_b, result);
+CREATE INDEX IF NOT EXISTS idx_recipes_result_created ON recipes(result, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_recipes_result_likes ON recipes(result, likes DESC);
+
+-- 覆盖索引优化（避免回表查询）
+CREATE INDEX IF NOT EXISTS idx_recipes_cover ON recipes(id, created_at, likes, user_id);
 
 -- ====================================
 -- 7. recipe_likes 表 (配方点赞记录)

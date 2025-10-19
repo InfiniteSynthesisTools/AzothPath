@@ -14,20 +14,12 @@
           <template #header>
             <div class="card-header">
               <span class="card-title">个人信息</span>
-              <el-button 
-                type="primary" 
-                size="small" 
-                @click="showEditDialog = true"
-                :disabled="!userStore.isLoggedIn"
-              >
-                编辑信息
-              </el-button>
             </div>
           </template>
 
           <div class="user-info-content" v-if="userStore.userInfo">
             <div class="user-avatar">
-              <el-avatar :size="80" :style="{ backgroundColor: '#409eff' }">
+              <el-avatar :size="80" :style="{ backgroundColor: '#409eff' }" class="large-avatar-text">
                 {{ userStore.userInfo.name.charAt(0).toUpperCase() }}
               </el-avatar>
             </div>
@@ -99,44 +91,8 @@
         </el-card>
       </div>
 
-      <!-- 右侧：收藏配方和收件箱 -->
+      <!-- 右侧：收藏配方 -->
       <div class="profile-right" v-if="userStore.isLoggedIn">
-        <!-- 收件箱卡片 -->
-        <el-card class="inbox-card">
-          <template #header>
-            <div class="card-header">
-              <span class="card-title">收件箱</span>
-              <span class="card-subtitle">已归档的消息</span>
-            </div>
-          </template>
-
-          <div class="inbox-content">
-            <div v-if="archivedNotifications.length === 0" class="empty-container">
-              <el-empty description="没有归档的消息" />
-            </div>
-
-            <div v-else class="notifications-list">
-              <div 
-                v-for="notification in archivedNotifications" 
-                :key="notification.id" 
-                class="notification-item"
-                :class="{ 'read': notification.read }"
-              >
-                <div class="notification-content">
-                  <div class="notification-title">{{ notification.title }}</div>
-                  <div class="notification-message">{{ notification.message }}</div>
-                  <div class="notification-meta">
-                    <span class="notification-time">{{ formatRelativeTime(notification.time) }}</span>
-                    <span class="notification-status">
-                      <el-tag v-if="notification.archived" size="small" type="info">已归档</el-tag>
-                    </span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </el-card>
-
         <!-- 收藏配方卡片 -->
         <el-card class="liked-recipes-card">
           <template #header>
@@ -198,54 +154,16 @@
       </div>
     </div>
 
-    <!-- 编辑信息对话框 -->
-    <el-dialog
-      v-model="showEditDialog"
-      title="编辑个人信息"
-      width="500px"
-      :before-close="handleEditDialogClose"
-    >
-      <div class="edit-form">
-        <el-form :model="editForm" label-width="80px">
-          <el-form-item label="用户名">
-            <el-input v-model="editForm.name" disabled />
-            <div class="form-tip">用户名不可修改</div>
-          </el-form-item>
-          
-          <el-form-item label="等级">
-            <el-input-number v-model="editForm.level" :min="1" :max="100" disabled />
-            <div class="form-tip">等级由系统自动计算</div>
-          </el-form-item>
-          
-          <el-form-item label="贡献积分">
-            <el-input v-model="editForm.contribute" disabled />
-            <div class="form-tip">贡献积分由系统自动计算</div>
-          </el-form-item>
-        </el-form>
-      </div>
-      
-      <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="showEditDialog = false">取消</el-button>
-          <el-button type="primary" @click="showEditDialog = false" :disabled="true">
-            保存（功能开发中）
-          </el-button>
-        </span>
-      </template>
-    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
-import { useRouter } from 'vue-router';
+import { ref, onMounted } from 'vue';
 import { useUserStore } from '@/stores';
 import { userApi } from '@/api';
 import { ElMessage } from 'element-plus';
 import { Star } from '@element-plus/icons-vue';
-import type { User } from '@/types';
-
-const router = useRouter();
+import { formatDate, formatRelativeTime } from '@/utils/time';
 const userStore = useUserStore();
 
 // 用户统计信息
@@ -260,45 +178,10 @@ const userStats = ref({
 const likedRecipes = ref<any[]>([]);
 const likedRecipesLoading = ref(false);
 const likedRecipesPage = ref(1);
-const likedRecipesLimit = ref(10);
+const likedRecipesLimit = ref(20);
 const likedRecipesTotal = ref(0);
 
-// 编辑对话框
-const showEditDialog = ref(false);
-const editForm = ref({
-  name: '',
-  level: 1,
-  contribute: 0
-});
-
-// 格式化日期
-const formatDate = (dateString: string) => {
-  return new Date(dateString).toLocaleDateString('zh-CN', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
-};
-
-// 格式化相对时间
-const formatRelativeTime = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  if (diffDays === 0) {
-    return '今天';
-  } else if (diffDays === 1) {
-    return '昨天';
-  } else if (diffDays < 7) {
-    return `${diffDays}天前`;
-  } else if (diffDays < 30) {
-    return `${Math.floor(diffDays / 7)}周前`;
-  } else {
-    return formatDate(dateString);
-  }
-};
+// 使用统一的时间工具函数，已在上方导入
 
 // 加载用户统计信息
 const loadUserStats = async () => {
@@ -308,7 +191,12 @@ const loadUserStats = async () => {
     console.log('Loading user stats for user ID:', userStore.userInfo.id);
     const response = await userApi.getUserStats(userStore.userInfo.id);
     console.log('User stats response:', response);
-    userStats.value = response.stats;
+    console.log('Response data:', response.data);
+    if (response && (response as any).stats) {
+      userStats.value = (response as any).stats;
+    } else {
+      console.error('Invalid response structure:', response);
+    }
   } catch (error) {
     console.error('Failed to load user stats:', error);
   }
@@ -325,8 +213,14 @@ const loadLikedRecipes = async () => {
       limit: likedRecipesLimit.value
     });
     
-    likedRecipes.value = response.recipes;
-    likedRecipesTotal.value = response.total;
+    console.log('Liked recipes response:', response);
+    console.log('Response data:', response.data);
+    if (response && (response as any).recipes) {
+      likedRecipes.value = (response as any).recipes;
+      likedRecipesTotal.value = (response as any).total;
+    } else {
+      console.error('Invalid liked recipes response structure:', response);
+    }
   } catch (error) {
     console.error('Failed to load liked recipes:', error);
     ElMessage.error('加载收藏配方失败');
@@ -335,32 +229,8 @@ const loadLikedRecipes = async () => {
   }
 };
 
-// 初始化编辑表单
-const initEditForm = () => {
-  if (userStore.userInfo) {
-    editForm.value = {
-      name: userStore.userInfo.name,
-      level: userStore.userInfo.level,
-      contribute: userStore.userInfo.contribute
-    };
-  }
-};
 
-// 处理编辑对话框关闭
-const handleEditDialogClose = (done: () => void) => {
-  showEditDialog.value = false;
-  done();
-};
 
-// 计算归档的通知
-const archivedNotifications = computed(() => {
-  const saved = localStorage.getItem('azoth_notifications');
-  if (saved) {
-    const notifications = JSON.parse(saved);
-    return notifications.filter((n: any) => n.archived);
-  }
-  return [];
-});
 
 // 页面加载时初始化数据
 onMounted(async () => {
@@ -435,6 +305,10 @@ onMounted(async () => {
 
 .user-avatar {
   flex-shrink: 0;
+}
+
+.large-avatar-text {
+  font-size: 25px;
 }
 
 .user-details {
@@ -516,64 +390,6 @@ onMounted(async () => {
   min-height: 200px;
 }
 
-.notifications-list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.notification-item {
-  padding: 16px;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  background: #f8f9fa;
-  transition: all 0.3s ease;
-}
-
-.notification-item.read {
-  background: #f0f0f0;
-  opacity: 0.7;
-}
-
-.notification-item:hover {
-  border-color: #409eff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
-}
-
-.notification-content {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.notification-title {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.notification-message {
-  font-size: 14px;
-  color: #606266;
-  line-height: 1.4;
-}
-
-.notification-meta {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  font-size: 12px;
-  color: #909399;
-}
-
-.notification-time {
-  font-size: 12px;
-}
-
-.notification-status {
-  display: flex;
-  gap: 8px;
-}
 
 /* 收藏配方卡片 */
 .liked-recipes-content {
@@ -662,14 +478,4 @@ onMounted(async () => {
   justify-content: center;
 }
 
-/* 编辑表单 */
-.edit-form {
-  padding: 0 20px;
-}
-
-.form-tip {
-  font-size: 12px;
-  color: #909399;
-  margin-top: 4px;
-}
 </style>

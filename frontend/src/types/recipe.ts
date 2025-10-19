@@ -10,6 +10,11 @@ export interface Recipe {
   created_at: string;
   creator_name?: string;  // JOIN 查询时返回
   is_liked?: boolean;  // 前端本地状态
+  item_a_emoji?: string;  // 材料A的emoji
+  item_b_emoji?: string;  // 材料B的emoji
+  result_emoji?: string;  // 结果的emoji
+  is_verified?: boolean;  // 验证状态
+  updated_at?: string;    // 更新时间
 }
 
 export interface Item {
@@ -38,11 +43,17 @@ export interface RecipeSearchParams {
   search?: string;
   material?: string;
   result?: string;
+  cursor?: string; // 游标分页
+  orderBy?: string; // 排序字段
 }
 
 export interface RecipeListResponse {
   recipes: Recipe[];
   total: number;
+  page?: number;
+  limit?: number;
+  hasMore?: boolean; // 是否还有更多数据
+  nextCursor?: number; // 下一页游标
 }
 
 // 合成树节点

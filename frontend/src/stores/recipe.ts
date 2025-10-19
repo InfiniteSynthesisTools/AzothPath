@@ -14,7 +14,7 @@ export const useRecipeStore = defineStore('recipe', () => {
     limit: 20
   });
 
-  // 获取配方列表
+  // 获取配方列表（支持游标分页）
   const fetchRecipes = async (params?: RecipeSearchParams) => {
     loading.value = true;
     try {
@@ -24,6 +24,17 @@ export const useRecipeStore = defineStore('recipe', () => {
       const data = await recipeApi.list(searchParams.value);
       recipes.value = data.recipes;
       total.value = data.total;
+      return data;
+    } finally {
+      loading.value = false;
+    }
+  };
+
+  // 批量获取配方（用于大数据量场景）
+  const fetchRecipesBatch = async (params: { batchSize?: number; lastId?: number; search?: string }) => {
+    loading.value = true;
+    try {
+      const data = await recipeApi.getBatch(params);
       return data;
     } finally {
       loading.value = false;
@@ -121,6 +132,7 @@ export const useRecipeStore = defineStore('recipe', () => {
     searchParams,
     // 方法
     fetchRecipes,
+    fetchRecipesBatch,
     fetchRecipeDetail,
     submitRecipe,
     deleteRecipe,

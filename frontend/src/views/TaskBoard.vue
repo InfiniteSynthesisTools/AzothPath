@@ -3,16 +3,13 @@
     <div class="page-container">
       <!-- 页面头部 -->
       <div class="page-header">
-        <div class="header-left">
-          <h1>🎯 任务大厅</h1>
-          <p>完成任务获得贡献分奖励</p>
-        </div>
-        <div class="header-right">
-          <el-button type="primary" @click="showCreateDialog = true" v-if="isAdmin">
-            ➕ 创建任务
+        <h1>📋 任务看板</h1>
+        <div class="header-actions">
+          <el-button type="primary" @click="showCreateDialog = true" v-if="userStore.isLoggedIn">
+            创建任务
           </el-button>
           <el-button @click="loadTasks">
-            🔄 刷新
+            刷新
           </el-button>
         </div>
       </div>
@@ -22,7 +19,7 @@
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-icon total">📊</div>
+              <div class="stat-icon">📊</div>
               <div class="stat-info">
                 <div class="stat-value">{{ stats.total }}</div>
                 <div class="stat-label">总任务数</div>
@@ -33,7 +30,7 @@
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-icon active">🎯</div>
+              <div class="stat-icon">🎯</div>
               <div class="stat-info">
                 <div class="stat-value">{{ stats.active }}</div>
                 <div class="stat-label">活跃任务</div>
@@ -44,7 +41,7 @@
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-icon completed">✅</div>
+              <div class="stat-icon">✅</div>
               <div class="stat-info">
                 <div class="stat-value">{{ stats.completed }}</div>
                 <div class="stat-label">已完成</div>
@@ -55,7 +52,7 @@
         <el-col :span="6">
           <el-card class="stat-card">
             <div class="stat-content">
-              <div class="stat-icon prize">💰</div>
+              <div class="stat-icon">💰</div>
               <div class="stat-info">
                 <div class="stat-value">{{ stats.total_prize }}</div>
                 <div class="stat-label">待领奖励</div>
@@ -65,30 +62,25 @@
         </el-col>
       </el-row>
 
-      <!-- 筛选器 -->
-      <el-card class="filter-card">
-        <el-form :inline="true" :model="filters">
-          <el-form-item label="任务状态">
-            <el-select v-model="filters.status" placeholder="全部" clearable @change="loadTasks">
-              <el-option label="全部" value="" />
-              <el-option label="活跃中" value="active" />
-              <el-option label="已完成" value="completed" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="排序方式">
-            <el-select v-model="filters.sortBy" @change="loadTasks">
-              <el-option label="创建时间" value="created_at" />
-              <el-option label="奖励金额" value="prize" />
-            </el-select>
-          </el-form-item>
-          <el-form-item label="排序顺序">
-            <el-select v-model="filters.sortOrder" @change="loadTasks">
-              <el-option label="降序" value="desc" />
-              <el-option label="升序" value="asc" />
-            </el-select>
-          </el-form-item>
-        </el-form>
-      </el-card>
+      <!-- 任务状态切换 -->
+      <div class="status-tabs">
+        <div class="tab-switch">
+          <div 
+            class="tab-item" 
+            :class="{ active: activeTab === 'active' }"
+            @click="switchTab('active')"
+          >
+            活跃任务
+          </div>
+          <div 
+            class="tab-item" 
+            :class="{ active: activeTab === 'completed' }"
+            @click="switchTab('completed')"
+          >
+            已完成
+          </div>
+        </div>
+      </div>
 
       <!-- 任务列表 -->
       <div class="task-list" v-loading="loading">
@@ -103,7 +95,6 @@
             <TaskCard 
               :task="task" 
               @detail="handleViewDetail"
-              @complete="handleCompleteTask"
               @delete="handleDeleteTask"
             />
           </el-col>
@@ -113,10 +104,10 @@
       <!-- 分页 -->
       <div class="pagination-wrapper">
         <el-pagination
-          v-model:current-page="filters.page"
-          v-model:page-size="filters.limit"
-          :total="total"
-          :page-sizes="[12, 24, 48]"
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :total="currentTotal"
+          :page-sizes="[20, 40, 60]"
           layout="total, sizes, prev, pager, next, jumper"
           @current-change="loadTasks"
           @size-change="loadTasks"
@@ -192,16 +183,19 @@
                 {{ selectedTask.status === 'active' ? '🎯 活跃中' : '✅ 已完成' }}
               </el-tag>
             </el-descriptions-item>
+            <el-descriptions-item label="发布者">
+              <el-tag type="primary" size="large">👤 {{ selectedTask.creator_name || '未知用户' }}</el-tag>
+            </el-descriptions-item>
             <el-descriptions-item label="创建时间">
-              {{ formatDate(selectedTask.created_at) }}
+              {{ formatDateTime(selectedTask.created_at) }}
             </el-descriptions-item>
             <el-descriptions-item label="完成时间" v-if="selectedTask.completed_at">
-              {{ formatDate(selectedTask.completed_at) }}
+              {{ formatDateTime(selectedTask.completed_at) }}
             </el-descriptions-item>
             <el-descriptions-item label="完成配方" v-if="selectedTask.recipe">
               <div class="recipe-info">
                 <div>{{ selectedTask.recipe.item_a }} + {{ selectedTask.recipe.item_b }} = {{ selectedTask.recipe.result }}</div>
-                <div class="creator">创建者: {{ selectedTask.recipe.creator_name }}</div>
+                <div class="creator">配方创建者: {{ selectedTask.recipe.creator_name }}</div>
               </div>
             </el-descriptions-item>
           </el-descriptions>
@@ -217,11 +211,9 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { taskApi, type Task, type TaskWithDetails, type TaskStats } from '@/api/task';
 import { useUserStore } from '@/stores/user';
 import TaskCard from '@/components/TaskCard.vue';
+import { formatDateTime } from '@/utils/time';
 
 const userStore = useUserStore();
-
-// 权限判断
-const isAdmin = computed(() => userStore.userInfo?.auth === 9);
 
 // 统计数据
 const stats = ref<TaskStats>({
@@ -233,17 +225,15 @@ const stats = ref<TaskStats>({
 
 // 任务列表
 const tasks = ref<Task[]>([]);
-const total = ref(0);
 const loading = ref(false);
 
-// 筛选器
-const filters = ref({
-  page: 1,
-  limit: 12,
-  status: '' as '' | 'active' | 'completed',
-  sortBy: 'created_at' as 'created_at' | 'prize',
-  sortOrder: 'desc' as 'asc' | 'desc'
-});
+// 状态管理
+const activeTab = ref('active');
+const currentPage = ref(1);
+const pageSize = ref(20);
+const activeTotal = ref(0);
+const completedTotal = ref(0);
+const currentTotal = computed(() => activeTab.value === 'active' ? activeTotal.value : completedTotal.value);
 
 // 创建任务
 const showCreateDialog = ref(false);
@@ -260,9 +250,12 @@ const selectedTask = ref<TaskWithDetails | null>(null);
 // 加载统计数据
 const loadStats = async () => {
   try {
-    stats.value = await taskApi.getStats();
+    const statsData = await taskApi.getStats();
+    console.log('Stats data received:', statsData);
+    stats.value = statsData;
   } catch (error: any) {
     console.error('Load stats error:', error);
+    ElMessage.error('加载统计数据失败');
   }
 };
 
@@ -271,16 +264,22 @@ const loadTasks = async () => {
   loading.value = true;
   try {
     const params = {
-      page: filters.value.page,
-      limit: filters.value.limit,
-      status: filters.value.status || undefined,
-      sortBy: filters.value.sortBy,
-      sortOrder: filters.value.sortOrder
+      page: currentPage.value,
+      limit: pageSize.value,
+      status: activeTab.value as 'active' | 'completed',
+      sortBy: 'created_at' as 'created_at' | 'prize',
+      sortOrder: 'desc' as 'asc' | 'desc'
     };
     
     const result = await taskApi.getTasks(params);
     tasks.value = result.tasks;
-    total.value = result.total;
+    
+    // 更新对应状态的总数
+    if (activeTab.value === 'active') {
+      activeTotal.value = result.total;
+    } else {
+      completedTotal.value = result.total;
+    }
     
     // 同时刷新统计
     await loadStats();
@@ -289,6 +288,13 @@ const loadTasks = async () => {
   } finally {
     loading.value = false;
   }
+};
+
+// 切换标签页
+const switchTab = (tabName: 'active' | 'completed') => {
+  activeTab.value = tabName;
+  currentPage.value = 1; // 切换标签页时重置页码
+  loadTasks();
 };
 
 // 查看任务详情
@@ -326,25 +332,6 @@ const handleCreate = async () => {
   }
 };
 
-// 完成任务
-const handleCompleteTask = async (task: Task) => {
-  ElMessageBox.prompt('请输入完成该任务的配方 ID', '完成任务', {
-    confirmButtonText: '提交',
-    cancelButtonText: '取消',
-    inputPattern: /^\d+$/,
-    inputErrorMessage: '请输入有效的配方 ID'
-  }).then(async ({ value }: any) => {
-    try {
-      const result = await taskApi.completeTask(task.id, parseInt(value));
-      ElMessage.success(`🎉 任务完成！获得 ${result.prize} 贡献分`);
-      await loadTasks();
-    } catch (error: any) {
-      ElMessage.error(error.message || '完成任务失败');
-    }
-  }).catch(() => {
-    // 用户取消
-  });
-};
 
 // 删除任务
 const handleDeleteTask = async (task: Task) => {
@@ -369,10 +356,7 @@ const handleDeleteTask = async (task: Task) => {
   }
 };
 
-// 格式化日期
-const formatDate = (dateStr: string) => {
-  return new Date(dateStr).toLocaleString('zh-CN');
-};
+// 使用统一的时间工具函数，已在上方导入
 
 onMounted(() => {
   loadTasks();
@@ -386,33 +370,28 @@ onMounted(() => {
 }
 
 .page-container {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
-  padding: 30px 20px;
+  padding: 20px;
 }
 
 .page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 30px;
+  margin-bottom: 20px;
 }
 
-.header-left h1 {
-  font-size: 32px;
+.page-header h1 {
+  font-size: 24px;
   color: #303133;
-  margin: 0 0 10px 0;
-}
-
-.header-left p {
-  font-size: 16px;
-  color: #909399;
   margin: 0;
+  font-weight: 500;
 }
 
-.header-right {
+.header-actions {
   display: flex;
-  gap: 10px;
+  gap: 12px;
 }
 
 /* 统计卡片 */
@@ -421,45 +400,34 @@ onMounted(() => {
 }
 
 .stat-card {
-  cursor: pointer;
-  transition: all 0.3s;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
 }
 
 .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
 }
 
 .stat-content {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 16px;
+  padding: 20px;
 }
 
 .stat-icon {
-  width: 60px;
-  height: 60px;
-  border-radius: 12px;
+  width: 48px;
+  height: 48px;
+  background: #f0f2f5;
+  border-radius: 8px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 28px;
-}
-
-.stat-icon.total {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-}
-
-.stat-icon.active {
-  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
-}
-
-.stat-icon.completed {
-  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
-}
-
-.stat-icon.prize {
-  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+  font-size: 20px;
+  color: #409eff;
 }
 
 .stat-info {
@@ -467,22 +435,57 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 28px;
-  font-weight: bold;
+  font-size: 24px;
+  font-weight: 600;
   color: #303133;
   line-height: 1;
-  margin-bottom: 8px;
+  margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #909399;
+  color: #6b7280;
 }
 
-/* 筛选器 */
-.filter-card {
+/* 状态标签页 */
+.status-tabs {
   margin-bottom: 20px;
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  padding: 20px;
 }
+
+.tab-switch {
+  display: inline-flex;
+  background: #f5f7fa;
+  border-radius: 6px;
+  padding: 4px;
+  position: relative;
+}
+
+.tab-item {
+  position: relative;
+  padding: 8px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  z-index: 2;
+}
+
+.tab-item:hover {
+  color: #409eff;
+}
+
+.tab-item.active {
+  background: #ffffff;
+  color: #409eff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
 
 /* 任务列表 */
 .task-list {
@@ -514,5 +517,37 @@ onMounted(() => {
 .creator {
   font-size: 12px;
   color: #909399;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 15px;
+  }
+  
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  
+  .stats-row .el-col {
+    margin-bottom: 15px;
+  }
+  
+  .stat-content {
+    padding: 16px;
+    gap: 12px;
+  }
+  
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    font-size: 18px;
+  }
+  
+  .stat-value {
+    font-size: 20px;
+  }
 }
 </style>

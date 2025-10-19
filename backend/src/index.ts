@@ -2,12 +2,36 @@ import express, { Application } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import path from 'path';
+import { logger } from './utils/logger';
+import { validateApiConfig } from './config/api';
+import { getDatabase } from './database/connection';
+
+// 设置时区为 UTC+8 (中国标准时间)
+process.env.TZ = 'Asia/Shanghai';
 
 // 加载环境变量
 dotenv.config();
 
+// 验证必需的环境变量
+const requiredEnvVars = ['JWT_SECRET'];
+for (const envVar of requiredEnvVars) {
+  if (!process.env[envVar]) {
+    logger.error(`缺少必需的环境变量: ${envVar}`);
+    process.exit(1);
+  }
+}
+
+// 验证API配置
+try {
+  validateApiConfig();
+  logger.info('API配置验证通过');
+} catch (error) {
+  logger.error('API配置验证失败', error);
+  process.exit(1);
+}
+
 const app: Application = express();
-const PORT = process.env.PORT || 3000;
+const PORT = parseInt(process.env.PORT || '3000', 10);
 
 // 中间件
 app.use(cors());
@@ -16,7 +40,16 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // 健康检查
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Server is running' });
+  // 获取当前时间（已设置为UTC+8）
+  const now = new Date();
+  
+  res.json({ 
+    status: 'ok', 
+    message: 'Server is running',
+    timestamp: now.toISOString(),
+    timezone: 'Asia/Shanghai (UTC+8)',
+    uptime: process.uptime()
+  });
 });
 
 // 导入路由
@@ -50,7 +83,13 @@ app.use('/api/tasks', taskRoutes);
 
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
-  console.error('Error:', err);
+  logger.error('API错误', {
+    method: req.method,
+    url: req.url,
+    error: err.message,
+    stack: err.stack
+  });
+  
   res.status(err.status || 500).json({
     code: err.status || 500,
     message: err.message || 'Internal Server Error',
@@ -67,14 +106,25 @@ app.use((req, res) => {
 });
 
 // 启动服务器
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on http://localhost:${PORT}`);
-  console.log(`📝 API documentation: http://localhost:${PORT}/api`);
-  console.log(`🏥 Health check: http://localhost:${PORT}/health`);
-  
-  // 启动导入任务队列
-  importTaskQueue.start();
-  console.log(`⏰ Import task queue started`);
-});
+try {
+  // 启动服务器
+  app.listen(PORT, async () => {
+    logger.success(`服务器启动成功 - 端口: ${PORT}`);
+    logger.info(`API文档: http://localhost:${PORT}/api`);
+    logger.info(`健康检查: http://localhost:${PORT}/health`);
+    
+    // 启动导入任务队列
+    try {
+      await importTaskQueue.start();
+      logger.info('导入任务队列启动成功');
+    } catch (error) {
+      logger.error('导入任务队列启动失败', error);
+    }
+  });
+
+
+} catch (error) {
+  logger.error('启动服务器时发生错误', error);
+}
 
 export default app;

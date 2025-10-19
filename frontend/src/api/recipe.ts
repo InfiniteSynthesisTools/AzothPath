@@ -9,9 +9,24 @@ import type {
 } from '@/types';
 
 export const recipeApi = {
-  // 获取配方列表
-  list(params: RecipeSearchParams = {}) {
-    return api.get<RecipeListResponse>('/recipes', { params });
+  // 获取配方列表（支持游标分页）
+  list(params: RecipeSearchParams & { cursor?: string } = {}) {
+    return api.get<RecipeListResponse & { hasMore?: boolean; nextCursor?: number }>('/recipes', { params });
+  },
+
+  // 获取按结果分组的配方列表
+  listGrouped(params: RecipeSearchParams = {}) {
+    return api.get<{
+      grouped_recipes: Array<{
+        result: string;
+        result_emoji?: string;
+        recipe_count: number;
+        recipes: Recipe[];
+      }>;
+      total: number;
+      page: number;
+      limit: number;
+    }>('/recipes/grouped', { params });
   },
 
   // 获取配方详情
@@ -61,5 +76,19 @@ export const recipeApi = {
       circular_items: number;
       base_items: number;
     }>('/recipes/graph/stats');
+  },
+
+  // 批量获取配方（用于大数据量场景）
+  getBatch(params: { batchSize?: number; lastId?: number; search?: string } = {}) {
+    return api.get<{
+      recipes: Recipe[];
+      hasMore: boolean;
+      lastId: number;
+    }>('/recipes/batch', { params });
+  },
+
+  // 创建优化索引（管理员功能）
+  optimizeIndexes() {
+    return api.post<{ message: string }>('/recipes/optimize');
   }
 };

@@ -1,6 +1,8 @@
 import { Router, Response } from 'express';
 import { taskService } from '../services/taskService';
 import { authMiddleware, AuthRequest } from '../middlewares/auth';
+import { logger } from '../utils/logger';
+import { rateLimits } from '../middlewares/rateLimiter';
 
 const router = Router();
 
@@ -26,7 +28,7 @@ router.get('/', async (req: AuthRequest, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Get tasks error:', error);
+    logger.error('获取任务列表失败', error);
     res.status(500).json({
       code: 500,
       message: error.message || '获取任务列表失败'
@@ -48,7 +50,7 @@ router.get('/stats', async (req: AuthRequest, res: Response) => {
       data: stats
     });
   } catch (error: any) {
-    console.error('Get task stats error:', error);
+    logger.error('获取任务统计失败', error);
     res.status(500).json({
       code: 500,
       message: error.message || '获取统计失败'
@@ -86,7 +88,7 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
       data: task
     });
   } catch (error: any) {
-    console.error('Get task detail error:', error);
+    logger.error('获取任务详情失败', error);
     res.status(500).json({
       code: 500,
       message: error.message || '获取任务详情失败'
@@ -96,9 +98,9 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 
 /**
  * POST /api/tasks
- * 创建任务（需要管理员权限）
+ * 创建任务（普通用户可创建）
  */
-router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
+router.post('/', authMiddleware, rateLimits.taskCreate, async (req: AuthRequest, res: Response) => {
   try {
     const { itemName, prize } = req.body;
 
@@ -116,15 +118,9 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       });
     }
 
-    // 检查管理员权限（可选：根据需求决定是否需要）
-    // if (req.userAuth !== 9) {
-    //   return res.status(403).json({
-    //     code: 403,
-    //     message: '需要管理员权限'
-    //   });
-    // }
+    // 普通用户可以创建任务，无需管理员权限
 
-    const taskId = await taskService.createTask(itemName, prize);
+    const taskId = await taskService.createTask(itemName, prize, req.userId!);
 
     res.status(201).json({
       code: 201,
@@ -132,7 +128,7 @@ router.post('/', authMiddleware, async (req: AuthRequest, res: Response) => {
       data: { taskId }
     });
   } catch (error: any) {
-    console.error('Create task error:', error);
+    logger.error('创建任务失败', error);
     
     if (error.message === '物品不存在' || error.message === '该物品已有活跃的任务') {
       return res.status(400).json({
@@ -172,7 +168,7 @@ router.post('/:id/complete', authMiddleware, async (req: AuthRequest, res: Respo
       data: result
     });
   } catch (error: any) {
-    console.error('Complete task error:', error);
+    logger.error('完成任务失败', error);
 
     if (error.message === '任务不存在' || error.message === '任务已完成' || error.message === '配方不符合任务要求') {
       return res.status(400).json({
@@ -218,7 +214,7 @@ router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) =>
       message: '任务删除成功'
     });
   } catch (error: any) {
-    console.error('Delete task error:', error);
+    logger.error('删除任务失败', error);
 
     if (error.message === '任务不存在') {
       return res.status(404).json({

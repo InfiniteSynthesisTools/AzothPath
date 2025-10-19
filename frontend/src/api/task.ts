@@ -5,12 +5,15 @@ export interface Task {
   item_name: string;
   prize: number;
   status: 'active' | 'completed';
+  task_type: 'find_recipe' | 'find_more_recipes';
   created_at: string;
+  created_by_user_id: number;
   completed_by_recipe_id?: number;
   completed_at?: string;
 }
 
 export interface TaskWithDetails extends Task {
+  creator_name?: string;
   recipe?: {
     id: number;
     item_a: string;

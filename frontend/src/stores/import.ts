@@ -37,7 +37,7 @@ export const useImportStore = defineStore('import', () => {
   };
 
   // 获取导入任务的明细列表
-  const fetchTaskContents = async (taskId: number, page = 1, limit = 50) => {
+  const fetchTaskContents = async (taskId: number, page = 1, limit = 20) => {
     loading.value = true;
     try {
       const data = await importApi.getImportTaskContents(taskId, { page, limit });

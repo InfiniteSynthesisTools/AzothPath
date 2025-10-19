@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { userService } from '../services/userService';
 import { authMiddleware, AuthRequest } from '../middlewares/auth';
+import { logger } from '../utils/logger';
 
 const router = Router();
 
@@ -41,7 +42,7 @@ router.post('/register', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Register error:', error);
+    logger.error('用户注册失败', error);
     res.status(400).json({
       code: 400,
       message: '注册失败'
@@ -72,7 +73,7 @@ router.post('/login', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Login error:', error);
+    logger.error('用户登录失败', error);
     res.status(401).json({
       code: 401,
       message: '用户名或密码错误'
@@ -94,7 +95,7 @@ router.get('/me', authMiddleware, async (req: AuthRequest, res: Response) => {
       data: user
     });
   } catch (error: any) {
-    console.error('Get user error:', error);
+    logger.error('获取用户信息失败', error);
     res.status(404).json({
       code: 404,
       message: error.message || '用户不存在'
@@ -119,7 +120,7 @@ router.get('/contribution-rank', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Get contribution rank error:', error);
+    logger.error('获取贡献排行榜失败', error);
     res.status(500).json({
       code: 500,
       message: error.message || '获取贡献榜失败'
@@ -150,7 +151,7 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Get user stats error:', error);
+    logger.error('获取用户统计失败', error);
     
     if (error.message === '用户不存在') {
       return res.status(404).json({
@@ -191,7 +192,7 @@ router.get('/:id/liked-recipes', async (req: Request, res: Response) => {
       data: result
     });
   } catch (error: any) {
-    console.error('Get user liked recipes error:', error);
+    logger.error('获取用户喜欢的配方失败', error);
     
     if (error.message === '用户不存在') {
       return res.status(404).json({

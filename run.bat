@@ -5,6 +5,9 @@ setlocal enabledelayedexpansion
 REM Azoth Path - 项目运行脚本 (Windows版本)
 REM 用于快速启动前端和后端服务
 
+REM 设置时区为 UTC+8 (中国标准时间)
+set TZ=Asia/Shanghai
+
 set "PROJECT_ROOT=%~dp0"
 set "FRONTEND_DIR=%PROJECT_ROOT%frontend"
 set "BACKEND_DIR=%PROJECT_ROOT%backend"
@@ -137,7 +140,7 @@ if not exist "%BACKEND_DIR%\.env" (
         echo JWT_EXPIRES_IN=7d
         echo.
         echo # 外部API配置（可选）
-        echo GAME_API_ENDPOINT=https://api.example.com
+        echo VALIDATION_API_URL=https://hc.tsdo.in/api
         echo.
         echo # 日志配置
         echo LOG_LEVEL=info

@@ -1,11 +1,14 @@
 import { database } from '../database/connection';
+import { logger } from '../utils/logger';
 
 export interface Task {
   id: number;
   item_name: string;
   prize: number;
   status: 'active' | 'completed';
+  task_type: 'find_recipe' | 'find_more_recipes';
   created_at: string;
+  created_by_user_id: number;
   completed_by_recipe_id?: number;
   completed_at?: string;
 }
@@ -81,8 +84,12 @@ export class TaskService {
    * 获取任务详情
    */
   async getTaskById(taskId: number): Promise<TaskWithDetails | null> {
-    const task = await database.get<Task>(
-      'SELECT * FROM task WHERE id = ?',
+    // 获取任务信息和发布者信息
+    const task = await database.get<any>(
+      `SELECT t.*, u.name as creator_name
+       FROM task t
+       LEFT JOIN user u ON t.created_by_user_id = u.id
+       WHERE t.id = ?`,
       [taskId]
     );
 
@@ -110,7 +117,7 @@ export class TaskService {
   /**
    * 创建任务（手动）
    */
-  async createTask(itemName: string, prize: number): Promise<number> {
+  async createTask(itemName: string, prize: number, userId: number): Promise<number> {
     // 基础材料不能创建任务
     const baseMaterials = ['金', '木', '水', '火', '土'];
     if (baseMaterials.includes(itemName)) {
@@ -133,17 +140,16 @@ export class TaskService {
       [itemName]
     );
 
-    if (existingRecipe) {
-      throw new Error('该物品已有合成配方，无需创建任务');
-    }
+    // 根据是否已有配方确定任务类型
+    const taskType = existingRecipe ? 'find_more_recipes' : 'find_recipe';
 
     // 创建任务（不需要预先添加物品，等配方验证成功后自然会添加）
     const result = await database.run(
-      'INSERT INTO task (item_name, prize, status) VALUES (?, ?, ?)',
-      [itemName, prize, 'active']
+      'INSERT INTO task (item_name, prize, status, task_type, created_by_user_id) VALUES (?, ?, ?, ?, ?)',
+      [itemName, prize, 'active', taskType, userId]
     );
 
-    console.log(`🎯 Task created for item: ${itemName}, prize: ${prize}`);
+    logger.info(`任务创建成功: ${itemName}, 奖励: ${prize}分`);
 
     return result.lastID!;
   }
@@ -195,7 +201,7 @@ export class TaskService {
         [material, 10, 'active']
       );
 
-      console.log(`🎯 Auto-created task for: ${material}`);
+      logger.info(`自动创建任务: ${material}`);
     }
   }
 
@@ -203,47 +209,56 @@ export class TaskService {
    * 完成任务
    */
   async completeTask(taskId: number, recipeId: number, userId: number) {
-    const task = await this.getTaskById(taskId);
+    try {
+      logger.info(`开始完成任务${taskId}，配方${recipeId}，用户${userId}`);
+      
+      const task = await this.getTaskById(taskId);
 
-    if (!task) {
-      throw new Error('任务不存在');
+      if (!task) {
+        throw new Error('任务不存在');
+      }
+
+      if (task.status === 'completed') {
+        throw new Error('任务已完成');
+      }
+
+      // 验证配方是否符合任务要求
+      const recipe = await database.get<any>(
+        'SELECT * FROM recipes WHERE id = ? AND result = ?',
+        [recipeId, task.item_name]
+      );
+
+      if (!recipe) {
+        throw new Error('配方不符合任务要求');
+      }
+
+      logger.info(`验证通过: 配方${recipeId}的结果物品${recipe.result}匹配任务${taskId}的物品${task.item_name}`);
+
+      // 更新任务状态
+      await database.run(
+        `UPDATE task 
+         SET status = ?, completed_by_recipe_id = ?, completed_at = CURRENT_TIMESTAMP
+         WHERE id = ?`,
+        ['completed', recipeId, taskId]
+      );
+
+      // 发放奖励（增加用户贡献分）
+      await database.run(
+        'UPDATE user SET contribute = contribute + ? WHERE id = ?',
+        [task.prize, userId]
+      );
+
+      logger.success(`任务完成: 用户${userId}完成任务${taskId}, 获得${task.prize}分奖励`);
+
+      return {
+        taskId,
+        prize: task.prize,
+        newContribution: await this.getUserContribution(userId)
+      };
+    } catch (error: any) {
+      logger.error(`完成任务${taskId}失败:`, error);
+      throw error;
     }
-
-    if (task.status === 'completed') {
-      throw new Error('任务已完成');
-    }
-
-    // 验证配方是否符合任务要求
-    const recipe = await database.get<any>(
-      'SELECT * FROM recipes WHERE id = ? AND result = ?',
-      [recipeId, task.item_name]
-    );
-
-    if (!recipe) {
-      throw new Error('配方不符合任务要求');
-    }
-
-    // 更新任务状态
-    await database.run(
-      `UPDATE task 
-       SET status = ?, completed_by_recipe_id = ?, completed_at = CURRENT_TIMESTAMP 
-       WHERE id = ?`,
-      ['completed', recipeId, taskId]
-    );
-
-    // 发放奖励（增加用户贡献分）
-    await database.run(
-      'UPDATE user SET contribute = contribute + ? WHERE id = ?',
-      [task.prize, userId]
-    );
-
-    console.log(`🏆 Task ${taskId} completed by user ${userId}, rewarded ${task.prize} points`);
-
-    return {
-      taskId,
-      prize: task.prize,
-      newContribution: await this.getUserContribution(userId)
-    };
   }
 
   /**
@@ -261,24 +276,43 @@ export class TaskService {
    * 检查配方是否完成了某个任务
    */
   async checkAndCompleteTaskForRecipe(recipeId: number, userId: number) {
-    // 获取配方的结果物品
-    const recipe = await database.get<any>(
-      'SELECT result FROM recipes WHERE id = ?',
-      [recipeId]
-    );
+    try {
+      logger.info(`检查配方${recipeId}是否完成相关任务，用户${userId}`);
+      
+      // 获取配方的结果物品
+      const recipe = await database.get<any>(
+        'SELECT result FROM recipes WHERE id = ?',
+        [recipeId]
+      );
 
-    if (!recipe) return null;
+      if (!recipe) {
+        logger.warn(`配方${recipeId}不存在`);
+        return null;
+      }
 
-    // 查找该物品的活跃任务
-    const task = await database.get<Task>(
-      'SELECT * FROM task WHERE item_name = ? AND status = ?',
-      [recipe.result, 'active']
-    );
+      logger.info(`配方${recipeId}的结果物品: ${recipe.result}`);
 
-    if (!task) return null;
+      // 查找该物品的活跃任务
+      const task = await database.get<Task>(
+        'SELECT * FROM task WHERE item_name = ? AND status = ?',
+        [recipe.result, 'active']
+      );
 
-    // 自动完成任务
-    return await this.completeTask(task.id, recipeId, userId);
+      if (!task) {
+        logger.info(`物品${recipe.result}没有活跃任务`);
+        return null;
+      }
+
+      logger.info(`找到活跃任务${task.id}，物品: ${task.item_name}`);
+
+      // 自动完成任务
+      const result = await this.completeTask(task.id, recipeId, userId);
+      logger.success(`自动完成任务${task.id}，用户${userId}获得${result.prize}分奖励`);
+      return result;
+    } catch (error: any) {
+      logger.error('自动完成任务检测失败:', error);
+      return null;
+    }
   }
 
   /**
@@ -288,9 +322,9 @@ export class TaskService {
     const stats = await database.get<any>(
       `SELECT 
          COUNT(*) as total,
-         SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) as active,
-         SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
-         SUM(CASE WHEN status = 'active' THEN prize ELSE 0 END) as total_prize
+         COALESCE(SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END), 0) as active,
+         COALESCE(SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END), 0) as completed,
+         COALESCE(SUM(CASE WHEN status = 'active' THEN prize ELSE 0 END), 0) as total_prize
        FROM task`
     );
 

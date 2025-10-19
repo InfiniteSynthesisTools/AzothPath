@@ -4,7 +4,6 @@
     <div class="hero-section">
       <h2>🎮 探索无尽合成的奥秘</h2>
       <p>收集、分享、发现 - 社区驱动的合成配方数据库</p>
-      
     </div>
 
     <!-- 统计信息 -->
@@ -49,49 +48,133 @@
       </el-row>
     </div>
 
-    <!-- 最新配方 -->
-    <div class="recipes-section">
-      <el-card>
-        <template #header>
-          <div class="section-header">
-            <h3>📋 最新配方</h3>
-            <el-button type="primary" link @click="router.push('/recipes')">
-              查看全部 →
-            </el-button>
-          </div>
-        </template>
-        <div class="recipe-list" v-loading="loadingRecipes">
-          <div 
-            v-for="recipe in latestRecipes" 
-            :key="recipe.id" 
-            class="recipe-item"
-          >
-            <div class="recipe-content">
-              <div class="materials">
-                <span class="material">
-                  <span v-if="recipe.item_a_emoji" class="emoji">{{ recipe.item_a_emoji }}</span>
-                  <span class="text">{{ recipe.item_a }}</span>
-                </span>
-                <span class="plus">+</span>
-                <span class="material">
-                  <span v-if="recipe.item_b_emoji" class="emoji">{{ recipe.item_b_emoji }}</span>
-                  <span class="text">{{ recipe.item_b }}</span>
-                </span>
+    <!-- 四个卡片区域 -->
+    <div class="cards-section">
+      <el-row :gutter="20">
+        <!-- 最新配方 -->
+        <el-col :xs="24" :sm="12" :lg="6">
+          <el-card class="feature-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <h3>🆕 最新配方</h3>
               </div>
-              <div class="arrow">→</div>
-              <div class="result">
-                <span v-if="recipe.result_emoji" class="emoji">{{ recipe.result_emoji }}</span>
-                <span class="text">{{ recipe.result }}</span>
+            </template>
+            <div class="card-content" v-loading="loadingLatest">
+              <div class="recipe-list">
+                <div 
+                  v-for="recipe in latestRecipes" 
+                  :key="recipe.id" 
+                  class="recipe-item"
+                >
+                  <div class="recipe-display">
+                    <span class="material">
+                      <span v-if="recipe.item_a_emoji" class="emoji">{{ recipe.item_a_emoji }}</span>
+                      {{ recipe.item_a }}
+                    </span>
+                    <span class="plus">+</span>
+                    <span class="material">
+                      <span v-if="recipe.item_b_emoji" class="emoji">{{ recipe.item_b_emoji }}</span>
+                      {{ recipe.item_b }}
+                    </span>
+                    <span class="arrow">→</span>
+                    <span class="result">
+                      <span v-if="recipe.result_emoji" class="emoji">{{ recipe.result_emoji }}</span>
+                      {{ recipe.result }}
+                    </span>
+                  </div>
+                  <div class="recipe-meta">
+                    <span class="likes">❤️ {{ recipe.likes || 0 }}</span>
+                    <span class="time">{{ formatTimeAgo(recipe.created_at) }}</span>
+                  </div>
+                </div>
               </div>
             </div>
-            <div class="recipe-info">
-              <span class="author">{{ recipe.creator_name || '未知' }}</span>
-              <span class="likes">❤️ {{ recipe.likes || 0 }}</span>
-              <span class="time">{{ formatDateTime(recipe.created_at) }}</span>
+          </el-card>
+        </el-col>
+
+        <!-- 最热配方 -->
+        <el-col :xs="24" :sm="12" :lg="6">
+          <el-card class="feature-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <h3>🔥 最热配方</h3>
+              </div>
+            </template>
+            <div class="card-content" v-loading="loadingPopular">
+              <div class="recipe-list">
+                <div 
+                  v-for="recipe in popularRecipes" 
+                  :key="recipe.id" 
+                  class="recipe-item"
+                >
+                  <div class="recipe-display">
+                    <span class="material">
+                      <span v-if="recipe.item_a_emoji" class="emoji">{{ recipe.item_a_emoji }}</span>
+                      {{ recipe.item_a }}
+                    </span>
+                    <span class="plus">+</span>
+                    <span class="material">
+                      <span v-if="recipe.item_b_emoji" class="emoji">{{ recipe.item_b_emoji }}</span>
+                      {{ recipe.item_b }}
+                    </span>
+                    <span class="arrow">→</span>
+                    <span class="result">
+                      <span v-if="recipe.result_emoji" class="emoji">{{ recipe.result_emoji }}</span>
+                      {{ recipe.result }}
+                    </span>
+                  </div>
+                  <div class="recipe-meta">
+                    <span class="likes">❤️ {{ recipe.likes || 0 }}</span>
+                    <span class="time">{{ formatTimeAgo(recipe.created_at) }}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </el-card>
+          </el-card>
+        </el-col>
+
+        <!-- 总图显示 -->
+        <el-col :xs="24" :sm="12" :lg="6">
+          <el-card class="feature-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <h3>🗺️ 总图显示</h3>
+              </div>
+            </template>
+            <div class="card-content placeholder">
+              <div class="placeholder-content">
+                <el-icon size="48" color="#909399"><MapLocation /></el-icon>
+                <p>合成图谱总览</p>
+                <p class="placeholder-desc">查看完整的合成关系图谱</p>
+                <el-button type="primary" size="small" @click="goToGraph">
+                  查看图谱
+                </el-button>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+
+        <!-- 进入游戏 -->
+        <el-col :xs="24" :sm="12" :lg="6">
+          <el-card class="feature-card" shadow="hover">
+            <template #header>
+              <div class="card-header">
+                <h3>🎮 进入游戏</h3>
+              </div>
+            </template>
+            <div class="card-content placeholder">
+              <div class="placeholder-content">
+                <el-icon size="48" color="#67C23A"><VideoPlay /></el-icon>
+                <p>开始游戏</p>
+                <p class="placeholder-desc">体验合成乐趣</p>
+                <el-button type="success" size="small" @click="goToGame">
+                  开始游戏
+                </el-button>
+              </div>
+            </div>
+          </el-card>
+        </el-col>
+      </el-row>
     </div>
   </div>
 </template>
@@ -99,11 +182,14 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
+import { ElMessage } from 'element-plus';
+import { Document, Box, CircleCheck, Star, MapLocation, VideoPlay } from '@element-plus/icons-vue';
 import { recipeApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
 
 const router = useRouter();
-const loadingRecipes = ref(false);
+const loadingLatest = ref(false);
+const loadingPopular = ref(false);
 
 // 定义包含emoji的配方类型
 interface RecipeWithEmoji {
@@ -133,6 +219,27 @@ const stats = ref({
 });
 
 const latestRecipes = ref<RecipeWithEmoji[]>([]);
+const popularRecipes = ref<RecipeWithEmoji[]>([]);
+
+// 格式化相对时间
+const formatTimeAgo = (dateString: string) => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMins < 60) {
+    return `${diffMins}分钟前`;
+  } else if (diffHours < 24) {
+    return `${diffHours}小时前`;
+  } else if (diffDays < 7) {
+    return `${diffDays}天前`;
+  } else {
+    return formatDateTime(dateString);
+  }
+};
 
 // 加载统计数据
 const loadStats = async () => {
@@ -146,23 +253,54 @@ const loadStats = async () => {
 
 // 加载最新配方
 const loadLatestRecipes = async () => {
-  loadingRecipes.value = true;
+  loadingLatest.value = true;
   try {
     const response = await recipeApi.list({
       page: 1,
-      limit: 10
+      limit: 10,
+      orderBy: 'created_at'
     }) as any;
     latestRecipes.value = response.recipes || [];
   } catch (error) {
     console.error('加载最新配方失败:', error);
   } finally {
-    loadingRecipes.value = false;
+    loadingLatest.value = false;
   }
+};
+
+// 加载最热配方
+const loadPopularRecipes = async () => {
+  loadingPopular.value = true;
+  try {
+    const response = await recipeApi.list({
+      page: 1,
+      limit: 10,
+      orderBy: 'likes'
+    }) as any;
+    popularRecipes.value = response.recipes || [];
+  } catch (error) {
+    console.error('加载最热配方失败:', error);
+  } finally {
+    loadingPopular.value = false;
+  }
+};
+
+// 跳转到图谱页面
+const goToGraph = () => {
+  // 这里可以跳转到图谱页面，暂时使用提示
+  ElMessage.info('图谱功能开发中...');
+};
+
+// 跳转到游戏页面
+const goToGame = () => {
+  // 这里可以跳转到游戏页面，暂时使用提示
+  ElMessage.info('游戏功能开发中...');
 };
 
 onMounted(() => {
   loadStats();
   loadLatestRecipes();
+  loadPopularRecipes();
 });
 </script>
 
@@ -189,182 +327,136 @@ onMounted(() => {
   margin-bottom: 30px;
 }
 
-.search-card, .path-search-card {
-  max-width: 800px;
-  margin: 20px auto;
-}
-
-.path-search-card h3 {
-  margin-bottom: 15px;
-  text-align: left;
-  color: white;
-}
-
 .stats-section {
   max-width: 1400px;
   margin: 40px auto;
   padding: 0 20px;
 }
 
-.recipes-section {
+.cards-section {
   max-width: 1400px;
   margin: 40px auto 60px;
   padding: 0 20px;
 }
 
-.section-header {
+.feature-card {
+  height: 400px;
+  margin-bottom: 20px;
+}
+
+.card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
 
-.section-header h3 {
+.card-header h3 {
   margin: 0;
-  font-size: 20px;
+  font-size: 16px;
   color: #303133;
 }
 
-/* Emoji 样式 */
-.item-with-emoji {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.emoji {
-  font-size: 16px;
-  line-height: 1;
-}
-
-/* 搜索建议样式 */
-.search-suggestions {
-  position: absolute;
-  top: 100%;
-  left: 0;
-  right: 0;
-  background: white;
-  border: 1px solid #e4e7ed;
-  border-top: none;
-  border-radius: 0 0 4px 4px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
-  z-index: 1000;
-  max-height: 200px;
+.card-content {
+  height: 320px;
   overflow-y: auto;
 }
 
-.suggestion-item {
-  padding: 8px 12px;
-  cursor: pointer;
-  border-bottom: 1px solid #f5f7fa;
-  transition: background-color 0.2s;
+.placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-.suggestion-item:hover {
-  background-color: #f5f7fa;
+.placeholder-content {
+  text-align: center;
+  color: #909399;
 }
 
-.suggestion-item:last-child {
-  border-bottom: none;
+.placeholder-content p {
+  margin: 10px 0;
+  font-size: 16px;
 }
 
-/* 配方列表布局 */
+.placeholder-desc {
+  font-size: 14px !important;
+  color: #c0c4cc;
+  margin-bottom: 20px !important;
+}
+
 .recipe-list {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-top: 16px;
 }
 
 .recipe-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 12px 16px;
+  padding: 8px;
   background: #fafbfc;
   border: 1px solid #e8eaed;
-  border-radius: 8px;
+  border-radius: 6px;
+  transition: all 0.3s;
 }
 
-.recipe-content {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  flex: 1;
+.recipe-item:hover {
+  background: #f0f2f5;
+  border-color: #d0d7de;
 }
 
-.materials {
+.recipe-display {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  font-size: 12px;
+  margin-bottom: 4px;
 }
 
 .material {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 4px 8px;
+  padding: 2px 6px;
   background: white;
   border: 1px solid #d0d7de;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 500;
+  border-radius: 4px;
+  color: #606266;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
 }
 
-.plus {
-  font-size: 16px;
-  color: #656d76;
-  font-weight: 600;
-}
-
-.arrow {
-  font-size: 18px;
-  color: #0969da;
-  font-weight: 600;
-  margin: 0 4px;
+.plus, .arrow {
+  color: #909399;
+  font-weight: bold;
+  font-size: 10px;
 }
 
 .result {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 12px;
+  padding: 2px 6px;
   background: #0969da;
   color: white;
-  border-radius: 6px;
-  font-size: 14px;
-  font-weight: 600;
+  border-radius: 4px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 80px;
 }
 
 .emoji {
-  font-size: 16px;
+  font-size: 12px;
   line-height: 1;
   font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
-  font-variant-emoji: emoji; /* 强制使用彩色 emoji */
 }
 
-.text {
-  font-size: 14px;
-}
-
-.recipe-info {
+.recipe-meta {
   display: flex;
+  justify-content: space-between;
   align-items: center;
-  gap: 16px;
-  font-size: 12px;
+  font-size: 10px;
   color: #656d76;
-}
-
-.author {
-  font-weight: 500;
 }
 
 .likes {
   color: #f85149;
   font-weight: 500;
-}
-
-.time {
-  color: #656d76;
 }
 
 /* ========== 响应式设计 ========== */
@@ -380,9 +472,17 @@ onMounted(() => {
   }
   
   .stats-section,
-  .recipes-section {
+  .cards-section {
     padding: 0 15px;
     margin: 30px auto;
+  }
+  
+  .feature-card {
+    height: 350px;
+  }
+  
+  .card-content {
+    height: 270px;
   }
 }
 
@@ -401,7 +501,7 @@ onMounted(() => {
   }
   
   .stats-section,
-  .recipes-section {
+  .cards-section {
     padding: 0 12px;
     margin: 20px auto;
   }
@@ -412,55 +512,23 @@ onMounted(() => {
     margin-bottom: 12px;
   }
   
-  /* 配方卡片优化 */
-  .recipe-item {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    padding: 12px;
+  .feature-card {
+    height: 300px;
+    margin-bottom: 15px;
   }
   
-  .recipe-content {
-    width: 100%;
+  .card-content {
+    height: 220px;
+  }
+  
+  .recipe-display {
     flex-wrap: wrap;
-    gap: 8px;
+    gap: 2px;
   }
   
-  .materials {
-    flex-wrap: wrap;
-    gap: 6px;
-  }
-  
-  .material {
-    padding: 6px 10px;
-    font-size: 13px;
-  }
-  
-  .result {
-    padding: 6px 10px;
-    font-size: 13px;
-  }
-  
-  .arrow {
-    font-size: 16px;
-    margin: 0 2px;
-  }
-  
-  .recipe-info {
-    width: 100%;
-    justify-content: space-between;
-    gap: 8px;
-    font-size: 11px;
-  }
-  
-  .section-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 10px;
-  }
-  
-  .section-header h3 {
-    font-size: 18px;
+  .material, .result {
+    max-width: 60px;
+    font-size: 10px;
   }
 }
 
@@ -474,14 +542,12 @@ onMounted(() => {
     font-size: 20px;
   }
   
-  .material,
-  .result {
-    padding: 4px 8px;
-    font-size: 12px;
+  .feature-card {
+    height: 280px;
   }
   
-  .emoji {
-    font-size: 14px;
+  .card-content {
+    height: 200px;
   }
 }
 </style>

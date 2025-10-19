@@ -73,6 +73,8 @@ class ImportTaskQueue {
     const MAX_EMPTY_ROUNDS = 6; // 连续6次无任务后增加间隔
     const LONG_INTERVAL = 30000; // 30秒间隔
     const LOG_INTERVAL = 12; // 每12次无任务才记录一次日志
+    const AUTO_RETRY_INTERVAL = 60; // 自动重试检查间隔（秒）
+    let lastAutoRetryTime = 0;
     
     while (this.isRunning) {
       try {
@@ -88,6 +90,19 @@ class ImportTaskQueue {
           // 只在特定间隔记录日志，避免日志过多
           if (consecutiveEmptyRounds % LOG_INTERVAL === 0) {
             logger.info(`任务队列空闲中，已连续${consecutiveEmptyRounds}次无任务`);
+          }
+          
+          // 检查是否需要自动重试429限流错误任务
+          const currentTime = Date.now();
+          if (currentTime - lastAutoRetryTime >= AUTO_RETRY_INTERVAL * 1000) {
+            const hasProcessingTasks = await this.hasProcessingTasks();
+            if (!hasProcessingTasks) {
+              const retryCount = await this.autoRetryRateLimitTasks();
+              if (retryCount > 0) {
+                logger.success(`自动重试了${retryCount}个429限流错误任务`);
+              }
+            }
+            lastAutoRetryTime = currentTime;
           }
           
           // 连续无任务时增加间隔
@@ -435,6 +450,63 @@ class ImportTaskQueue {
     );
 
     logger.info(`任务${taskId}统计更新: ${stats.success}成功, ${stats.failed}失败, ${stats.duplicate}重复, ${pending}待处理`);
+  }
+
+  /**
+   * 检查是否有正在进行的任务
+   */
+  private async hasProcessingTasks(): Promise<boolean> {
+    const result = await database.get<{ count: number }>(
+      `SELECT COUNT(*) as count FROM import_tasks_content 
+       WHERE status IN ('pending', 'processing')`
+    );
+    return (result?.count || 0) > 0;
+  }
+
+  /**
+   * 自动重试429限流错误的失败任务
+   */
+  private async autoRetryRateLimitTasks(): Promise<number> {
+    try {
+      // 查找error_message包含"验证失败，状态码: 429"的failed状态任务
+      const rateLimitTasks = await database.all<ImportTaskContent>(
+        `SELECT * FROM import_tasks_content 
+         WHERE status = 'failed' 
+         AND error_message LIKE '%验证失败，状态码: 429%' 
+         ORDER BY updated_at ASC 
+         LIMIT ?`,
+        [CONCURRENT_LIMIT]
+      );
+
+      if (rateLimitTasks.length === 0) {
+        return 0;
+      }
+
+      logger.info(`发现${rateLimitTasks.length}个429限流错误任务，开始自动重试`);
+
+      let retryCount = 0;
+      for (const task of rateLimitTasks) {
+        try {
+          // 重置任务状态为pending，清空错误信息，重置重试次数
+          await database.run(
+            `UPDATE import_tasks_content 
+             SET status = 'pending', retry_count = 0, error_message = NULL, updated_at = ? 
+             WHERE id = ?`,
+            [getCurrentUTC8TimeForDB(), task.id]
+          );
+          retryCount++;
+          logger.info(`自动重试任务${task.id}: ${task.item_a} + ${task.item_b} = ${task.result}`);
+        } catch (error) {
+          logger.error(`自动重试任务${task.id}失败:`, error);
+        }
+      }
+
+      logger.success(`自动重试完成: ${retryCount}/${rateLimitTasks.length}个任务已重置`);
+      return retryCount;
+    } catch (error) {
+      logger.error('自动重试429限流任务失败:', error);
+      return 0;
+    }
   }
 
   /**

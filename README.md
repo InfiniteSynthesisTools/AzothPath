@@ -114,17 +114,17 @@ npm run db:init
 cd backend
 npm run dev
 ```
-后端将运行在 http://localhost:3000
+后端将运行在 http://localhost:19198
 
 ##### 启动前端（终端2）
 ```bash
 cd frontend
 npm run dev
 ```
-前端将运行在 http://localhost:5173
+前端将运行在 http://localhost:11451
 
 #### 7. 访问应用
-打开浏览器访问: http://localhost:5173
+打开浏览器访问: http://localhost:11451
 
 ## 📚 文档
 
@@ -644,7 +644,95 @@ Azoth Path 系统实现了完整的建图功能，基于物品合成配方构建
 - **核心算法文件**: `backend/src/services/recipeService.ts`
 - **主要函数**: `buildRecipeGraph()`, `analyzeReachability()`, `classifyGraph()`, `calculateGraphStats()`
 
-## 🔒 安全配置
+## � 打包部署
+
+### Windows 下打包
+
+使用提供的打包脚本生成生产环境部署包：
+
+```cmd
+.\build.bat
+```
+
+脚本会自动完成：
+1. ✅ 清理旧的构建文件
+2. ✅ 构建前端 (Vite)
+3. ✅ 构建后端 (TypeScript)
+4. ✅ 复制必要文件
+5. ✅ 生成部署配置和文档
+
+所有文件会被打包到 `dist/` 目录：
+
+```
+dist/
+├── frontend/              # 前端静态文件
+├── backend/               # 后端应用
+│   ├── dist/              # 编译后的 JS
+│   ├── database/          # 数据库初始化脚本
+│   ├── package.json
+│   └── .env.example
+├── logs/                  # 日志目录
+├── start.sh               # Linux 启动脚本
+├── ecosystem.config.js    # PM2 配置
+├── nginx.conf             # Nginx 配置示例
+└── DEPLOY.md              # 完整部署文档
+```
+
+### Ubuntu 服务器部署
+
+详细部署步骤请查看：
+- **快速指南**: [BUILD.md](BUILD.md)
+- **完整文档**: `dist/DEPLOY.md` (打包后生成)
+
+#### 快速部署流程
+
+1. **上传文件到服务器**
+   ```bash
+   scp -r dist/ user@server:/var/www/azothpath/
+   ```
+
+2. **安装依赖**
+   ```bash
+   cd /var/www/azothpath/backend
+   npm install --production
+   ```
+
+3. **配置环境变量**
+   ```bash
+   cp .env.example .env
+   nano .env  # 修改配置
+   ```
+
+4. **初始化数据库**
+   ```bash
+   node dist/database/connection.js
+   ```
+
+5. **使用 PM2 启动**
+   ```bash
+   npm install -g pm2
+   cd /var/www/azothpath
+   pm2 start ecosystem.config.js
+   pm2 startup
+   pm2 save
+   ```
+
+6. **配置 Nginx**
+   ```bash
+   sudo cp nginx.conf /etc/nginx/sites-available/azothpath
+   sudo ln -s /etc/nginx/sites-available/azothpath /etc/nginx/sites-enabled/
+   sudo nano /etc/nginx/sites-available/azothpath  # 修改域名和路径
+   sudo nginx -t
+   sudo systemctl restart nginx
+   ```
+
+### 访问地址
+
+- **前端**: http://your-domain.com
+- **后端 API**: http://your-domain.com/api
+- **直接访问后端**: http://your-domain.com:19198
+
+## �🔒 安全配置
 
 ### 已实施的安全修复
 
@@ -685,11 +773,11 @@ JWT_SECRET=your_secure_jwt_secret_key_here
 # 数据库路径（可选，默认使用 database/azothpath.db）
 DB_PATH=database/azothpath.db
 
-# 后端端口（可选，默认 3000）
-PORT=3000
+# 后端端口（可选，默认 19198）
+PORT=19198
 
-# 前端端口（可选，默认 5173）
-VITE_PORT=5173
+# 前端端口（可选，默认 11451）
+VITE_PORT=11451
 
 # 生产环境配置
 NODE_ENV=production

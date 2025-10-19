@@ -21,8 +21,8 @@
 - `API_DOCUMENTATION.md` - Complete API interface documentation with examples
 
 **Development Status**: 
-- ✅ Backend running on http://localhost:3000
-- ✅ Frontend running on http://localhost:5173  
+- ✅ Backend running on http://localhost:19198
+- ✅ Frontend running on http://localhost:11451  
 - ✅ Database initialized and connected
 - ✅ Hot reload enabled (no manual restart needed)
 - ✅ Like system with toggle functionality implemented
@@ -254,10 +254,10 @@ npm run db:init  # Creates tables from schema
 
 ### Development Servers
 ```bash
-# Backend (port 3000)
+# Backend (port 19198)
 cd backend && npm run dev
 
-# Frontend (port 5173)
+# Frontend (port 11451)
 cd frontend && npm run dev
 ```
 

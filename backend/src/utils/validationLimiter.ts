@@ -10,7 +10,7 @@
 
 class ValidationLimiter {
   private lastValidationTime: number = 0;
-  private readonly minInterval: number = 500; // 800毫秒间隔（可根据API限制调整）
+  private readonly minInterval: number = 800; // 800毫秒间隔（可根据API限制调整）
   private queue: Array<() => void> = [];
   private processing: boolean = false;
 

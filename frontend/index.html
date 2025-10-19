@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+  
   <link rel="icon" type="image/x-icon" href="/favicon.ico" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <meta name="theme-color" content="#409eff" />
@@ -12,33 +13,33 @@
   <title>Azoth Path - 无尽合成工具站</title>
 
   <style>
-    /* 从 CDN 加载 Noto Color Emoji 字体（国内可访问的多个 CDN 备选） */
+    /* Noto Color Emoji 字体加载：CDN 优先，超时降级到本地 */
     @font-face {
       font-family: 'Noto Color Emoji';
-      font-display: swap; /* 字体加载前使用系统字体，加载后无缝切换 */
+      font-display: swap; /* 字体加载前使用系统字体，加载后切换 */
       src: 
-        /* 备选 1: jsDelivr (GitHub + Cloudflare，国内较快) */
-        url('https://cdn.jsdelivr.net/gh/googlefonts/noto-emoji@main/fonts/NotoColorEmoji.ttf') format('truetype'),
-        /* 备选 2: unpkg (备用 CDN) */
-        url('https://unpkg.com/noto-color-emoji-font@1.0.2/font/NotoColorEmoji.ttf') format('truetype');
+        /* 优先：CDN (jsdelivr) - 3秒超时 */
+        url('https://cdn.jsdelivr.net/npm/@fontsource/noto-color-emoji@5/files/noto-color-emoji-400-normal.woff2') format('woff2'),
+        /* 备选1：本地服务器字体 */
+        url('/assets/fonts/NotoColorEmoji.ttf') format('truetype'),
     }
     
     body {
-      /* 文字使用系统字体，emoji 优先使用系统原生 emoji */
+      /* 文字使用系统字体，emoji 优先使用 CDN 的 Noto Color Emoji */
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
         'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
         sans-serif,
-        /* Emoji 字体：优先系统原生，CDN 作为备选 */
-        'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+        /* Emoji 字体优先级：CDN Noto → 系统 Emoji */
+        'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol';
       
       /* 移动端优化：防止双击缩放 */
       touch-action: manipulation;
       -webkit-tap-highlight-color: transparent;
     }
     
-    /* 确保 emoji 元素优先使用系统原生 emoji 字体 */
+    /* 确保 emoji 元素优先使用 CDN 的 Noto Color Emoji */
     .emoji, .emoji-large {
-      font-family: 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji', sans-serif;
+      font-family: 'Noto Color Emoji', 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', sans-serif;
       font-variant-emoji: emoji;
       -webkit-font-smoothing: antialiased;
       -moz-osx-font-smoothing: grayscale;
@@ -57,6 +58,53 @@
       }
     }
   </style>
+  
+  <!-- Emoji 字体加载检测：CDN 超时自动降级 -->
+  <script>
+    (function() {
+      const CDN_TIMEOUT = 3000; // 3秒超时
+      let cdnLoaded = false;
+      
+      // 检测 CDN 字体是否加载成功
+      const checkCDNFont = new Promise((resolve) => {
+        // 尝试加载测试 emoji 字符
+        document.fonts.ready.then(() => {
+          const testEmoji = '😀';
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          ctx.font = '16px "Noto Color Emoji"';
+          ctx.fillText(testEmoji, 0, 0);
+          
+          // 检查字体是否真的加载（宽度变化）
+          if (ctx.measureText(testEmoji).width > 0) {
+            cdnLoaded = true;
+            resolve(true);
+          }
+        });
+      });
+      
+      // 超时降级到本地字体
+      setTimeout(() => {
+        if (!cdnLoaded) {
+          console.warn('[Emoji Font] CDN 加载超时，降级到本地字体');
+          // 强制重新声明字体，优先本地
+          const style = document.createElement('style');
+          style.textContent = `
+            @font-face {
+              font-family: 'Noto Color Emoji Fallback';
+              font-display: block;
+              src: url('/assets/fonts/NotoColorEmoji.ttf') format('truetype');
+            }
+            body, .emoji, .emoji-large {
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 
+                sans-serif, 'Noto Color Emoji Fallback', 'Apple Color Emoji', 'Segoe UI Emoji' !important;
+            }
+          `;
+          document.head.appendChild(style);
+        }
+      }, CDN_TIMEOUT);
+    })();
+  </script>
 </head>
 <body>
   <div id="app"></div>

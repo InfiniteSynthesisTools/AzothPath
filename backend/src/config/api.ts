@@ -7,6 +7,7 @@ export interface ApiConfig {
   validationApiUrl: string;
   timeout: number;
   retryCount: number;
+  rateLimitInterval: number; // API请求最小间隔（毫秒）
   headers: Record<string, string>;
 }
 
@@ -21,6 +22,10 @@ export function getApiConfig(): ApiConfig {
     // 请求配置
     timeout: parseInt(process.env.API_TIMEOUT || '5000'),
     retryCount: parseInt(process.env.API_RETRY_COUNT || '3'),
+    
+    // 限速配置：API请求最小间隔（毫秒）
+    // 默认800ms，可通过环境变量 API_RATE_LIMIT_INTERVAL 调整
+    rateLimitInterval: parseInt(process.env.API_RATE_LIMIT_INTERVAL || '800'),
     
     // 请求头配置
     headers: {
@@ -53,6 +58,10 @@ export function validateApiConfig(): void {
   
   if (config.retryCount < 0) {
     throw new Error('API_RETRY_COUNT 不能为负数');
+  }
+  
+  if (config.rateLimitInterval <= 0) {
+    throw new Error('API_RATE_LIMIT_INTERVAL 必须大于0');
   }
 }
 

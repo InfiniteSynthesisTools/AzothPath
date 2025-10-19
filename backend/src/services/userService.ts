@@ -137,6 +137,22 @@ export class UserService {
   }
 
   /**
+   * 获取特定用户信息（公开信息）
+   */
+  async getUserById(userId: number): Promise<UserPublic> {
+    const user = await database.get<User>(
+      'SELECT * FROM user WHERE id = ?',
+      [userId]
+    );
+
+    if (!user) {
+      throw new Error('用户不存在');
+    }
+
+    return toUserPublic(user);
+  }
+
+  /**
    * 获取贡献榜（实时计算）
    */
   async getContributionRank(page: number = 1, limit: number = 10) {

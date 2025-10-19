@@ -37,7 +37,7 @@
               </span>
               <template #dropdown>
                 <el-dropdown-menu>
-                  <el-dropdown-item @click="router.push('/profile')">
+                  <el-dropdown-item @click="goToProfile">
                     <el-icon><User /></el-icon>
                     个人中心
                   </el-dropdown-item>
@@ -152,6 +152,15 @@ const mobileMenuVisible = ref(false);
 
 // 当前激活的菜单项
 const activeMenu = computed(() => route.path);
+
+// 跳转到个人中心
+const goToProfile = () => {
+  if (userStore.userInfo?.id) {
+    router.push(`/profile/${userStore.userInfo.id}`);
+  } else {
+    router.push('/profile');
+  }
+};
 
 // 退出登录
 const handleLogout = () => {

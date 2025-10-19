@@ -208,22 +208,21 @@ const loadUserInfo = async () => {
     // 查看自己的资料，使用 store 中的数据
     currentUser.value = userStore.userInfo;
   } else if (userId) {
-    // 查看其他用户的资料，需要从 API 获取
+    // 查看其他用户的资料，使用新的 API 获取
     try {
-      // 注意：这里需要后端提供获取用户信息的 API
-      // 暂时从统计接口中提取用户信息
-      const response = await userApi.getUserStats(userId);
-      if (response && (response as any).stats) {
-        // 从贡献榜 API 获取用户基本信息
-        const rankResponse = await userApi.getContributionRank({ page: 1, limit: 100 }) as any;
-        const user = rankResponse.users?.find((u: any) => u.id === userId);
-        if (user) {
-          currentUser.value = user;
-        }
+      const response = await userApi.getUser(userId);
+      if (response && response.data) {
+        currentUser.value = response.data;
+      } else {
+        ElMessage.error('用户不存在');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to load user info:', error);
-      ElMessage.error('加载用户信息失败');
+      if (error.response?.status === 404) {
+        ElMessage.error('用户不存在');
+      } else {
+        ElMessage.error('加载用户信息失败');
+      }
     }
   }
 };

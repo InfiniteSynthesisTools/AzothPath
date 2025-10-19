@@ -42,8 +42,13 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/profile',
         name: 'Profile',
-        component: () => import('@/views/Profile.vue'),
-        meta: { title: '个人中心', requiresAuth: true }
+        redirect: (to) => {
+          const userStore = useUserStore();
+          if (userStore.userInfo?.id) {
+            return { path: `/profile/${userStore.userInfo.id}` };
+          }
+          return { path: '/login' };
+        }
       },
       {
         path: '/profile/:id',

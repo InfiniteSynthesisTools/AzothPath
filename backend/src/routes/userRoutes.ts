@@ -168,6 +168,45 @@ router.get('/:id/stats', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/users/:id
+ * 获取特定用户信息（公开信息）
+ */
+router.get('/:id', async (req: Request, res: Response) => {
+  try {
+    const userId = parseInt(req.params.id);
+
+    if (isNaN(userId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的用户 ID'
+      });
+    }
+
+    const user = await userService.getUserById(userId);
+
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: user
+    });
+  } catch (error: any) {
+    logger.error('获取用户信息失败', error);
+    
+    if (error.message === '用户不存在') {
+      return res.status(404).json({
+        code: 404,
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取用户信息失败'
+    });
+  }
+});
+
+/**
  * GET /api/users/:id/liked-recipes
  * 获取用户点赞的配方列表
  */

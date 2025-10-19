@@ -199,7 +199,7 @@ class ImportTaskQueue {
 
       if (!validationResult.success) {
         // 验证失败，增加重试次数
-        await this.incrementRetry(task, validationResult.error || 'Unknown error');
+        await this.incrementRetry(task, validationResult.error || 'Unknown error', validationResult.isRateLimit);
         logger.debug(`任务${task.id}验证失败，耗时: ${validateTime}ms`);
         return;
       }
@@ -249,7 +249,7 @@ class ImportTaskQueue {
   /**
    * 调用外部 API 验证配方（通过全局限速器）
    */
-  private async validateRecipe(task: ImportTaskContent): Promise<{ success: boolean; error?: string; emoji?: string }> {
+  private async validateRecipe(task: ImportTaskContent): Promise<{ success: boolean; error?: string; emoji?: string; isRateLimit?: boolean }> {
     // 使用全局限速器包装 HTTP 请求
     return validationLimiter.limitValidation(async () => {
       try {
@@ -296,6 +296,13 @@ class ImportTaskQueue {
             return { success: false, error: '这两个物件不能合成' };
           } else if (status === 403) {
             return { success: false, error: '包含非法物件（还没出现过的物件）' };
+          } else if (status === 429) {
+            // 429限流错误，特殊处理，不增加重试次数
+            return { 
+              success: false, 
+              error: `验证失败，状态码: ${status}`, 
+              isRateLimit: true 
+            };
           } else {
             return { success: false, error: `验证失败，状态码: ${status}` };
           }
@@ -439,7 +446,19 @@ class ImportTaskQueue {
   /**
    * 增加重试次数
    */
-  private async incrementRetry(task: ImportTaskContent, errorMessage: string) {
+  private async incrementRetry(task: ImportTaskContent, errorMessage: string, isRateLimit?: boolean) {
+    // 如果是429限流错误，不增加重试次数，保持pending状态等待自动重试
+    if (isRateLimit) {
+      logger.info(`任务${task.id}遇到429限流错误，等待自动重试`);
+      await database.run(
+        `UPDATE import_tasks_content 
+         SET error_message = ?, updated_at = ? 
+         WHERE id = ?`,
+        [errorMessage, getCurrentUTC8TimeForDB(), task.id]
+      );
+      return;
+    }
+
     const newRetryCount = task.retry_count + 1;
     const newStatus = newRetryCount >= MAX_RETRY_COUNT ? 'failed' : 'pending';
 

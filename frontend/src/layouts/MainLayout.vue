@@ -20,6 +20,7 @@
         <!-- 桌面端导航菜单 -->
         <el-menu mode="horizontal" :default-active="activeMenu" router class="nav-menu desktop-only">
           <el-menu-item index="/">首页</el-menu-item>
+          <el-menu-item index="/elements">元素列表</el-menu-item>
           <el-menu-item index="/tasks">任务看板</el-menu-item>
           <el-menu-item index="/import" v-if="userStore.isLoggedIn">导入配方</el-menu-item>
           <el-menu-item index="/contribution">贡献榜</el-menu-item>
@@ -76,6 +77,10 @@
         <el-menu-item index="/">
           <el-icon><HomeFilled /></el-icon>
           <span>首页</span>
+        </el-menu-item>
+        <el-menu-item index="/elements">
+          <el-icon><Document /></el-icon>
+          <span>元素列表</span>
         </el-menu-item>
         <el-menu-item index="/tasks">
           <el-icon><Tickets /></el-icon>

@@ -383,6 +383,22 @@ onUnmounted(() => {
   right: 0;
 }
 
+/* 移动端适配：全屏抽屉 */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 100%;
+    right: -100%;
+  }
+  
+  .sidebar.sidebar-open {
+    right: 0;
+  }
+  
+  .sidebar-toggle {
+    display: none; /* 移动端隐藏浮动按钮 */
+  }
+}
+
 .sidebar-header {
   display: flex;
   justify-content: space-between;

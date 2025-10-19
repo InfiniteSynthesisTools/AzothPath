@@ -1,0 +1,282 @@
+/**
+ * 移动端适配全局样式
+ * 为所有页面提供统一的响应式设计
+ */
+
+/* ========== 容器样式 ========== */
+
+/* 页面容器 */
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* 卡片容器 */
+.card-container {
+  padding: 20px;
+}
+
+/* ========== 响应式网格 ========== */
+
+/* 响应式网格布局 */
+.responsive-grid {
+  display: grid;
+  gap: 20px;
+}
+
+/* 桌面端 4 列 */
+.responsive-grid.cols-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+/* 桌面端 3 列 */
+.responsive-grid.cols-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+/* 桌面端 2 列 */
+.responsive-grid.cols-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+/* ========== 按钮优化 ========== */
+
+/* 移动端按钮增大点击区域 */
+.mobile-touch-btn {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* ========== 文字大小 ========== */
+
+.text-mobile-lg {
+  font-size: 16px;
+}
+
+.text-mobile-md {
+  font-size: 14px;
+}
+
+.text-mobile-sm {
+  font-size: 12px;
+}
+
+/* ========== 间距工具类 ========== */
+
+.mobile-padding {
+  padding: 12px;
+}
+
+.mobile-margin {
+  margin: 12px;
+}
+
+/* ========== 响应式断点 ========== */
+
+/* 平板端 (768px - 1024px) */
+@media (max-width: 1024px) {
+  .page-container {
+    padding: 15px;
+  }
+  
+  .card-container {
+    padding: 15px;
+  }
+  
+  .responsive-grid {
+    gap: 15px;
+  }
+  
+  .responsive-grid.cols-4 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .responsive-grid.cols-3 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  /* 隐藏类 */
+  .tablet-hidden {
+    display: none !important;
+  }
+}
+
+/* 移动端 (< 768px) */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 12px;
+  }
+  
+  .card-container {
+    padding: 12px;
+  }
+  
+  .responsive-grid {
+    gap: 12px;
+  }
+  
+  .responsive-grid.cols-4,
+  .responsive-grid.cols-3,
+  .responsive-grid.cols-2 {
+    grid-template-columns: 1fr;
+  }
+  
+  /* Element Plus 组件适配 */
+  :deep(.el-row) {
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+  }
+  
+  :deep(.el-col) {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-bottom: 12px;
+  }
+  
+  :deep(.el-card) {
+    margin-bottom: 12px;
+  }
+  
+  :deep(.el-card__body) {
+    padding: 12px;
+  }
+  
+  :deep(.el-table) {
+    font-size: 12px;
+  }
+  
+  :deep(.el-pagination) {
+    justify-content: center;
+    padding: 12px 0;
+  }
+  
+  :deep(.el-pagination .el-pager li) {
+    min-width: 32px;
+    height: 32px;
+    line-height: 32px;
+  }
+  
+  :deep(.el-button) {
+    min-height: 40px;
+    padding: 10px 16px;
+  }
+  
+  :deep(.el-input__inner) {
+    height: 40px;
+    line-height: 40px;
+  }
+  
+  :deep(.el-textarea__inner) {
+    font-size: 14px;
+  }
+  
+  /* 隐藏类 */
+  .mobile-hidden {
+    display: none !important;
+  }
+  
+  /* 表格横向滚动 */
+  .table-mobile-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* 固定定位元素适配 */
+  .fixed-mobile {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 999;
+  }
+}
+
+/* 小屏手机 (< 375px) */
+@media (max-width: 375px) {
+  .page-container {
+    padding: 8px;
+  }
+  
+  .card-container {
+    padding: 10px;
+  }
+  
+  .responsive-grid {
+    gap: 10px;
+  }
+  
+  :deep(.el-card__body) {
+    padding: 10px;
+  }
+  
+  :deep(.el-button) {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+}
+
+/* ========== 触摸优化 ========== */
+
+/* 增加可点击元素的最小尺寸 */
+.touchable {
+  min-height: 44px;
+  min-width: 44px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* 点击反馈效果 */
+.touch-feedback:active {
+  opacity: 0.7;
+  transform: scale(0.98);
+  transition: all 0.1s;
+}
+
+/* ========== 滚动优化 ========== */
+
+/* 平滑滚动 */
+.smooth-scroll {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* 隐藏滚动条但保持可滚动 */
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ========== 图片优化 ========== */
+
+/* 响应式图片 */
+.img-responsive {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* ========== 表单优化 ========== */
+
+/* 移动端表单字体大小（防止 iOS 自动缩放） */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* ========== 安全区域适配（iPhone X 等） ========== */
+
+@supports (padding: max(0px)) {
+  .safe-area-inset {
+    padding-left: max(12px, env(safe-area-inset-left));
+    padding-right: max(12px, env(safe-area-inset-right));
+    padding-bottom: max(12px, env(safe-area-inset-bottom));
+  }
+}

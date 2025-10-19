@@ -9,6 +9,7 @@
 <script setup lang="ts">
 import { onMounted } from 'vue';
 import { useUserStore } from '@/stores';
+import '@/styles/mobile.css';
 
 const userStore = useUserStore();
 

@@ -366,4 +366,122 @@ onMounted(() => {
 .time {
   color: #656d76;
 }
+
+/* ========== 响应式设计 ========== */
+
+/* 平板端 */
+@media (max-width: 1024px) {
+  .hero-section {
+    padding: 40px 20px;
+  }
+  
+  .hero-section h2 {
+    font-size: 32px;
+  }
+  
+  .stats-section,
+  .recipes-section {
+    padding: 0 15px;
+    margin: 30px auto;
+  }
+}
+
+/* 移动端 */
+@media (max-width: 768px) {
+  .hero-section {
+    padding: 30px 15px;
+  }
+  
+  .hero-section h2 {
+    font-size: 24px;
+  }
+  
+  .hero-section p {
+    font-size: 14px;
+  }
+  
+  .stats-section,
+  .recipes-section {
+    padding: 0 12px;
+    margin: 20px auto;
+  }
+  
+  /* 统计卡片单列显示 */
+  .stats-section :deep(.el-col) {
+    width: 100%;
+    margin-bottom: 12px;
+  }
+  
+  /* 配方卡片优化 */
+  .recipe-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px;
+  }
+  
+  .recipe-content {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+  
+  .materials {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  .material {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  
+  .result {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+  
+  .arrow {
+    font-size: 16px;
+    margin: 0 2px;
+  }
+  
+  .recipe-info {
+    width: 100%;
+    justify-content: space-between;
+    gap: 8px;
+    font-size: 11px;
+  }
+  
+  .section-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  
+  .section-header h3 {
+    font-size: 18px;
+  }
+}
+
+/* 小屏手机 */
+@media (max-width: 375px) {
+  .hero-section {
+    padding: 20px 12px;
+  }
+  
+  .hero-section h2 {
+    font-size: 20px;
+  }
+  
+  .material,
+  .result {
+    padding: 4px 8px;
+    font-size: 12px;
+  }
+  
+  .emoji {
+    font-size: 14px;
+  }
+}
 </style>

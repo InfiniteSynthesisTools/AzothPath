@@ -3,11 +3,22 @@
     <!-- 全局导航栏 -->
     <el-header class="header">
       <div class="header-content">
+        <!-- 移动端菜单按钮 -->
+        <el-button 
+          class="mobile-menu-btn" 
+          text 
+          @click="mobileMenuVisible = true"
+        >
+          <el-icon :size="24"><Menu /></el-icon>
+        </el-button>
+        
         <div class="logo" @click="router.push('/')">
           <h1>✨ Azoth Path</h1>
           <span class="subtitle">无尽合成工具站</span>
         </div>
-        <el-menu mode="horizontal" :default-active="activeMenu" router class="nav-menu">
+        
+        <!-- 桌面端导航菜单 -->
+        <el-menu mode="horizontal" :default-active="activeMenu" router class="nav-menu desktop-only">
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/recipes">配方列表</el-menu-item>
           <el-menu-item index="/tasks">任务看板</el-menu-item>
@@ -15,12 +26,13 @@
           <el-menu-item index="/contribution">贡献榜</el-menu-item>
           <el-menu-item index="/admin" v-if="userStore.isAdmin">管理后台</el-menu-item>
         </el-menu>
+        
         <div class="user-actions">
           <template v-if="userStore.isLoggedIn">
             <el-dropdown>
               <span class="user-info">
                 <el-icon><User /></el-icon>
-                {{ userStore.userInfo?.name }}
+                <span class="user-name">{{ userStore.userInfo?.name }}</span>
                 <span class="user-level">Lv.{{ userStore.userInfo?.level }}</span>
               </span>
               <template #dropdown>
@@ -38,12 +50,61 @@
             </el-dropdown>
           </template>
           <template v-else>
-            <el-button @click="router.push('/login')">登录</el-button>
+            <el-button class="mobile-hidden" @click="router.push('/login')">登录</el-button>
             <el-button type="primary" @click="router.push('/register')">注册</el-button>
           </template>
         </div>
       </div>
     </el-header>
+    
+    <!-- 移动端抽屉菜单 -->
+    <el-drawer
+      v-model="mobileMenuVisible"
+      direction="ltr"
+      :size="280"
+      class="mobile-menu-drawer"
+    >
+      <template #header>
+        <div class="mobile-menu-header">
+          <h3>✨ Azoth Path</h3>
+        </div>
+      </template>
+      <el-menu 
+        :default-active="activeMenu" 
+        router 
+        @select="mobileMenuVisible = false"
+      >
+        <el-menu-item index="/">
+          <el-icon><HomeFilled /></el-icon>
+          <span>首页</span>
+        </el-menu-item>
+        <el-menu-item index="/recipes">
+          <el-icon><Document /></el-icon>
+          <span>配方列表</span>
+        </el-menu-item>
+        <el-menu-item index="/tasks">
+          <el-icon><Tickets /></el-icon>
+          <span>任务看板</span>
+        </el-menu-item>
+        <el-menu-item index="/import" v-if="userStore.isLoggedIn">
+          <el-icon><Upload /></el-icon>
+          <span>导入配方</span>
+        </el-menu-item>
+        <el-menu-item index="/contribution">
+          <el-icon><Trophy /></el-icon>
+          <span>贡献榜</span>
+        </el-menu-item>
+        <el-menu-item index="/admin" v-if="userStore.isAdmin">
+          <el-icon><Setting /></el-icon>
+          <span>管理后台</span>
+        </el-menu-item>
+        <el-divider v-if="!userStore.isLoggedIn" />
+        <el-menu-item v-if="!userStore.isLoggedIn" index="/login">
+          <el-icon><User /></el-icon>
+          <span>登录</span>
+        </el-menu-item>
+      </el-menu>
+    </el-drawer>
 
     <!-- 内容区域 -->
     <div class="main-content" :class="{ 'with-sidebar': sidebarVisible }">
@@ -65,7 +126,17 @@ import { computed, ref } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores';
 import { ElMessage } from 'element-plus';
-import { User, SwitchButton, Bell } from '@element-plus/icons-vue';
+import { 
+  User, 
+  SwitchButton, 
+  Menu, 
+  HomeFilled, 
+  Document, 
+  Tickets, 
+  Upload, 
+  Trophy, 
+  Setting 
+} from '@element-plus/icons-vue';
 import Sidebar from '@/components/Sidebar.vue';
 
 const router = useRouter();
@@ -76,13 +147,11 @@ const userStore = useUserStore();
 const sidebarVisible = ref(false);
 const hasUnreadNotifications = ref(false);
 
+// 移动端菜单状态
+const mobileMenuVisible = ref(false);
+
 // 当前激活的菜单项
 const activeMenu = computed(() => route.path);
-
-// 切换侧边栏
-const toggleSidebar = () => {
-  sidebarVisible.value = !sidebarVisible.value;
-};
 
 // 退出登录
 const handleLogout = () => {
@@ -106,6 +175,7 @@ const handleLogout = () => {
   position: sticky;
   top: 0;
   z-index: 1000;
+  height: 60px;
 }
 
 .header-content {
@@ -117,6 +187,13 @@ const handleLogout = () => {
   height: 100%;
   padding: 0 20px;
   gap: 20px;
+}
+
+/* 移动端菜单按钮 */
+.mobile-menu-btn {
+  display: none;
+  padding: 8px;
+  margin-right: -8px;
 }
 
 .logo {
@@ -180,14 +257,117 @@ const handleLogout = () => {
   margin-right: 320px;
 }
 
-.sidebar-toggle {
-  position: relative;
+/* 移动端抽屉菜单样式 */
+.mobile-menu-header h3 {
+  margin: 0;
+  color: #409eff;
+  font-size: 20px;
 }
 
-.sidebar-toggle .el-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
+:deep(.mobile-menu-drawer .el-menu) {
+  border-right: none;
 }
 
+:deep(.mobile-menu-drawer .el-menu-item) {
+  height: 50px;
+  line-height: 50px;
+  font-size: 16px;
+}
+
+/* ========== 响应式设计 ========== */
+
+/* 平板端 (768px - 1024px) */
+@media (max-width: 1024px) {
+  .header-content {
+    padding: 0 15px;
+    gap: 15px;
+  }
+  
+  .nav-menu {
+    display: none;
+  }
+  
+  .main-content.with-sidebar {
+    margin-right: 0;
+  }
+}
+
+/* 移动端 (< 768px) */
+@media (max-width: 768px) {
+  .header {
+    height: 56px;
+  }
+  
+  .header-content {
+    padding: 0 12px;
+    gap: 12px;
+  }
+  
+  /* 显示移动端菜单按钮 */
+  .mobile-menu-btn {
+    display: block;
+  }
+  
+  /* 隐藏桌面端导航 */
+  .desktop-only {
+    display: none !important;
+  }
+  
+  .logo h1 {
+    font-size: 18px;
+  }
+  
+  .subtitle {
+    display: none;
+  }
+  
+  .user-actions {
+    gap: 6px;
+  }
+  
+  .user-info {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+  
+  /* 隐藏用户名，只显示图标和等级 */
+  .user-name {
+    display: none;
+  }
+  
+  .user-level {
+    font-size: 11px;
+  }
+  
+  /* 隐藏移动端的登录按钮 */
+  .mobile-hidden {
+    display: none;
+  }
+  
+  .user-actions .el-button {
+    padding: 8px 12px;
+    font-size: 14px;
+  }
+  
+  .main-content.with-sidebar {
+    margin-right: 0;
+  }
+}
+
+/* 小屏手机 (< 375px) */
+@media (max-width: 375px) {
+  .header-content {
+    padding: 0 8px;
+    gap: 8px;
+  }
+  
+  .logo h1 {
+    font-size: 16px;
+  }
+  
+  .user-actions .el-button {
+    padding: 6px 10px;
+    font-size: 13px;
+  }
+}
 </style>

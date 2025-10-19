@@ -19,6 +19,7 @@ database/*.db-wal
 
 # Build output
 dist/
+dist2/
 build/
 *.tsbuildinfo
 

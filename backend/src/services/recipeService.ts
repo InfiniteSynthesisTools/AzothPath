@@ -180,9 +180,9 @@ export class RecipeService {
   private async ensureItemExists(itemName: string): Promise<number> {
     const existing = await database.get('SELECT * FROM items WHERE name = ?', [itemName]);
     if (!existing) {
-      // 基础材料列表
-      const baseItems = ['金', '木', '水', '火', '土', '宝石'];
-      const isBase = baseItems.includes(itemName);
+    // 基础材料列表（与数据库初始化保持一致）
+    const baseItems = ['金', '木', '水', '火', '土'];
+    const isBase = baseItems.includes(itemName);
       await database.run(
         'INSERT INTO items (name, is_base) VALUES (?, ?)',
         [itemName, isBase ? 1 : 0]

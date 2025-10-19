@@ -127,7 +127,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { userApi } from '@/api';
-import { formatDate } from '@/utils/time';
+import { formatDate } from '@/utils/format';
 import { ElMessage } from 'element-plus';
 import { User, Medal, Star } from '@element-plus/icons-vue';
 

@@ -1,7 +1,10 @@
 /**
  * 统一日志工具
  * 提供结构化的日志输出，支持不同级别和颜色
+ * 所有时间显示统一使用UTC+8
  */
+
+import { getCurrentUTC8Time, formatDateTimeForDB } from './timezone';
 
 export enum LogLevel {
   ERROR = 0,
@@ -52,9 +55,9 @@ class Logger {
   }
 
   private formatMessage(level: string, message: string, data?: any): string {
-    const now = new Date();
-    // 确保显示UTC+8时间
-    const timestamp = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}.${now.getMilliseconds().toString().padStart(3, '0')}`;
+    const utc8Time = getCurrentUTC8Time();
+    // 使用UTC+8时间格式化
+    const timestamp = formatDateTimeForDB(utc8Time);
     const prefix = `[${timestamp}] ${level}:`;
     
     if (data) {

@@ -96,7 +96,7 @@
             </div>
             
             <div class="task-time">
-              {{ formatRelativeTime(task.created_at) }}
+              {{ formatDateTime(task.created_at) }}
             </div>
           </div>
         </div>
@@ -124,7 +124,7 @@
             <div class="notification-content">
               <div class="notification-title">{{ notification.title }}</div>
               <div class="notification-message">{{ notification.message }}</div>
-              <div class="notification-time">{{ formatRelativeTime(notification.created_at) }}</div>
+              <div class="notification-time">{{ formatDateTime(notification.created_at) }}</div>
             </div>
             
             <div class="notification-actions">
@@ -161,6 +161,7 @@ import { ref, computed, onMounted, onUnmounted, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Bell, ChatDotRound, Close, SuccessFilled, WarningFilled, InfoFilled } from '@element-plus/icons-vue';
 import { useImportStore } from '@/stores/import';
+import { formatDateTime } from '@/utils/format';
 
 // 侧边栏状态
 const isOpen = ref(false);
@@ -281,20 +282,6 @@ const getNotificationColor = (type: string) => {
   return colors[type] || '#909399';
 };
 
-const formatRelativeTime = (dateString: string) => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / (1000 * 60));
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-  
-  if (diffMins < 1) return '刚刚';
-  if (diffMins < 60) return `${diffMins}分钟前`;
-  if (diffHours < 24) return `${diffHours}小时前`;
-  if (diffDays < 7) return `${diffDays}天前`;
-  return date.toLocaleDateString('zh-CN');
-};
 
 const markAsRead = (notificationId: number) => {
   const notification = notifications.value.find((n: any) => n.id === notificationId);

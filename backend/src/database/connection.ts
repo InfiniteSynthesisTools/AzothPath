@@ -2,6 +2,7 @@ import sqlite3 from 'sqlite3';
 import path from 'path';
 import fs from 'fs';
 import { logger } from '../utils/logger';
+import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 
 // 数据库路径配置 - 默认使用 backend 目录下的 database 文件夹
 const DB_PATH = process.env.DB_PATH 

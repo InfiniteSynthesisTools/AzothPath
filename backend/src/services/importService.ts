@@ -1,6 +1,6 @@
 import { database } from '../database/connection';
-import { recipeService } from './recipeService';
 import { logger } from '../utils/logger';
+import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 import { apiConfig } from '../config/api';
 import axios from 'axios';
 import { validationLimiter } from '../utils/validationLimiter';
@@ -147,8 +147,8 @@ export class ImportService {
 
     // 创建任务汇总记录
     const taskResult = await database.run(
-      'INSERT INTO import_tasks (user_id, total_count, success_count, failed_count, duplicate_count, status) VALUES (?, ?, ?, ?, ?, ?)',
-      [userId, totalCount, 0, 0, 0, 'processing']
+      'INSERT INTO import_tasks (user_id, total_count, success_count, failed_count, duplicate_count, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, totalCount, 0, 0, 0, 'processing', getCurrentUTC8TimeForDB(), getCurrentUTC8TimeForDB()]
     );
 
     const taskId = taskResult.lastID!;
@@ -156,8 +156,8 @@ export class ImportService {
     // 创建任务明细记录
     for (const recipe of recipes) {
       await database.run(
-        'INSERT INTO import_tasks_content (task_id, item_a, item_b, result, status) VALUES (?, ?, ?, ?, ?)',
-        [taskId, recipe.item_a, recipe.item_b, recipe.result, 'pending']
+        'INSERT INTO import_tasks_content (task_id, item_a, item_b, result, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [taskId, recipe.item_a, recipe.item_b, recipe.result, 'pending', getCurrentUTC8TimeForDB(), getCurrentUTC8TimeForDB()]
       );
     }
 
@@ -169,7 +169,7 @@ export class ImportService {
    */
   async processImportTask(taskId: number): Promise<{ successCount: number; failedCount: number; duplicateCount: number }> {
     try {
-      console.log(`🚀 Starting to process import task ${taskId} with queue system`);
+      logger.info(`开始处理导入任务${taskId}，使用队列系统`);
       
       // 立即将任务状态设置为处理中
       await database.run(
@@ -183,8 +183,8 @@ export class ImportService {
     } catch (error: any) {
       // 更新任务状态为失败
       await database.run(
-        'UPDATE import_tasks SET status = ?, error_details = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?',
-        ['failed', JSON.stringify({ error: error.message }), taskId]
+        'UPDATE import_tasks SET status = ?, error_details = ?, updated_at = ? WHERE id = ?',
+        ['failed', JSON.stringify({ error: error.message }), getCurrentUTC8TimeForDB(), taskId]
       );
 
 

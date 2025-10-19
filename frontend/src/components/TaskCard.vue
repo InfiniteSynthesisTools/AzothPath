@@ -33,7 +33,7 @@
       <div class="task-footer">
         <div class="task-time">
           <el-icon><Clock /></el-icon>
-          {{ formatTime(task.created_at) }}
+          {{ formatDateTime(task.created_at) }}
         </div>
       </div>
     </div>
@@ -44,7 +44,7 @@
 import { More, Clock } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user';
 import type { Task } from '@/api/task';
-import { formatTime } from '@/utils/time';
+import { formatDateTime } from '@/utils/format';
 
 interface Props {
   task: Task;

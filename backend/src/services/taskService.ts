@@ -1,5 +1,6 @@
 import { database } from '../database/connection';
 import { logger } from '../utils/logger';
+import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 
 export interface Task {
   id: number;
@@ -237,9 +238,9 @@ export class TaskService {
       // 更新任务状态
       await database.run(
         `UPDATE task 
-         SET status = ?, completed_by_recipe_id = ?, completed_at = CURRENT_TIMESTAMP
+         SET status = ?, completed_by_recipe_id = ?, completed_at = ?
          WHERE id = ?`,
-        ['completed', recipeId, taskId]
+        ['completed', recipeId, getCurrentUTC8TimeForDB(), taskId]
       );
 
       // 发放奖励（增加用户贡献分）

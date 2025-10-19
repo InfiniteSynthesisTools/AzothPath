@@ -87,7 +87,7 @@
             <div class="recipe-info">
               <span class="author">{{ recipe.creator_name || '未知' }}</span>
               <span class="likes">❤️ {{ recipe.likes || 0 }}</span>
-              <span class="time">{{ formatTime(recipe.created_at) }}</span>
+              <span class="time">{{ formatDateTime(recipe.created_at) }}</span>
             </div>
           </div>
         </div>
@@ -100,7 +100,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { recipeApi } from '@/api';
-import { formatTime } from '@/utils/time';
+import { formatDateTime } from '@/utils/format';
 
 const router = useRouter();
 const loadingRecipes = ref(false);

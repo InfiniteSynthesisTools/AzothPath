@@ -199,7 +199,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { useImportStore } from '@/stores/import';
 import type { ImportTask, ImportTaskContent } from '@/types';
 import ImportTaskCard from '@/components/ImportTaskCard.vue';
-import { formatDateTime } from '@/utils/time';
+import { formatDateTime } from '@/utils/format';
 
 const importStore = useImportStore();
 

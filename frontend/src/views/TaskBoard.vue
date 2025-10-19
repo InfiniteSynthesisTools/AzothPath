@@ -211,7 +211,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { taskApi, type Task, type TaskWithDetails, type TaskStats } from '@/api/task';
 import { useUserStore } from '@/stores/user';
 import TaskCard from '@/components/TaskCard.vue';
-import { formatDateTime } from '@/utils/time';
+import { formatDateTime } from '@/utils/format';
 
 const userStore = useUserStore();
 

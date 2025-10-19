@@ -2,7 +2,7 @@ import { database } from '../database/connection';
 import { logger } from '../utils/logger';
 import { apiConfig } from '../config/api';
 import axios from 'axios';
-import { recipeService } from './recipeService';
+import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 
 // 任务队列配置
 const MAX_RETRY_COUNT = apiConfig.retryCount;
@@ -69,25 +69,44 @@ class ImportTaskQueue {
    * 主循环：定时检查待处理任务
    */
   private async processLoop() {
+    let consecutiveEmptyRounds = 0;
+    const MAX_EMPTY_ROUNDS = 6; // 连续6次无任务后增加间隔
+    const LONG_INTERVAL = 30000; // 30秒间隔
+    const LOG_INTERVAL = 12; // 每12次无任务才记录一次日志
+    
     while (this.isRunning) {
       try {
-        logger.info('任务队列循环开始');
-        await this.processPendingTasks();
+        const hasTasks = await this.processPendingTasks();
+        
+        if (hasTasks) {
+          consecutiveEmptyRounds = 0;
+          // 有任务时使用正常间隔
+          await new Promise(resolve => setTimeout(resolve, QUEUE_INTERVAL));
+        } else {
+          consecutiveEmptyRounds++;
+          
+          // 只在特定间隔记录日志，避免日志过多
+          if (consecutiveEmptyRounds % LOG_INTERVAL === 0) {
+            logger.info(`任务队列空闲中，已连续${consecutiveEmptyRounds}次无任务`);
+          }
+          
+          // 连续无任务时增加间隔
+          const interval = consecutiveEmptyRounds >= MAX_EMPTY_ROUNDS ? LONG_INTERVAL : QUEUE_INTERVAL;
+          await new Promise(resolve => setTimeout(resolve, interval));
+        }
       } catch (error) {
         logger.error('任务队列循环错误', error);
+        await new Promise(resolve => setTimeout(resolve, QUEUE_INTERVAL));
       }
-
-      // 等待下一轮
-      await new Promise(resolve => setTimeout(resolve, QUEUE_INTERVAL));
     }
   }
 
   /**
    * 处理待处理的任务
+   * @returns 是否有任务被处理
    */
-  private async processPendingTasks() {
+  private async processPendingTasks(): Promise<boolean> {
     // 查询待处理的任务（status='pending' 且重试次数<3）
-    logger.info('查询待处理任务');
     try {
       const pendingTasks = await database.all<ImportTaskContent>(
         `SELECT * FROM import_tasks_content 
@@ -96,10 +115,9 @@ class ImportTaskQueue {
          LIMIT ?`,
         [MAX_RETRY_COUNT, CONCURRENT_LIMIT]
       );
-      logger.info(`查询到${pendingTasks.length}个待处理任务`);
 
       if (pendingTasks.length === 0) {
-        return; // 没有待处理任务
+        return false; // 没有待处理任务
       }
 
       logger.info(`发现${pendingTasks.length}个待处理任务`);
@@ -110,6 +128,8 @@ class ImportTaskQueue {
         // 请求间隔延迟，避免触发 429 限流
         await new Promise(resolve => setTimeout(resolve, REQUEST_DELAY));
       }
+      
+      return true; // 有任务被处理
     } catch (error) {
       logger.error('查询待处理任务失败', error);
       throw error;
@@ -158,9 +178,9 @@ class ImportTaskQueue {
       // 6. 更新任务统计
       await this.updateTaskStats(task.task_id);
 
-      console.log(`✅ Task ${task.id} completed successfully`);
+      logger.success(`任务${task.id}处理成功`);
     } catch (error: any) {
-      console.error(`❌ Error processing task ${task.id}:`, error);
+      logger.error(`处理任务${task.id}失败:`, error);
       await this.incrementRetry(task, error.message);
     } finally {
       this.processingIds.delete(task.id);
@@ -302,9 +322,9 @@ class ImportTaskQueue {
   private async markAsSuccess(task: ImportTaskContent, recipeId: number) {
     await database.run(
       `UPDATE import_tasks_content 
-       SET status = ?, recipe_id = ?, updated_at = CURRENT_TIMESTAMP 
+       SET status = ?, recipe_id = ?, updated_at = ? 
        WHERE id = ?`,
-      ['success', recipeId, task.id]
+      ['success', recipeId, getCurrentUTC8TimeForDB(), task.id]
     );
   }
 
@@ -314,17 +334,17 @@ class ImportTaskQueue {
   private async markAsDuplicate(task: ImportTaskContent, existingRecipeId: number) {
     await database.run(
       `UPDATE import_tasks_content 
-       SET status = ?, recipe_id = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP 
+       SET status = ?, recipe_id = ?, error_message = ?, updated_at = ? 
        WHERE id = ?`,
-      ['duplicate', existingRecipeId, 'Duplicate recipe', task.id]
+      ['duplicate', existingRecipeId, 'Duplicate recipe', getCurrentUTC8TimeForDB(), task.id]
     );
 
     // 更新任务统计（duplicate_count）
     await database.run(
       `UPDATE import_tasks 
-       SET duplicate_count = duplicate_count + 1, updated_at = CURRENT_TIMESTAMP 
+       SET duplicate_count = duplicate_count + 1, updated_at = ? 
        WHERE id = ?`,
-      [task.task_id]
+      [getCurrentUTC8TimeForDB(), task.task_id]
     );
 
     logger.info(`任务${task.id}标记为重复 (recipe_id: ${existingRecipeId})`);
@@ -339,16 +359,16 @@ class ImportTaskQueue {
 
     await database.run(
       `UPDATE import_tasks_content 
-       SET retry_count = ?, status = ?, error_message = ?, updated_at = CURRENT_TIMESTAMP 
+       SET retry_count = ?, status = ?, error_message = ?, updated_at = ? 
        WHERE id = ?`,
-      [newRetryCount, newStatus, errorMessage, task.id]
+      [newRetryCount, newStatus, errorMessage, getCurrentUTC8TimeForDB(), task.id]
     );
 
     if (newStatus === 'failed') {
-      console.log(`⚠️  Task ${task.id} failed after ${MAX_RETRY_COUNT} retries`);
+      logger.warn(`任务${task.id}在${MAX_RETRY_COUNT}次重试后失败`);
       await this.updateTaskStats(task.task_id);
     } else {
-      console.log(`🔄 Task ${task.id} retry ${newRetryCount}/${MAX_RETRY_COUNT}`);
+      logger.info(`任务${task.id}重试 ${newRetryCount}/${MAX_RETRY_COUNT}`);
     }
   }
 
@@ -381,12 +401,12 @@ class ImportTaskQueue {
     await database.run(
       `UPDATE import_tasks 
        SET success_count = ?, failed_count = ?, duplicate_count = ?, 
-           status = ?, updated_at = CURRENT_TIMESTAMP 
+           status = ?, updated_at = ? 
        WHERE id = ?`,
-      [stats.success, stats.failed, stats.duplicate, taskStatus, taskId]
+      [stats.success, stats.failed, stats.duplicate, taskStatus, getCurrentUTC8TimeForDB(), taskId]
     );
 
-    console.log(`📊 Task ${taskId} stats updated: ${stats.success} success, ${stats.failed} failed, ${stats.duplicate} duplicate, ${pending} pending`);
+    logger.info(`任务${taskId}统计更新: ${stats.success}成功, ${stats.failed}失败, ${stats.duplicate}重复, ${pending}待处理`);
   }
 
   /**

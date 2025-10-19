@@ -1,5 +1,10 @@
-// 格式化日期时间
+/**
+ * 格式化日期时间 (UTC+8)
+ * @param dateStr 日期字符串
+ * @returns 格式化后的日期时间字符串
+ */
 export const formatDateTime = (dateStr: string): string => {
+  // 数据库存储的已经是UTC+8时间，直接格式化
   const date = new Date(dateStr);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -11,8 +16,13 @@ export const formatDateTime = (dateStr: string): string => {
   return `${year}-${month}-${day} ${hour}:${minute}:${second}`;
 };
 
-// 格式化日期
+/**
+ * 格式化日期 (UTC+8)
+ * @param dateStr 日期字符串
+ * @returns 格式化后的日期字符串
+ */
 export const formatDate = (dateStr: string): string => {
+  // 数据库存储的已经是UTC+8时间，直接格式化
   const date = new Date(dateStr);
   const year = date.getFullYear();
   const month = String(date.getMonth() + 1).padStart(2, '0');
@@ -21,10 +31,15 @@ export const formatDate = (dateStr: string): string => {
   return `${year}-${month}-${day}`;
 };
 
-// 格式化相对时间（如：3分钟前、1小时前）
+/**
+ * 格式化相对时间 (UTC+8)
+ * @param dateStr 日期字符串
+ * @returns 相对时间字符串
+ */
 export const formatRelativeTime = (dateStr: string): string => {
   const date = new Date(dateStr);
   const now = new Date();
+  // 数据库存储的是UTC+8时间，直接计算差值
   const diff = now.getTime() - date.getTime();
   
   const seconds = Math.floor(diff / 1000);

@@ -1,6 +1,7 @@
 import { database } from '../database/connection';
 import bcrypt from 'bcryptjs';
 import { generateToken } from '../middlewares/auth';
+import { getCurrentUTC8TimeForDB, convertUTCToUTC8ForDB } from '../utils/timezone';
 
 // 用户完整信息（包含密码）
 export interface User {
@@ -38,8 +39,15 @@ function toUserPublic(user: User): UserPublic {
     auth: user.auth,
     contribute: user.contribute,
     level: user.level,
-    created_at: user.created_at
+    created_at: convertUTCToUTC8ForDB(new Date(user.created_at))
   };
+}
+
+/**
+ * 转换数据库时间字段为UTC+8格式
+ */
+function convertDBTimeToUTC8(dbTime: string): string {
+  return convertUTCToUTC8ForDB(new Date(dbTime));
 }
 
 export class UserService {
@@ -77,7 +85,7 @@ export class UserService {
         auth: 1,  // 普通用户
         contribute: 0,
         level: 1,
-        created_at: new Date().toISOString()
+        created_at: getCurrentUTC8TimeForDB()
       }
     };
   }
@@ -180,6 +188,9 @@ export class UserService {
     if (!user) {
       throw new Error('用户不存在');
     }
+
+    // 转换时间为UTC+8
+    user.created_at = convertDBTimeToUTC8(user.created_at);
 
     // 获取用户提交的配方数量
     const recipeCount = await database.get<{ count: number }>(

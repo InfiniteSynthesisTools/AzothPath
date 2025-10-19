@@ -118,7 +118,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ArrowLeft } from '@element-plus/icons-vue';
 import { recipeApi } from '@/api';
 import { ElMessage } from 'element-plus';
-import { formatDate } from '@/utils/time';
+import { formatDate } from '@/utils/format';
 
 const route = useRoute();
 const router = useRouter();

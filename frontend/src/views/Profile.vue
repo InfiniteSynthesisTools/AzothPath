@@ -133,7 +133,7 @@
                       <el-icon><Star /></el-icon>
                       {{ recipe.likes }}
                     </span>
-                    <span class="liked-time">{{ formatRelativeTime(recipe.liked_at) }}</span>
+                    <span class="liked-time">{{ formatDateTime(recipe.liked_at) }}</span>
                   </div>
                 </div>
               </div>
@@ -163,7 +163,7 @@ import { useUserStore } from '@/stores';
 import { userApi } from '@/api';
 import { ElMessage } from 'element-plus';
 import { Star } from '@element-plus/icons-vue';
-import { formatDate, formatRelativeTime } from '@/utils/time';
+import { formatDate, formatDateTime } from '@/utils/format';
 const userStore = useUserStore();
 
 // 用户统计信息

@@ -1,5 +1,6 @@
 import { database } from '../database/connection';
 import { logger } from '../utils/logger';
+import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 
 export interface Recipe {
   id: number;
@@ -195,11 +196,6 @@ export class RecipeService {
     }
     
     try {
-      // 调试日志
-      logger.debug('getCountAsync SQL:', countSql);
-      logger.debug('getCountAsync params:', baseParams);
-      logger.debug('getCountAsync conditions:', conditions);
-      
       const totalResult = await database.get<{ count: number }>(countSql, baseParams);
       return totalResult?.count || 0;
     } catch (error) {
@@ -320,11 +316,6 @@ export class RecipeService {
     }
     
     try {
-      // 调试日志
-      logger.debug('getGroupedCountAsync SQL:', countSql);
-      logger.debug('getGroupedCountAsync params:', baseParams);
-      logger.debug('getGroupedCountAsync conditions:', conditions);
-      
       const totalResult = await database.get<{ count: number }>(countSql, baseParams);
       return totalResult?.count || 0;
     } catch (error) {
@@ -388,8 +379,8 @@ export class RecipeService {
 
     // 插入配方（新配方 +1 分）
     const recipeResult = await database.run(
-      'INSERT INTO recipes (item_a, item_b, result, user_id, likes) VALUES (?, ?, ?, ?, ?)',
-      [itemA, itemB, result, creatorId, 0]
+      'INSERT INTO recipes (item_a, item_b, result, user_id, likes, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [itemA, itemB, result, creatorId, 0, getCurrentUTC8TimeForDB()]
     );
     contributionPoints += 1; // 新配方 +1 分
     logger.success(`新配方添加: ${itemA} + ${itemB} = ${result}, +1分`);
@@ -432,8 +423,8 @@ export class RecipeService {
       const baseItems = ['金', '木', '水', '火', '土'];
       const isBase = baseItems.includes(itemName);
       await database.run(
-        'INSERT INTO items (name, is_base) VALUES (?, ?)',
-        [itemName, isBase ? 1 : 0]
+        'INSERT INTO items (name, is_base, created_at) VALUES (?, ?, ?)',
+        [itemName, isBase ? 1 : 0, getCurrentUTC8TimeForDB()]
       );
       logger.info(`新物品添加到词典: ${itemName}, +2分`);
       return 2; // 新物品 +2 分
@@ -461,7 +452,7 @@ export class RecipeService {
       return { liked: false, likes: recipe?.likes || 0 };
     } else {
       // 点赞
-      await database.run('INSERT INTO recipe_likes (recipe_id, user_id) VALUES (?, ?)', [recipeId, userId]);
+      await database.run('INSERT INTO recipe_likes (recipe_id, user_id, created_at) VALUES (?, ?, ?)', [recipeId, userId, getCurrentUTC8TimeForDB()]);
       // 更新 recipes 表的 likes 字段
       await database.run('UPDATE recipes SET likes = likes + 1 WHERE id = ?', [recipeId]);
       

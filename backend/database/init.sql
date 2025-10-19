@@ -44,12 +44,12 @@ CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
 CREATE INDEX IF NOT EXISTS idx_items_pinyin ON items(pinyin);
 
 -- 插入基础材料
-INSERT OR IGNORE INTO items (name, is_base) VALUES 
-  ('金', 1),
-  ('木', 1),
-  ('水', 1),
-  ('火', 1),
-  ('土', 1);
+INSERT OR IGNORE INTO items (name, emoji, is_base) VALUES 
+  ('金', '🪙', 1),
+  ('木', '🪵', 1),
+  ('水', '💧', 1),
+  ('火', '🔥', 1),
+  ('土', '🌍', 1);
 
 -- ====================================
 -- 3. user 表 (用户)

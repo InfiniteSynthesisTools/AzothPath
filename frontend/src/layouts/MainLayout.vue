@@ -20,11 +20,11 @@
         <!-- 桌面端导航菜单 -->
         <el-menu mode="horizontal" :default-active="activeMenu" router class="nav-menu desktop-only">
           <el-menu-item index="/">首页</el-menu-item>
-          <el-menu-item index="/elements">元素列表</el-menu-item>
-          <el-menu-item index="/tasks">任务看板</el-menu-item>
-          <el-menu-item index="/import" v-if="userStore.isLoggedIn">导入配方</el-menu-item>
+          <el-menu-item index="/elements">元素</el-menu-item>
+          <el-menu-item index="/tasks">任务</el-menu-item>
+          <el-menu-item index="/import" v-if="userStore.isLoggedIn">导入</el-menu-item>
           <el-menu-item index="/contribution">贡献榜</el-menu-item>
-          <el-menu-item index="/admin" v-if="userStore.isAdmin">管理后台</el-menu-item>
+          <el-menu-item index="/admin" v-if="userStore.isAdmin">管理</el-menu-item>
         </el-menu>
         
         <div class="user-actions">
@@ -80,23 +80,19 @@
         </el-menu-item>
         <el-menu-item index="/elements">
           <el-icon><Document /></el-icon>
-          <span>元素列表</span>
+          <span>元素</span>
         </el-menu-item>
         <el-menu-item index="/tasks">
           <el-icon><Tickets /></el-icon>
-          <span>任务看板</span>
+          <span>任务</span>
         </el-menu-item>
         <el-menu-item index="/import" v-if="userStore.isLoggedIn">
           <el-icon><Upload /></el-icon>
-          <span>导入配方</span>
-        </el-menu-item>
-        <el-menu-item index="/contribution">
-          <el-icon><Trophy /></el-icon>
-          <span>贡献榜</span>
+          <span>导入</span>
         </el-menu-item>
         <el-menu-item index="/admin" v-if="userStore.isAdmin">
           <el-icon><Setting /></el-icon>
-          <span>管理后台</span>
+          <span>管理</span>
         </el-menu-item>
         <el-divider v-if="!userStore.isLoggedIn" />
         <el-menu-item v-if="!userStore.isLoggedIn" index="/login">

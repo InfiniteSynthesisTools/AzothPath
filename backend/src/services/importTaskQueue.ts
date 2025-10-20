@@ -388,19 +388,30 @@ class ImportTaskQueue {
 
   /**
    * 更新物品字典
+   * 修复：先检查物品是否存在，避免INSERT OR IGNORE导致ID浪费
    */
   private async updateItemsDictionary(items: string[], resultEmoji?: string) {
     for (const item of items) {
-      await database.run(
-        'INSERT OR IGNORE INTO items (name, is_base) VALUES (?, 0)',
+      // 先检查物品是否已存在
+      const existing = await database.get<{ id: number }>(
+        'SELECT id FROM items WHERE name = ? LIMIT 1',
         [item]
       );
+      
+      // 只有不存在时才插入
+      if (!existing) {
+        await database.run(
+          'INSERT INTO items (name, is_base, created_at) VALUES (?, 0, ?)',
+          [item, getCurrentUTC8TimeForDB()]
+        );
+        logger.debug(`新物品添加到词典: ${item}`);
+      }
     }
     
     // 如果有 emoji，更新结果物品的 emoji
     if (resultEmoji && items[2]) {
       await database.run(
-        'UPDATE items SET emoji = ? WHERE name = ?',
+        'UPDATE items SET emoji = ? WHERE name = ? AND (emoji IS NULL OR emoji = \'\')',
         [resultEmoji, items[2]]
       );
       logger.debug(`保存emoji: ${items[2]} = ${resultEmoji}`);

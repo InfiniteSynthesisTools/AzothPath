@@ -88,7 +88,22 @@
           >
             <div class="recipe-header">
               <div class="recipe-formula">
-                {{ recipe.item_a_emoji || '🔘' }} {{ recipe.item_a }} + {{ recipe.item_b_emoji || '🔘' }} {{ recipe.item_b }} = {{ element.emoji || '🔘' }} {{ element.name }}
+                <div class="ingredient-cards">
+                  <div class="ingredient-card" @click="goToElementDetail(recipe.item_a)">
+                    <span class="ingredient-emoji">{{ recipe.item_a_emoji || '🔘' }}</span>
+                    <span class="ingredient-name">{{ recipe.item_a }}</span>
+                  </div>
+                  <span class="operator">+</span>
+                  <div class="ingredient-card" @click="goToElementDetail(recipe.item_b)">
+                    <span class="ingredient-emoji">{{ recipe.item_b_emoji || '🔘' }}</span>
+                    <span class="ingredient-name">{{ recipe.item_b }}</span>
+                  </div>
+                  <span class="operator">=</span>
+                  <div class="result-card">
+                    <span class="result-emoji">{{ element.emoji || '🔘' }}</span>
+                    <span class="result-name">{{ element.name }}</span>
+                  </div>
+                </div>
               </div>
               <el-tag 
                 size="small" 
@@ -137,7 +152,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft } from '@element-plus/icons-vue';
@@ -279,10 +294,42 @@ const handleCurrentChange = (page: number) => {
   currentPage.value = page;
 };
 
+// 跳转到元素详情页面
+const goToElementDetail = async (elementName: string) => {
+  try {
+    // 通过搜索API获取元素列表，然后找到匹配的元素
+    const response = await recipeApi.getItems({ search: elementName, limit: 1 });
+    if (response && response.items && response.items.length > 0) {
+      const elementData = response.items.find((item: any) => item.name === elementName);
+      if (elementData && elementData.id) {
+        // 使用 replace 而不是 push 来确保页面重新加载
+        router.replace(`/element/${elementData.id}`);
+      } else {
+        ElMessage.warning(`未找到元素: ${elementName}`);
+      }
+    } else {
+      ElMessage.warning(`未找到元素: ${elementName}`);
+    }
+  } catch (error) {
+    console.error('跳转到元素详情失败:', error);
+    ElMessage.error('跳转失败，请稍后重试');
+  }
+};
+
 // 返回上一页
 const goBack = () => {
   router.back();
 };
+
+// 监听路由参数变化，当元素ID改变时重新获取数据
+watch(
+  () => route.params.id,
+  (newId, oldId) => {
+    if (newId !== oldId) {
+      fetchElementDetail();
+    }
+  }
+);
 
 // 组件挂载时获取数据
 onMounted(() => {
@@ -471,6 +518,81 @@ onMounted(() => {
   color: #303133;
   flex: 1;
   margin-right: 16px;
+}
+
+.ingredient-cards {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.ingredient-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #fff;
+  border: 1px solid #e4e7ed;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-width: 120px;
+}
+
+.ingredient-card:hover {
+  background: #f5f7fa;
+  border-color: #409eff;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+}
+
+.ingredient-emoji {
+  font-size: 20px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ingredient-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #303133;
+}
+
+.operator {
+  font-size: 16px;
+  font-weight: 600;
+  color: #909399;
+  padding: 0 4px;
+}
+
+.result-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: #f0f9ff;
+  border: 1px solid #bae0ff;
+  border-radius: 8px;
+  min-width: 120px;
+}
+
+.result-emoji {
+  font-size: 20px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.result-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: #1890ff;
 }
 
 

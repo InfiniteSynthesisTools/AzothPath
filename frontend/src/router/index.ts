@@ -80,6 +80,12 @@ const routes: RouteRecordRaw[] = [
         name: 'ElementDetail',
         component: () => import('@/views/ElementDetail.vue'),
         meta: { title: '元素详情' }
+      },
+      {
+        path: '/graph',
+        name: 'GraphView',
+        component: () => import('@/views/GraphView.vue'),
+        meta: { title: '总图显示' }
       }
     ]
   },

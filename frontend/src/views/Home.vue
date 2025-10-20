@@ -287,8 +287,7 @@ const loadPopularRecipes = async () => {
 
 // 跳转到图谱页面
 const goToGraph = () => {
-  // 这里可以跳转到图谱页面，暂时使用提示
-  ElMessage.info('图谱功能开发中...');
+  router.push({ name: 'GraphView' });
 };
 
 // 跳转到游戏页面

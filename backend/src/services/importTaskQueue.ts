@@ -338,9 +338,9 @@ class ImportTaskQueue {
     const userId = taskInfo?.user_id || 1; // 默认使用管理员 ID
 
     const result = await database.run(
-      `INSERT INTO recipes (item_a, item_b, result, user_id, likes) 
-       VALUES (?, ?, ?, ?, 0)`,
-      [itemA, itemB, task.result, userId]
+      `INSERT INTO recipes (item_a, item_b, result, user_id, likes, created_at)
+       VALUES (?, ?, ?, ?, 0, ?)`,
+      [itemA, itemB, task.result, userId, getCurrentUTC8TimeForDB()]
     );
 
     // 计算并更新用户贡献度

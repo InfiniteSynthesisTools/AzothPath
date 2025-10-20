@@ -70,8 +70,8 @@ export class UserService {
 
     // 插入新用户
     const result = await database.run(
-      'INSERT INTO user (name, psw, auth, contribute) VALUES (?, ?, ?, ?)',
-      [username, hashedPassword, 1, 0]  // auth=1 表示普通用户
+      'INSERT INTO user (name, psw, auth, contribute, level, created_at) VALUES (?, ?, ?, ?, ?, ?)',
+      [username, hashedPassword, 1, 0, 1, getCurrentUTC8TimeForDB()]  // auth=1 表示普通用户
     );
 
     // 生成 token

@@ -135,13 +135,11 @@ class ImportTaskQueue {
       );
 
       const queryDuration = Date.now() - queryStartTime;
-      logger.info(`数据库查询耗时: ${queryDuration}ms, 查询到${pendingTasks.length}个待处理任务`);
-
+      
       if (pendingTasks.length === 0) {
         return false; // 没有待处理任务
       }
-
-      logger.info(`发现${pendingTasks.length}个待处理任务`);
+      logger.info(`数据库查询耗时: ${queryDuration}ms, 查询到${pendingTasks.length}个待处理任务`);
 
       // 并行处理所有任务，但HTTP请求会通过ValidationLimiter串行化
       const queueStatus = validationLimiter.getQueueStatus();

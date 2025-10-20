@@ -3,7 +3,7 @@
     <!-- 页面标题 -->
     <div class="page-header">
       <h1>{{ isViewingSelf ? '个人中心' : `${currentUser?.name || '用户'} 的资料` }}</h1>
-      <p class="page-subtitle">{{ isViewingSelf ? '管理您的个人信息和收藏' : '查看用户的贡献和收藏' }}</p>
+      <p class="page-subtitle">{{ isViewingSelf ? '管理您的个人信息和收藏' : '查看用户的贡献' }}</p>
     </div>
 
     <div class="profile-content">
@@ -56,14 +56,23 @@
             </div>
           </div>
 
-          <div v-else class="not-logged-in">
+          <div v-else-if="isViewingSelf" class="not-logged-in">
             <el-empty description="请先登录" />
             <el-button type="primary" @click="$router.push('/login')">立即登录</el-button>
+          </div>
+
+          <div v-else-if="route.params.id === '0'" class="generic-profile">
+            <el-empty description="请选择要查看的用户" />
+            <p class="generic-tip">您可以通过贡献榜或其他页面查看其他用户的个人中心</p>
+          </div>
+
+          <div v-else class="user-not-found">
+            <el-empty description="用户不存在" />
           </div>
         </el-card>
 
         <!-- 贡献统计卡片 -->
-        <el-card class="stats-card" v-if="userStore.isLoggedIn">
+        <el-card class="stats-card" v-if="currentUser">
           <template #header>
             <div class="card-header">
               <span class="card-title">贡献统计</span>
@@ -92,7 +101,7 @@
       </div>
 
       <!-- 右侧：收藏配方 -->
-      <div class="profile-right" v-if="userStore.isLoggedIn">
+      <div class="profile-right" v-if="isViewingSelf && userStore.isLoggedIn">
         <!-- 收藏配方卡片 -->
         <el-card class="liked-recipes-card">
           <template #header>
@@ -211,10 +220,12 @@ const loadUserInfo = async () => {
     // 查看其他用户的资料，使用新的 API 获取
     try {
       const response = await userApi.getUser(userId);
-      if (response && response.data) {
-        currentUser.value = response.data;
+      console.log('User API response:', response);
+      if (response) {
+        currentUser.value = response;
       } else {
         ElMessage.error('用户不存在');
+        currentUser.value = null;
       }
     } catch (error: any) {
       console.error('Failed to load user info:', error);
@@ -223,7 +234,11 @@ const loadUserInfo = async () => {
       } else {
         ElMessage.error('加载用户信息失败');
       }
+      currentUser.value = null;
     }
+  } else {
+    // 没有用户ID且不是查看自己，这种情况不应该发生，因为路由有参数
+    currentUser.value = null;
   }
 };
 
@@ -239,7 +254,6 @@ const loadUserStats = async () => {
     console.log('Loading user stats for user ID:', userId);
     const response = await userApi.getUserStats(userId);
     console.log('User stats response:', response);
-    console.log('Response data:', response.data);
     if (response && (response as any).stats) {
       userStats.value = (response as any).stats;
     } else {
@@ -290,10 +304,13 @@ watch(() => route.params.id, () => {
 const loadAllData = async () => {
   await loadUserInfo();
   if (currentUser.value) {
-    await Promise.all([
-      loadUserStats(),
-      loadLikedRecipes()
-    ]);
+    // 加载统计信息（无论是否登录都可以查看）
+    await loadUserStats();
+    
+    // 只有查看自己的个人中心且已登录时才加载收藏配方
+    if (isViewingSelf.value && userStore.isLoggedIn) {
+      await loadLikedRecipes();
+    }
   }
 };
 
@@ -414,6 +431,18 @@ onMounted(async () => {
 .not-logged-in {
   text-align: center;
   padding: 40px 0;
+}
+
+.generic-profile {
+  text-align: center;
+  padding: 40px 0;
+}
+
+.generic-tip {
+  margin-top: 16px;
+  color: #909399;
+  font-size: 14px;
+  line-height: 1.5;
 }
 
 /* 统计卡片 */

@@ -47,7 +47,8 @@ const routes: RouteRecordRaw[] = [
           if (userStore.userInfo?.id) {
             return { path: `/profile/${userStore.userInfo.id}` };
           }
-          return { path: '/login' };
+          // 未登录时显示一个通用的个人中心页面，而不是跳转到登录
+          return { path: '/profile/0' };
         }
       },
       {

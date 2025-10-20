@@ -8,7 +8,7 @@ import { userService } from './userService';
 
 // 任务队列配置
 const MAX_RETRY_COUNT = apiConfig.retryCount;
-const QUEUE_INTERVAL = 100; // 5秒检查一次
+const QUEUE_INTERVAL = 100; // 0.1秒检查一次
 const CONCURRENT_LIMIT = 10; // 每次处理10个任务，避免触发限流
 
 interface ImportTaskContent {
@@ -72,7 +72,7 @@ class ImportTaskQueue {
   private async processLoop() {
     let consecutiveEmptyRounds = 0;
     const MAX_EMPTY_ROUNDS = 6; // 连续6次无任务后增加间隔
-    const LONG_INTERVAL = 30000; // 30秒间隔
+    const LONG_INTERVAL = 1000; // 1秒间隔
     const LOG_INTERVAL = 12; // 每12次无任务才记录一次日志
     const AUTO_RETRY_INTERVAL = 60; // 自动重试检查间隔（秒）
     let lastAutoRetryTime = 0;

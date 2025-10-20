@@ -1,4 +1,5 @@
-import sqlite3 from 'sqlite3';
+// better-sqlite3 使用 CommonJS 导出，使用 require() 保证兼容性
+const BetterSqlite3: any = require('better-sqlite3');
 import path from 'path';
 import fs from 'fs';
 import { logger } from '../utils/logger';
@@ -26,8 +27,8 @@ if (!dbExists) {
 
 logger.database(`数据库已配置 - ${dbExists ? '文件存在' : '文件不存在，将自动创建'}`);
 
-// 创建数据库连接
-let db: sqlite3.Database | null = null;
+// 创建数据库连接（better-sqlite3 实例）
+let db: any | null = null;
 
 /**
  * 初始化数据库
@@ -64,49 +65,43 @@ async function initDatabase(force: boolean = false): Promise<void> {
   const initSQL = fs.readFileSync(INIT_SQL_PATH, 'utf8');
 
   return new Promise<void>((resolve, reject) => {
-    // 使用更长的超时时间和重试机制
-    const tempDb = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-      if (err) {
-        logger.error('数据库文件打开失败', err);
+    try {
+      // 使用 better-sqlite3 以同步方式打开并执行 initSQL
+      const tempDb = new BetterSqlite3(DB_PATH, { readonly: false, fileMustExist: false });
+
+      // 设置PRAGMA
+      try {
+        tempDb.pragma('busy_timeout = 10000');
+      } catch (err) {
+        logger.warn('设置 busy_timeout 失败', err);
+      }
+
+      try {
+        tempDb.exec(initSQL);
+        logger.success('数据库表创建成功');
+      } catch (err) {
+        logger.error('执行初始化SQL失败', err);
+        tempDb.close();
         reject(err);
         return;
       }
 
-      logger.success('数据库文件已打开');
+      try {
+        tempDb.close();
+      } catch (err) {
+        logger.warn('关闭临时数据库失败', err);
+      }
 
-      // 设置数据库参数
-      tempDb.run('PRAGMA busy_timeout = 10000', (err) => {
-        if (err) {
-          logger.warn('设置busy_timeout失败', err);
-        }
-      });
-
-      // 执行初始化SQL
-      tempDb.exec(initSQL, (err) => {
-        if (err) {
-          logger.error('执行初始化SQL失败', err);
-          tempDb.close();
-          reject(err);
-          return;
-        }
-
-        logger.success('数据库表创建成功');
-
-        tempDb.close((err) => {
-          if (err) {
-            logger.error('关闭数据库失败', err);
-            reject(err);
-          } else {
-            logger.success('数据库初始化完成!');
-            resolve();
-          }
-        });
-      });
-    });
+      logger.success('数据库初始化完成!');
+      resolve();
+    } catch (err) {
+      logger.error('初始化数据库时发生错误', err);
+      reject(err);
+    }
   });
 }
 
-export async function getDatabase(): Promise<sqlite3.Database> {
+export async function getDatabase(): Promise<any> {
   if (!db) {
     // 如果数据库文件不存在，先进行初始化
     if (!fs.existsSync(DB_PATH)) {
@@ -120,20 +115,24 @@ export async function getDatabase(): Promise<sqlite3.Database> {
       }
     }
 
-    db = new sqlite3.Database(DB_PATH, sqlite3.OPEN_READWRITE | sqlite3.OPEN_CREATE, (err) => {
-      if (err) {
-        logger.error('数据库连接失败', err);
-        throw err;
-      }
+    try {
+      db = new BetterSqlite3(DB_PATH, { readonly: false });
       logger.success('数据库连接成功');
-    });
+    } catch (err) {
+      logger.error('数据库连接失败', err);
+      throw err;
+    }
 
-    // 配置数据库参数
-    db.run('PRAGMA foreign_keys = ON');
-    db.run('PRAGMA journal_mode = WAL');
-    db.run('PRAGMA synchronous = NORMAL');
-    db.run('PRAGMA cache_size = -2000');
-    db.run('PRAGMA busy_timeout = 5000');
+    // 设置PRAGMA
+    try {
+      db.pragma('foreign_keys = ON');
+      db.pragma('journal_mode = WAL');
+      db.pragma('synchronous = NORMAL');
+      db.pragma('cache_size = -2000');
+      db.pragma('busy_timeout = 5000');
+    } catch (err) {
+      logger.warn('设置 PRAGMA 出现问题', err);
+    }
   }
   return db;
 }
@@ -143,7 +142,7 @@ export { initDatabase };
 
 // Promise 化的数据库方法
 export class Database {
-  private db: sqlite3.Database | null = null;
+  private db: any | null = null;
   private initialized = false;
 
   async init(): Promise<void> {
@@ -157,7 +156,7 @@ export class Database {
     }
   }
 
-  private ensureInitialized(): sqlite3.Database {
+  private ensureInitialized(): any {
     if (!this.db || !this.initialized) {
       throw new Error('数据库未初始化，请先调用 init() 方法');
     }
@@ -168,13 +167,14 @@ export class Database {
   all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     const db = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      db.all(sql, params, (err, rows) => {
-        if (err) {
-          logger.error('SQL查询失败', { sql, params, error: err });
-          reject(err);
-        }
-        else resolve(rows as T[]);
-      });
+      try {
+        const stmt = db.prepare(sql);
+        const rows = stmt.all(...params);
+        resolve(rows as T[]);
+      } catch (err) {
+        logger.error('SQL查询失败', { sql, params, error: err });
+        reject(err);
+      }
     });
   }
 
@@ -182,10 +182,13 @@ export class Database {
   get<T = any>(sql: string, params: any[] = []): Promise<T | undefined> {
     const db = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      db.get(sql, params, (err, row) => {
-        if (err) reject(err);
-        else resolve(row as T | undefined);
-      });
+      try {
+        const stmt = db.prepare(sql);
+        const row = stmt.get(...params);
+        resolve(row as T | undefined);
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
@@ -193,15 +196,19 @@ export class Database {
   run(sql: string, params: any[] = []): Promise<{ lastID: number; changes: number }> {
     const db = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      db.run(sql, params, function(err) {
-        if (err) reject(err);
-        else resolve({ lastID: this.lastID, changes: this.changes });
-      });
+      try {
+        const stmt = db.prepare(sql);
+        const info = stmt.run(...params);
+        resolve({ lastID: info.lastInsertRowid as number, changes: info.changes });
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 
   // 执行事务
   async transaction<T>(callback: (db: Database) => Promise<T>): Promise<T> {
+    // better-sqlite3 supports transaction APIs; use explicit BEGIN/COMMIT to remain compatible
     await this.run('BEGIN TRANSACTION');
     try {
       const result = await callback(this);
@@ -217,14 +224,14 @@ export class Database {
   close(): Promise<void> {
     const database = this.ensureInitialized();
     return new Promise((resolve, reject) => {
-      database.close((err) => {
-        if (err) reject(err);
-        else {
-          this.db = null;
-          this.initialized = false;
-          resolve();
-        }
-      });
+      try {
+        database.close();
+        this.db = null;
+        this.initialized = false;
+        resolve();
+      } catch (err) {
+        reject(err);
+      }
     });
   }
 }

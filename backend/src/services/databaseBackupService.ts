@@ -165,15 +165,13 @@ class DatabaseBackupService {
     return new Promise<void>(async (resolve, reject) => {
       try {
         const db = await getDatabase();
-        
-        // PRAGMA wal_checkpoint(FULL) - 合并WAL
-        db.run('PRAGMA wal_checkpoint(FULL)', (err) => {
-          if (err) {
-            reject(err);
-          } else {
-            resolve();
-          }
-        });
+        try {
+          // better-sqlite3 使用 exec 执行 PRAGMA
+          db.exec('PRAGMA wal_checkpoint(FULL)');
+          resolve();
+        } catch (err) {
+          reject(err);
+        }
       } catch (error) {
         reject(error);
       }

@@ -59,8 +59,9 @@ echo.
 
 cd "%FRONTEND_DIR%"
 
-echo 📦 安装前端依赖...
-call npm install
+echo 📦 安装前端依赖（详细模式）...
+echo 💡 提示: 安装原生模块时可能需要几分钟，请耐心等待
+call npm install --verbose --progress=true
 if %errorlevel% neq 0 (
     echo ❌ 前端依赖安装失败
     cd ..
@@ -91,8 +92,11 @@ echo.
 
 cd "%BACKEND_DIR%"
 
-echo 📦 安装后端依赖...
-call npm install
+echo 📦 安装后端依赖（详细模式）...
+echo 💡 提示: 编译 sqlite3 原生模块可能需要 2-5 分钟，请耐心等待
+echo 📊 正在显示详细安装日志...
+echo.
+call npm install --verbose --progress=true
 if %errorlevel% neq 0 (
     echo ❌ 后端依赖安装失败
     cd ..
@@ -158,7 +162,7 @@ echo echo "API 文档: http://localhost:19198/api"
 echo echo ""
 echo echo "正在启动后端服务..."
 echo cd backend
-echo npm install --production
+echo npm install --verbose --progress=true --production
 echo echo ""
 echo echo "初始化数据库..."
 echo node dist/database/connection.js

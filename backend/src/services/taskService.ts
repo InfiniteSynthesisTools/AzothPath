@@ -199,13 +199,14 @@ export class TaskService {
         continue;
       }
 
+      // 先屏蔽了，这个无法解决乱序上传刷分的问题
       // 自动创建任务（奖励根据深度计算，这里简化为固定值）
-      await database.run(
-        'INSERT INTO task (item_name, prize, status) VALUES (?, ?, ?)',
-        [material, 10, 'active']
-      );
-
-      logger.info(`自动创建任务: ${material}`);
+      // created_by_user_id 使用 1（系统用户/admin）表示自动创建
+      // await database.run(
+      //   'INSERT INTO task (item_name, prize, status, task_type, created_by_user_id) VALUES (?, ?, ?, ?, ?)',
+      //   [material, 10, 'active', 'find_recipe', 1]
+      // );
+      // logger.info(`自动创建任务: ${material}`);
     }
   }
 

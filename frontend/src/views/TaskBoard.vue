@@ -141,15 +141,16 @@
               clearable
             />
           </el-form-item>
-          <el-form-item label="奖励分数" required>
+          <!-- 只有管理员才显示奖励分数输入框 -->
+          <el-form-item v-if="userStore.isAdmin" label="奖励分数" required>
             <el-input-number 
               v-model="createForm.prize" 
-              :min="1" 
-              :max="1000"
+              :min="0" 
+              :max="200"
               :step="5"
             />
             <span style="margin-left: 10px; color: #909399; font-size: 12px;">
-              建议：10-100分
+              范围：0-200分
             </span>
           </el-form-item>
         </el-form>
@@ -240,7 +241,7 @@ const showCreateDialog = ref(false);
 const creating = ref(false);
 const createForm = ref({
   itemName: '',
-  prize: 10
+  prize: 0  // 默认为0（普通用户强制为0，管理员可修改）
 });
 
 // 任务详情
@@ -309,8 +310,15 @@ const handleViewDetail = async (task: Task) => {
 
 // 创建任务
 const handleCreate = async () => {
-  if (!createForm.value.itemName || !createForm.value.prize) {
-    ElMessage.warning('请填写完整信息');
+  // 只验证物品名称
+  if (!createForm.value.itemName) {
+    ElMessage.warning('请填写物品名称');
+    return;
+  }
+
+  // 管理员需要验证奖励分数
+  if (userStore.isAdmin && (createForm.value.prize === null || createForm.value.prize === undefined)) {
+    ElMessage.warning('请填写奖励分数');
     return;
   }
 
@@ -318,12 +326,12 @@ const handleCreate = async () => {
   try {
     await taskApi.createTask({
       itemName: createForm.value.itemName,
-      prize: createForm.value.prize
+      prize: createForm.value.prize  // 普通用户为0，管理员可设置0-200
     });
     
     ElMessage.success('任务创建成功');
     showCreateDialog.value = false;
-    createForm.value = { itemName: '', prize: 10 };
+    createForm.value = { itemName: '', prize: 0 };  // 重置为默认值0
     await loadTasks();
   } catch (error: any) {
     ElMessage.error(error.message || '创建任务失败');

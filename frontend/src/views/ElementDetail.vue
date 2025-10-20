@@ -183,31 +183,28 @@ const fetchElementDetail = async () => {
   try {
     const elementId = parseInt(route.params.id as string);
     
-    // 暂时使用列表API获取数据，后续可以添加专门的详情API
-    const response = await recipeApi.getItems({
-      page: 1,
-      limit: 1000, // 获取所有元素
-      search: '',
-      type: '',
-      sortBy: 'name',
-      sortOrder: 'asc'
-    });
+    if (isNaN(elementId)) {
+      ElMessage.error('无效的元素ID');
+      return;
+    }
 
-    if (response) {
-      const foundElement = response.items.find((item: any) => item.id === elementId);
-      if (foundElement) {
-        element.value = foundElement;
-        // 模拟获取相关配方
-        await fetchRelatedRecipes(foundElement.name);
-      } else {
-        ElMessage.error('元素不存在');
-      }
+    // 使用专门的详情API获取单个元素
+    const elementData = await recipeApi.getItemById(elementId);
+
+    if (elementData) {
+      element.value = elementData;
+      // 获取相关配方
+      await fetchRelatedRecipes(elementData.name);
     } else {
       ElMessage.error('获取元素详情失败');
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error('获取元素详情失败:', error);
-    ElMessage.error('获取元素详情失败，请稍后重试');
+    if (error.response?.status === 404) {
+      ElMessage.error('元素不存在');
+    } else {
+      ElMessage.error('获取元素详情失败，请稍后重试');
+    }
   } finally {
     loading.value = false;
   }

@@ -107,5 +107,10 @@ export const recipeApi = {
       page: number;
       limit: number;
     }>('/items', { params });
+  },
+
+  // 获取单个物品详情
+  getItemById(id: number) {
+    return api.get<any>(`/items/${id}`);
   }
 };

@@ -69,10 +69,12 @@ class DatabaseBackupService {
     // 确保备份目录存在
     this.ensureBackupDirExists();
 
-    // 立即执行一次备份
-    this.performBackup().catch(err => {
-      logger.error('首次备份失败', err);
-    });
+    // 延迟10秒后执行首次备份（避免启动时的数据库锁竞争）
+    setTimeout(() => {
+      this.performBackup().catch(err => {
+        logger.error('首次备份失败', err);
+      });
+    }, 10000);
 
     // 设置定时任务
     const intervalMs = this.config.intervalHours * 60 * 60 * 1000;
@@ -83,7 +85,7 @@ class DatabaseBackupService {
     }, intervalMs);
 
     this.isRunning = true;
-    logger.success(`数据库自动备份服务已启动 (间隔: ${this.config.intervalHours}小时)`);
+    logger.success(`数据库自动备份服务已启动 (间隔: ${this.config.intervalHours}小时, 首次备份将在10秒后执行)`);
   }
 
   /**
@@ -133,9 +135,33 @@ class DatabaseBackupService {
   /**
    * 执行 WAL checkpoint（将WAL日志合并到主数据库）
    */
-  private async walCheckpoint(): Promise<void> {
+  private async walCheckpoint(retries = 3): Promise<void> {
     logger.debug('执行 WAL checkpoint...');
     
+    for (let attempt = 1; attempt <= retries; attempt++) {
+      try {
+        await this.executeCheckpoint();
+        logger.debug('WAL checkpoint 完成');
+        return;
+      } catch (error: any) {
+        // 如果是 SQLITE_LOCKED 或 SQLITE_BUSY 错误，等待后重试
+        if ((error.code === 'SQLITE_LOCKED' || error.code === 'SQLITE_BUSY') && attempt < retries) {
+          const waitTime = attempt * 1000; // 递增等待时间：1s, 2s, 3s
+          logger.warn(`WAL checkpoint 失败 (尝试 ${attempt}/${retries})，${waitTime}ms 后重试...`, { code: error.code });
+          await this.delay(waitTime);
+        } else {
+          // 最后一次重试失败或其他错误
+          logger.error('WAL checkpoint 失败', error);
+          throw error;
+        }
+      }
+    }
+  }
+
+  /**
+   * 执行 checkpoint 操作
+   */
+  private executeCheckpoint(): Promise<void> {
     return new Promise<void>(async (resolve, reject) => {
       try {
         const db = await getDatabase();
@@ -143,10 +169,8 @@ class DatabaseBackupService {
         // PRAGMA wal_checkpoint(FULL) - 合并WAL
         db.run('PRAGMA wal_checkpoint(FULL)', (err) => {
           if (err) {
-            logger.error('WAL checkpoint 失败', err);
             reject(err);
           } else {
-            logger.debug('WAL checkpoint 完成');
             resolve();
           }
         });
@@ -239,6 +263,13 @@ class DatabaseBackupService {
       logger.info('创建备份目录', { path: this.config.backupDir });
       fs.mkdirSync(this.config.backupDir, { recursive: true });
     }
+  }
+
+  /**
+   * 延迟函数
+   */
+  private delay(ms: number): Promise<void> {
+    return new Promise(resolve => setTimeout(resolve, ms));
   }
 
   /**

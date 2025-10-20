@@ -23,7 +23,7 @@ export interface CraftingTreeNode {
   item: string;
   is_base: boolean;
   recipe?: [string, string];
-  children?: [CraftingTreeNode, CraftingTreeNode];
+  children?: [CraftingTreeNode | null, CraftingTreeNode | null];
 }
 
 export interface PathStats {
@@ -75,6 +75,7 @@ export class RecipeService {
    * 1. 使用JOIN替代子查询
    * 2. 优化索引策略
    * 3. 支持游标分页
+   * 4. 包含深度、宽度、广度统计信息
    */
   async getRecipes(params: {
     page?: number;
@@ -148,6 +149,31 @@ export class RecipeService {
 
     const recipes = await database.all(sql, sqlParams);
 
+    // 为每个配方计算深度、宽度、广度统计信息（配方路径本身，而不是结果元素）
+    const recipesWithStats = await Promise.all(
+      recipes.map(async (recipe) => {
+        try {
+          const pathStats = await this.calculateRecipePathStats(recipe);
+          return {
+            ...recipe,
+            depth: pathStats.depth,
+            width: pathStats.width,
+            breadth: pathStats.breadth
+          };
+        } catch (error) {
+          logger.error(`计算配方 ${recipe.id} 的统计信息失败:`, error);
+        }
+        
+        // 如果计算失败，返回默认值
+        return {
+          ...recipe,
+          depth: 0,
+          width: 0,
+          breadth: 0
+        };
+      })
+    );
+
     // 异步获取总数（避免阻塞主查询）
     // 构建计数查询的参数（排除分页参数）
     const countParams = [];
@@ -177,7 +203,7 @@ export class RecipeService {
     const totalPromise = this.getCountAsync(countParams, conditions);
 
     return {
-      recipes,
+      recipes: recipesWithStats,
       total: await totalPromise,
       page,
       limit,
@@ -624,9 +650,19 @@ export class RecipeService {
         breadthSum += recipes.length;
       }
 
-      const [childA, childB] = node.children!;
-      const resultA = traverse(childA, depth + 1, false);
-      const resultB = traverse(childB, depth + 1, false);
+      // 确保子节点不为null才进行递归遍历
+      let resultA = { maxDepth: depth, steps: 0 };
+      let resultB = { maxDepth: depth, steps: 0 };
+      
+      if (node.children) {
+        const [childA, childB] = node.children;
+        if (childA) {
+          resultA = traverse(childA, depth + 1, false);
+        }
+        if (childB) {
+          resultB = traverse(childB, depth + 1, false);
+        }
+      }
 
       return {
         maxDepth: Math.max(resultA.maxDepth, resultB.maxDepth),
@@ -1221,6 +1257,175 @@ export class RecipeService {
     }
 
     return item;
+  }
+
+  /**
+   * 计算物品的统计信息
+   */
+  private async calculateItemStats(itemName: string, baseItems: string[], itemToRecipes: Record<string, Recipe[]>): Promise<{ depth: number; width: number; breadth: number }> {
+    // 广度计算：能够合成这个物品的配方数的总和
+    const breadth = (itemToRecipes[itemName] || []).length;
+
+    // 如果是基础材料，深度为0，宽度为0
+    if (baseItems.includes(itemName)) {
+      return {
+        depth: 0,
+        width: 0,
+        breadth: breadth
+      };
+    }
+
+    // 对于合成材料，构建合成树并计算深度和宽度
+    const tree = this.buildCraftingTree(itemName, baseItems, itemToRecipes, {});
+    if (!tree) {
+      return { depth: 0, width: 0, breadth: breadth };
+    }
+
+    const stats = this.calculateTreeStats(tree, itemToRecipes);
+    return {
+      depth: stats.depth,
+      width: stats.width,
+      breadth: breadth
+    };
+  }
+
+  /**
+   * 计算配方素材的统计信息
+   * 深度：配方中两个输入素材的最大深度
+   * 宽度：配方中两个输入素材的宽度总和
+   * 广度：配方中两个输入素材的广度总和
+   */
+  private async calculateRecipePathStats(recipe: Recipe): Promise<{ depth: number; width: number; breadth: number }> {
+    // 获取所有配方和基础材料
+    const recipes = await database.all<Recipe>('SELECT * FROM recipes');
+    const items = await database.all<Item>('SELECT * FROM items WHERE is_base = 1');
+    
+    const baseItemNames = items.map(item => item.name);
+    
+    // 构建物品到配方的映射
+    const itemToRecipes: Record<string, Recipe[]> = {};
+    for (const r of recipes) {
+      if (!itemToRecipes[r.result]) {
+        itemToRecipes[r.result] = [];
+      }
+      itemToRecipes[r.result].push(r);
+    }
+
+    // 计算 item_a 的统计信息
+    const statsA = await this.calculateItemStats(recipe.item_a, baseItemNames, itemToRecipes);
+    // 计算 item_b 的统计信息
+    const statsB = await this.calculateItemStats(recipe.item_b, baseItemNames, itemToRecipes);
+
+    // 深度：取两个素材的最大深度
+    const depth = Math.max(statsA.depth, statsB.depth);
+    // 宽度：两个素材的宽度总和
+    const width = statsA.width + statsB.width;
+    // 广度：两个素材的广度总和
+    const breadth = statsA.breadth + statsB.breadth;
+
+    return { depth, width, breadth };
+  }
+
+  /**
+   * 构建配方路径树
+   */
+  private buildRecipePathTree(
+    recipe: Recipe,
+    baseItems: string[],
+    itemToRecipes: Record<string, Recipe[]>,
+    memo: Record<string, CraftingTreeNode | null> = {}
+  ): CraftingTreeNode | null {
+    // 检查缓存
+    const cacheKey = `${recipe.item_a}_${recipe.item_b}_${recipe.result}`;
+    if (cacheKey in memo) {
+      return memo[cacheKey];
+    }
+
+    // 递归构建左子树（item_a）
+    let leftChild: CraftingTreeNode | null = null;
+    if (baseItems.includes(recipe.item_a)) {
+      leftChild = { item: recipe.item_a, is_base: true };
+    } else {
+      const recipesForA = itemToRecipes[recipe.item_a];
+      if (recipesForA && recipesForA.length > 0) {
+        const childRecipe = recipesForA[0]; // 选择第一个配方
+        leftChild = this.buildRecipePathTree(childRecipe, baseItems, itemToRecipes, memo);
+      }
+    }
+
+    // 递归构建右子树（item_b）
+    let rightChild: CraftingTreeNode | null = null;
+    if (baseItems.includes(recipe.item_b)) {
+      rightChild = { item: recipe.item_b, is_base: true };
+    } else {
+      const recipesForB = itemToRecipes[recipe.item_b];
+      if (recipesForB && recipesForB.length > 0) {
+        const childRecipe = recipesForB[0]; // 选择第一个配方
+        rightChild = this.buildRecipePathTree(childRecipe, baseItems, itemToRecipes, memo);
+      }
+    }
+
+    // 如果任一子树构建失败，则整个路径失败
+    if (!leftChild || !rightChild) {
+      memo[cacheKey] = null;
+      return null;
+    }
+
+    // 构建根节点
+    const root: CraftingTreeNode = {
+      item: recipe.result,
+      is_base: false,
+      recipe: [recipe.item_a, recipe.item_b],
+      children: [leftChild, rightChild]
+    };
+
+    memo[cacheKey] = root;
+    return root;
+  }
+
+  /**
+   * 计算路径统计信息
+   */
+  private calculatePathStats(tree: CraftingTreeNode, itemToRecipes: Record<string, Recipe[]>): { depth: number; width: number; breadth: number } {
+    let maxDepth = 0;
+    let totalSteps = 0;
+    let totalBreadth = 0;
+
+    const traverse = (node: CraftingTreeNode, currentDepth: number): void => {
+      // 更新最大深度
+      maxDepth = Math.max(maxDepth, currentDepth);
+
+      // 计算该节点的广度（能匹配到的配方数量）
+      const recipes = itemToRecipes[node.item] || [];
+      totalBreadth += recipes.length;
+
+      // 如果是基础材料，没有子节点，步骤数为0
+      if (node.is_base) {
+        return;
+      }
+
+      // 合成材料，步骤数+1
+      totalSteps += 1;
+
+      // 递归遍历子节点（确保子节点不为null）
+      if (node.children) {
+        const [leftChild, rightChild] = node.children;
+        if (leftChild) {
+          traverse(leftChild, currentDepth + 1);
+        }
+        if (rightChild) {
+          traverse(rightChild, currentDepth + 1);
+        }
+      }
+    };
+
+    traverse(tree, 0);
+
+    return {
+      depth: maxDepth,
+      width: totalSteps,
+      breadth: totalBreadth
+    };
   }
 
   /**

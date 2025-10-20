@@ -72,6 +72,81 @@
         </el-row>
       </div>
 
+      <!-- 配方列表卡片 -->
+      <div class="recipes-section" v-if="element && element.recipe_count > 0">
+        <div class="section-header">
+          <h2 class="section-title">配方列表</h2>
+          <div class="section-subtitle">按照最简排序算法排序</div>
+        </div>
+        
+        <!-- 配方列表 -->
+        <div class="recipes-list">
+          <div 
+            v-for="recipe in paginatedRecipes" 
+            :key="recipe.id" 
+            class="recipe-card"
+          >
+            <div class="recipe-header">
+              <div class="recipe-title">配方 #{{ recipe.id }}</div>
+              <el-tag 
+                size="small" 
+                type="success"
+              >
+                合成配方
+              </el-tag>
+            </div>
+            
+            <div class="recipe-content">
+              <div class="recipe-ingredients">
+                <div class="ingredients-label">原料:</div>
+                <div class="ingredients-list">
+                  <span class="ingredient-item">
+                    {{ recipe.item_a_emoji || '🔘' }} {{ recipe.item_a }}
+                  </span>
+                  <span class="ingredient-operator"> + </span>
+                  <span class="ingredient-item">
+                    {{ recipe.item_b_emoji || '🔘' }} {{ recipe.item_b }}
+                  </span>
+                </div>
+              </div>
+              
+              <div class="recipe-result">
+                <div class="result-label">结果:</div>
+                <div class="result-item">
+                  {{ element.emoji || '🔘' }} {{ element.name }}
+                </div>
+              </div>
+            </div>
+            
+            <div class="recipe-footer">
+              <div class="recipe-meta">
+                <span class="recipe-depth">深度: {{ recipe.depth || 0 }}</span>
+                <span class="recipe-width">宽度: {{ recipe.width || 0 }}</span>
+                <span class="recipe-breadth">广度: {{ recipe.breadth || 0 }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 分页组件 -->
+        <div class="pagination-section" v-if="recipes.length > 0">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
+            :page-sizes="[5, 10, 20, 50]"
+            :total="recipes.length"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleSizeChange"
+            @current-change="handleCurrentChange"
+          />
+        </div>
+        
+        <!-- 无配方提示 -->
+        <div v-else class="no-recipes">
+          <el-empty description="暂无配方数据" />
+        </div>
+      </div>
+
     </div>
 
     <!-- 元素不存在 -->
@@ -82,7 +157,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft } from '@element-plus/icons-vue';
@@ -98,11 +173,42 @@ interface Element {
   discoverer_name?: string;
 }
 
+interface RecipeDetail {
+  id: number;
+  item_a: string;
+  item_b: string;
+  result: string;
+  user_id: number;
+  likes: number;
+  created_at: string;
+  creator_name?: string;
+  is_liked?: boolean;
+  item_a_emoji?: string;
+  item_b_emoji?: string;
+  result_emoji?: string;
+  is_verified?: boolean;
+  updated_at?: string;
+  depth?: number;
+  width?: number;
+  breadth?: number;
+}
+
 const route = useRoute();
 const router = useRouter();
 
 const element = ref<Element | null>(null);
+const recipes = ref<RecipeDetail[]>([]);
 const loading = ref(false);
+const recipesLoading = ref(false);
+const currentPage = ref(1);
+const pageSize = ref(5);
+
+// 计算分页后的配方列表
+const paginatedRecipes = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  const end = start + pageSize.value;
+  return recipes.value.slice(start, end);
+});
 
 // 获取元素详情
 const fetchElementDetail = async () => {
@@ -120,6 +226,8 @@ const fetchElementDetail = async () => {
 
     if (elementData) {
       element.value = elementData;
+      // 获取配方列表
+      await fetchRecipes(elementId);
     } else {
       ElMessage.error('获取元素详情失败');
     }
@@ -135,7 +243,61 @@ const fetchElementDetail = async () => {
   }
 };
 
+// 最简排序算法：深度最小 → 宽度最小 → 广度最大 → 字典序排序
+const sortRecipesBySimplestPath = (recipes: RecipeDetail[]): RecipeDetail[] => {
+  return [...recipes].sort((a, b) => {
+    // 1. 深度最小优先
+    if (a.depth !== b.depth) {
+      return (a.depth || 0) - (b.depth || 0);
+    }
+    
+    // 2. 宽度最小优先
+    if (a.width !== b.width) {
+      return (a.width || 0) - (b.width || 0);
+    }
+    
+    // 3. 广度最大优先
+    if (a.breadth !== b.breadth) {
+      return (b.breadth || 0) - (a.breadth || 0);
+    }
+    
+    // 4. 字典序排序（按配方ID）
+    return a.id - b.id;
+  });
+};
 
+// 获取配方列表
+const fetchRecipes = async (elementId: number) => {
+  recipesLoading.value = true;
+  try {
+    // 使用后端API获取配方列表
+    const response = await recipeApi.list({ result: element.value?.name });
+    
+    if (response && response.recipes && Array.isArray(response.recipes)) {
+      // 按照最简排序算法对配方进行排序
+      recipes.value = sortRecipesBySimplestPath(response.recipes);
+    } else {
+      recipes.value = [];
+    }
+  } catch (error: any) {
+    console.error('获取配方列表失败:', error);
+    ElMessage.error('获取配方列表失败，请稍后重试');
+    recipes.value = [];
+  } finally {
+    recipesLoading.value = false;
+  }
+};
+
+// 分页大小改变
+const handleSizeChange = (size: number) => {
+  pageSize.value = size;
+  currentPage.value = 1;
+};
+
+// 当前页改变
+const handleCurrentChange = (page: number) => {
+  currentPage.value = page;
+};
 
 // 返回上一页
 const goBack = () => {
@@ -272,6 +434,143 @@ onMounted(() => {
   color: #909399;
 }
 
+/* 配方列表样式 */
+.recipes-section {
+  margin-top: 40px;
+}
+
+.section-header {
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.section-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 8px 0;
+}
+
+.section-subtitle {
+  font-size: 14px;
+  color: #909399;
+}
+
+.recipes-list {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.recipe-card {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 20px;
+  border: 1px solid #e9ecef;
+  transition: all 0.3s ease;
+}
+
+.recipe-card:hover {
+  background: #fff;
+  border-color: #409eff;
+  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.recipe-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.recipe-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.recipe-content {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recipe-ingredients,
+.recipe-result {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.ingredients-label,
+.result-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #606266;
+  min-width: 40px;
+}
+
+.ingredients-list {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.ingredient-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  color: #303133;
+}
+
+.ingredient-operator {
+  font-size: 14px;
+  color: #909399;
+  font-weight: 500;
+}
+
+.result-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 14px;
+  font-weight: 500;
+  color: #409eff;
+}
+
+.recipe-footer {
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid #e9ecef;
+}
+
+.recipe-meta {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: #909399;
+}
+
+.recipe-depth,
+.recipe-width,
+.recipe-breadth {
+  display: flex;
+  align-items: center;
+}
+
+.pagination-section {
+  margin-top: 24px;
+  display: flex;
+  justify-content: center;
+}
+
+.no-recipes {
+  padding: 40px 0;
+  text-align: center;
+}
 
 .not-found {
   padding: 80px 0;

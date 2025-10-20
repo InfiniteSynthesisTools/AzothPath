@@ -87,35 +87,15 @@
             class="recipe-card"
           >
             <div class="recipe-header">
-              <div class="recipe-title">配方 #{{ recipe.id }}</div>
+              <div class="recipe-formula">
+                {{ recipe.item_a_emoji || '🔘' }} {{ recipe.item_a }} + {{ recipe.item_b_emoji || '🔘' }} {{ recipe.item_b }} = {{ element.emoji || '🔘' }} {{ element.name }}
+              </div>
               <el-tag 
                 size="small" 
                 type="success"
               >
                 合成配方
               </el-tag>
-            </div>
-            
-            <div class="recipe-content">
-              <div class="recipe-ingredients">
-                <div class="ingredients-label">原料:</div>
-                <div class="ingredients-list">
-                  <span class="ingredient-item">
-                    {{ recipe.item_a_emoji || '🔘' }} {{ recipe.item_a }}
-                  </span>
-                  <span class="ingredient-operator"> + </span>
-                  <span class="ingredient-item">
-                    {{ recipe.item_b_emoji || '🔘' }} {{ recipe.item_b }}
-                  </span>
-                </div>
-              </div>
-              
-              <div class="recipe-result">
-                <div class="result-label">结果:</div>
-                <div class="result-item">
-                  {{ element.emoji || '🔘' }} {{ element.name }}
-                </div>
-              </div>
             </div>
             
             <div class="recipe-footer">
@@ -485,61 +465,14 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
-.recipe-title {
+.recipe-formula {
   font-size: 16px;
   font-weight: 600;
   color: #303133;
+  flex: 1;
+  margin-right: 16px;
 }
 
-.recipe-content {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.recipe-ingredients,
-.recipe-result {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.ingredients-label,
-.result-label {
-  font-size: 14px;
-  font-weight: 500;
-  color: #606266;
-  min-width: 40px;
-}
-
-.ingredients-list {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.ingredient-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  color: #303133;
-}
-
-.ingredient-operator {
-  font-size: 14px;
-  color: #909399;
-  font-weight: 500;
-}
-
-.result-item {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  font-size: 14px;
-  font-weight: 500;
-  color: #409eff;
-}
 
 .recipe-footer {
   margin-top: 16px;

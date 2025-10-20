@@ -3,6 +3,7 @@ import { taskService } from '../services/taskService';
 import { authMiddleware, AuthRequest } from '../middlewares/auth';
 import { logger } from '../utils/logger';
 import { rateLimits } from '../middlewares/rateLimiter';
+import { database } from '../database/connection';
 
 const router = Router();
 
@@ -99,26 +100,43 @@ router.get('/:id', async (req: AuthRequest, res: Response) => {
 /**
  * POST /api/tasks
  * 创建任务（普通用户可创建）
+ * 普通用户创建任务时奖励默认为0，管理员可以设置0-200的奖励
  */
 router.post('/', authMiddleware, rateLimits.taskCreate, async (req: AuthRequest, res: Response) => {
   try {
-    const { itemName, prize } = req.body;
+    let { itemName, prize } = req.body;
 
-    if (!itemName || !prize) {
+    if (!itemName) {
       return res.status(400).json({
         code: 400,
-        message: '物品名称和奖励不能为空'
+        message: '物品名称不能为空'
       });
     }
 
-    if (typeof prize !== 'number' || prize <= 0) {
-      return res.status(400).json({
-        code: 400,
-        message: '奖励必须是正整数'
-      });
-    }
+    // 获取用户信息以判断权限
+    const user = await database.get<{ auth: number }>(
+      'SELECT auth FROM user WHERE id = ?',
+      [req.userId!]
+    );
 
-    // 普通用户可以创建任务，无需管理员权限
+    const isAdmin = user && user.auth === 9;
+
+    // 根据用户权限处理奖励分数
+    if (isAdmin) {
+      // 管理员：验证奖励范围 0-200
+      if (prize === undefined || prize === null) {
+        prize = 0; // 管理员未填写时默认为0
+      }
+      if (typeof prize !== 'number' || prize < 0 || prize > 200) {
+        return res.status(400).json({
+          code: 400,
+          message: '奖励必须是 0-200 之间的整数'
+        });
+      }
+    } else {
+      // 普通用户：强制设置为0
+      prize = 0;
+    }
 
     const taskId = await taskService.createTask(itemName, prize, req.userId!);
 

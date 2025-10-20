@@ -117,6 +117,9 @@ export class TaskService {
 
   /**
    * 创建任务（手动）
+   * @param itemName 物品名称
+   * @param prize 奖励分数（普通用户为0，管理员可设置0-200）
+   * @param userId 创建者ID
    */
   async createTask(itemName: string, prize: number, userId: number): Promise<number> {
     // 基础材料不能创建任务

@@ -207,7 +207,7 @@ class ImportTaskQueue {
       const recipeId = await this.insertRecipe(task);
 
       // 4. 更新物品字典（包括保存 emoji）
-      await this.updateItemsDictionary([task.item_a, task.item_b, task.result], validationResult.emoji);
+      await this.updateItemsDictionary([task.item_a, task.item_b, task.result], validationResult.emoji, task.task_id);
 
       // 5. 标记为成功
       await this.markAsSuccess(task, recipeId);
@@ -389,8 +389,24 @@ class ImportTaskQueue {
   /**
    * 更新物品字典
    * 修复：先检查物品是否存在，避免INSERT OR IGNORE导致ID浪费
+   * 修复：记录元素发现者用户ID
    */
-  private async updateItemsDictionary(items: string[], resultEmoji?: string) {
+  private async updateItemsDictionary(items: string[], resultEmoji?: string, taskId?: number) {
+    // 获取任务的创建者 ID
+    let userId = 1; // 默认使用管理员 ID
+    
+    if (taskId) {
+      try {
+        const taskInfo = await database.get<{ user_id: number }>(
+          'SELECT user_id FROM import_tasks WHERE id = ?',
+          [taskId]
+        );
+        userId = taskInfo?.user_id || 1;
+      } catch (error) {
+        logger.error(`获取任务${taskId}的用户ID失败:`, error);
+      }
+    }
+
     for (const item of items) {
       // 先检查物品是否已存在
       const existing = await database.get<{ id: number }>(
@@ -398,13 +414,13 @@ class ImportTaskQueue {
         [item]
       );
       
-      // 只有不存在时才插入
+      // 只有不存在时才插入，并记录发现者用户ID
       if (!existing) {
         await database.run(
-          'INSERT INTO items (name, is_base, created_at) VALUES (?, 0, ?)',
-          [item, getCurrentUTC8TimeForDB()]
+          'INSERT INTO items (name, is_base, user_id, created_at) VALUES (?, 0, ?, ?)',
+          [item, userId, getCurrentUTC8TimeForDB()]
         );
-        logger.debug(`新物品添加到词典: ${item}`);
+        logger.debug(`新物品添加到词典: ${item} (发现者: ${userId})`);
       }
     }
     
@@ -597,4 +613,5 @@ class ImportTaskQueue {
 }
 
 // 单例模式
-export const importTaskQueue = new ImportTaskQueue();
+const importTaskQueue = new ImportTaskQueue();
+export { importTaskQueue };

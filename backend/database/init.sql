@@ -37,6 +37,7 @@ CREATE TABLE IF NOT EXISTS items (
   emoji TEXT,
   pinyin TEXT,
   is_base INTEGER DEFAULT 0,  -- 0=false, 1=true
+  user_id INTEGER,  -- 发现者用户ID，关联 user.id
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

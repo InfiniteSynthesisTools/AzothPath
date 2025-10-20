@@ -1204,12 +1204,14 @@ export class RecipeService {
    * 获取单个物品详情
    */
   async getItemById(id: number) {
-    const item = await database.get<Item & { usage_count: number; recipe_count: number }>(
+    const item = await database.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string }>(
       `SELECT 
          i.*,
          (SELECT COUNT(*) FROM recipes WHERE item_a = i.name OR item_b = i.name) as usage_count,
-         (SELECT COUNT(*) FROM recipes WHERE result = i.name) as recipe_count
+         (SELECT COUNT(*) FROM recipes WHERE result = i.name) as recipe_count,
+         u.name as discoverer_name
        FROM items i
+       LEFT JOIN user u ON i.user_id = u.id
        WHERE i.id = ?`,
       [id]
     );

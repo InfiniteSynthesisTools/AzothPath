@@ -62,79 +62,16 @@
           </el-col>
           <el-col :xs="12" :sm="6">
             <div class="stat-card">
-              <div class="stat-icon">📅</div>
+              <div class="stat-icon">👤</div>
               <div class="stat-content">
-                <div class="stat-value">{{ formatDate(element.created_at) }}</div>
-                <div class="stat-label">创建时间</div>
-              </div>
-            </div>
-          </el-col>
-          <el-col :xs="12" :sm="6">
-            <div class="stat-card">
-              <div class="stat-icon">🔤</div>
-              <div class="stat-content">
-                <div class="stat-value">{{ element.pinyin || '-' }}</div>
-                <div class="stat-label">拼音</div>
+                <div class="stat-value">{{ element.discoverer_name || '-' }}</div>
+                <div class="stat-label">发现者</div>
               </div>
             </div>
           </el-col>
         </el-row>
       </div>
 
-      <!-- 配方信息 -->
-      <div class="recipes-section">
-        <h2 class="section-title">相关配方</h2>
-        <div v-if="recipes.length === 0" class="empty-recipes">
-          <el-empty description="暂无相关配方" />
-        </div>
-        <div v-else class="recipes-list">
-          <el-card
-            v-for="recipe in recipes"
-            :key="recipe.id"
-            class="recipe-card"
-            shadow="hover"
-          >
-            <div class="recipe-content">
-              <div class="recipe-inputs">
-                <div class="recipe-label">输入元素：</div>
-                <div class="inputs-list">
-                  <span 
-                    v-for="input in recipe.inputs" 
-                    :key="input"
-                    class="input-item"
-                  >
-                    {{ input }}
-                  </span>
-                </div>
-              </div>
-              <div class="recipe-arrow">→</div>
-              <div class="recipe-result">
-                <div class="recipe-label">输出元素：</div>
-                <div class="result-item">{{ recipe.result }}</div>
-              </div>
-            </div>
-          </el-card>
-        </div>
-      </div>
-
-      <!-- 合成路径 -->
-      <div class="crafting-path-section">
-        <h2 class="section-title">合成路径</h2>
-        <div class="path-info">
-          <p v-if="element.is_base" class="path-message">
-            这是一个基础元素，无法通过合成获得。
-          </p>
-          <div v-else class="path-actions">
-            <el-button 
-              type="primary" 
-              @click="viewCraftingPath"
-              :loading="pathLoading"
-            >
-              查看合成路径
-            </el-button>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- 元素不存在 -->
@@ -158,24 +95,14 @@ interface Element {
   is_base: number;
   usage_count?: number;
   recipe_count?: number;
-  pinyin?: string;
-  created_at?: string;
-}
-
-interface Recipe {
-  id: number;
-  inputs: string[];
-  result: string;
-  result_emoji?: string;
+  discoverer_name?: string;
 }
 
 const route = useRoute();
 const router = useRouter();
 
 const element = ref<Element | null>(null);
-const recipes = ref<Recipe[]>([]);
 const loading = ref(false);
-const pathLoading = ref(false);
 
 // 获取元素详情
 const fetchElementDetail = async () => {
@@ -193,8 +120,6 @@ const fetchElementDetail = async () => {
 
     if (elementData) {
       element.value = elementData;
-      // 获取相关配方
-      await fetchRelatedRecipes(elementData.name);
     } else {
       ElMessage.error('获取元素详情失败');
     }
@@ -210,60 +135,7 @@ const fetchElementDetail = async () => {
   }
 };
 
-// 获取相关配方（模拟数据）
-const fetchRelatedRecipes = async (elementName: string) => {
-  try {
-    // 这里可以调用实际的API获取相关配方
-    // 暂时使用模拟数据
-    recipes.value = [
-      {
-        id: 1,
-        inputs: ['火', '水'],
-        result: elementName,
-        result_emoji: element.value?.emoji
-      },
-      {
-        id: 2,
-        inputs: ['土', '风'],
-        result: elementName,
-        result_emoji: element.value?.emoji
-      }
-    ];
-  } catch (error) {
-    console.error('获取相关配方失败:', error);
-  }
-};
 
-// 查看合成路径
-const viewCraftingPath = async () => {
-  if (!element.value) return;
-  
-  pathLoading.value = true;
-  try {
-    const response = await recipeApi.searchPath(element.value.name);
-    if (response) {
-      // 这里可以跳转到合成路径页面或显示路径
-      ElMessage.success(`已找到 ${element.value.name} 的合成路径`);
-    } else {
-      ElMessage.warning(`未找到 ${element.value.name} 的合成路径`);
-    }
-  } catch (error) {
-    console.error('获取合成路径失败:', error);
-    ElMessage.error('获取合成路径失败，请稍后重试');
-  } finally {
-    pathLoading.value = false;
-  }
-};
-
-// 格式化日期
-const formatDate = (dateString?: string) => {
-  if (!dateString) return '-';
-  try {
-    return new Date(dateString).toLocaleDateString('zh-CN');
-  } catch {
-    return '-';
-  }
-};
 
 // 返回上一页
 const goBack = () => {
@@ -400,107 +272,6 @@ onMounted(() => {
   color: #909399;
 }
 
-.section-title {
-  font-size: 24px;
-  font-weight: 600;
-  color: #303133;
-  margin: 0 0 20px 0;
-  padding-bottom: 12px;
-  border-bottom: 2px solid #409eff;
-}
-
-.recipes-section {
-  margin-bottom: 40px;
-}
-
-.empty-recipes {
-  padding: 40px 0;
-}
-
-.recipes-list {
-  display: grid;
-  gap: 16px;
-}
-
-.recipe-card {
-  border-radius: 8px;
-  transition: all 0.3s ease;
-}
-
-.recipe-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
-}
-
-.recipe-content {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  padding: 16px;
-}
-
-.recipe-inputs,
-.recipe-result {
-  flex: 1;
-}
-
-.recipe-label {
-  font-size: 12px;
-  color: #909399;
-  margin-bottom: 8px;
-  font-weight: 500;
-}
-
-.inputs-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.input-item {
-  background: #f0f2f5;
-  padding: 4px 12px;
-  border-radius: 16px;
-  font-size: 14px;
-  color: #303133;
-}
-
-.result-item {
-  background: #409eff;
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: 8px;
-  font-size: 16px;
-  font-weight: 600;
-  text-align: center;
-}
-
-.recipe-arrow {
-  font-size: 20px;
-  color: #909399;
-  font-weight: 700;
-}
-
-.crafting-path-section {
-  margin-bottom: 40px;
-}
-
-.path-info {
-  background: #f8f9fa;
-  border-radius: 8px;
-  padding: 24px;
-}
-
-.path-message {
-  font-size: 16px;
-  color: #909399;
-  text-align: center;
-  margin: 0;
-}
-
-.path-actions {
-  text-align: center;
-}
 
 .not-found {
   padding: 80px 0;
@@ -533,15 +304,6 @@ onMounted(() => {
     justify-content: center;
   }
 
-  .recipe-content {
-    flex-direction: column;
-    gap: 12px;
-    text-align: center;
-  }
-
-  .recipe-arrow {
-    transform: rotate(90deg);
-  }
 
   .stat-card {
     flex-direction: column;
@@ -557,10 +319,6 @@ onMounted(() => {
 
   .element-name {
     font-size: 24px;
-  }
-
-  .section-title {
-    font-size: 20px;
   }
 }
 </style>

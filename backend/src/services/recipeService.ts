@@ -1201,6 +1201,27 @@ export class RecipeService {
   }
 
   /**
+   * 获取单个物品详情
+   */
+  async getItemById(id: number) {
+    const item = await database.get<Item & { usage_count: number; recipe_count: number }>(
+      `SELECT 
+         i.*,
+         (SELECT COUNT(*) FROM recipes WHERE item_a = i.name OR item_b = i.name) as usage_count,
+         (SELECT COUNT(*) FROM recipes WHERE result = i.name) as recipe_count
+       FROM items i
+       WHERE i.id = ?`,
+      [id]
+    );
+
+    if (!item) {
+      throw new Error('物品不存在');
+    }
+
+    return item;
+  }
+
+  /**
    * 获取物品列表
    */
   async getItemsList(params: {

@@ -83,8 +83,8 @@ export class ImportService {
     // 创建任务明细记录
     for (const recipe of recipes) {
       await database.run(
-        'INSERT INTO import_tasks_content (task_id, item_a, item_b, result, status, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [taskId, recipe.item_a, recipe.item_b, recipe.result, 'pending', getCurrentUTC8TimeForDB(), getCurrentUTC8TimeForDB()]
+        'INSERT INTO import_tasks_content (task_id, item_a, item_b, result, status, retry_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [taskId, recipe.item_a, recipe.item_b, recipe.result, 'pending', 0, getCurrentUTC8TimeForDB(), getCurrentUTC8TimeForDB()]
       );
     }
 

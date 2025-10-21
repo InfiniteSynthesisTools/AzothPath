@@ -15,6 +15,7 @@ export interface Recipe {
 export interface Item {
   id: number;
   name: string;
+  emoji?: string;
   is_base: boolean;
   created_at: string;
 }
@@ -97,6 +98,7 @@ export class RecipeService {
     recipeGraph: Record<string, string[]>;
     baseItemNames: string[];
     allItemNames: string[];
+    itemEmojiMap: Record<string, string>;
     lastUpdated: number;
   } | null = null;
   
@@ -114,6 +116,7 @@ export class RecipeService {
     recipeGraph: Record<string, string[]>;
     baseItemNames: string[];
     allItemNames: string[];
+    itemEmojiMap: Record<string, string>;
   }> {
     const now = Date.now();
     
@@ -123,14 +126,22 @@ export class RecipeService {
       
       // 获取所有公开配方和物品
       const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
-      const items = await database.all<Item>('SELECT name FROM items');
-      const baseItems = await database.all<Item>('SELECT name FROM items WHERE is_base = 1');
+      const items = await database.all<Item>('SELECT name, emoji FROM items');
+      const baseItems = await database.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1');
       
       const baseItemNames = baseItems.map(item => item.name);
       const allItemNames = items.map(item => item.name);
 
       // 构建依赖图
       const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
+      
+      // 构建emoji映射
+      const itemEmojiMap: Record<string, string> = {};
+      for (const item of items) {
+        if (item.emoji) {
+          itemEmojiMap[item.name] = item.emoji;
+        }
+      }
       
       // 更新缓存
       this.graphCache = {
@@ -141,6 +152,7 @@ export class RecipeService {
         recipeGraph,
         baseItemNames,
         allItemNames,
+        itemEmojiMap,
         lastUpdated: now
       };
       
@@ -1632,13 +1644,14 @@ export class RecipeService {
     const allItems = cache.allItemNames;
     const baseItems = cache.baseItemNames;
     const itemToRecipes = cache.itemToRecipes;
+    const itemEmojiMap = cache.itemEmojiMap;
     
     const nodesWithStats: Array<{ node: IcicleNode; stats: PathStats }> = [];
     let maxDepth = 0;
     
     // 为每个元素构建冰柱树并计算统计信息
     for (const itemName of allItems) {
-      const tree = this.buildIcicleTree(itemName, baseItems, itemToRecipes, new Set());
+      const tree = this.buildIcicleTree(itemName, baseItems, itemToRecipes, itemEmojiMap, new Set());
       if (tree) {
         // 计算路径统计信息
         const stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
@@ -1673,6 +1686,7 @@ export class RecipeService {
     itemName: string,
     baseItems: string[],
     itemToRecipes: Record<string, Recipe[]>,
+    itemEmojiMap: Record<string, string>,
     visited: Set<string>
   ): IcicleNode | null {
     // 避免循环依赖
@@ -1688,6 +1702,7 @@ export class RecipeService {
       return {
         id: `base_${itemName}`,
         name: itemName,
+        emoji: itemEmojiMap[itemName],
         isBase: true,
         value: 1
       };
@@ -1703,8 +1718,8 @@ export class RecipeService {
     const recipe = recipes[0];
     
     // 递归构建子节点
-    const childA = this.buildIcicleTree(recipe.item_a, baseItems, itemToRecipes, new Set(visited));
-    const childB = this.buildIcicleTree(recipe.item_b, baseItems, itemToRecipes, new Set(visited));
+    const childA = this.buildIcicleTree(recipe.item_a, baseItems, itemToRecipes, itemEmojiMap, new Set(visited));
+    const childB = this.buildIcicleTree(recipe.item_b, baseItems, itemToRecipes, itemEmojiMap, new Set(visited));
     
     if (!childA || !childB) {
       return null;
@@ -1716,6 +1731,7 @@ export class RecipeService {
     return {
       id: `synthetic_${itemName}`,
       name: itemName,
+      emoji: itemEmojiMap[itemName],
       isBase: false,
       value,
       children: [childA, childB],

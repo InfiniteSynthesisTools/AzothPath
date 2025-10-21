@@ -270,8 +270,11 @@ const sortRecipesBySimplestPath = (recipes: RecipeDetail[]): RecipeDetail[] => {
 const fetchRecipes = async () => {
   recipesLoading.value = true;
   try {
-    // 使用后端API获取配方列表
-    const response = await recipeApi.list({ result: element.value?.name });
+    // 使用后端API获取配方列表，包含统计信息
+    const response = await recipeApi.list({ 
+      result: element.value?.name,
+      includeStats: true // 添加这个参数来获取深度、宽度、广度数据
+    });
     
     if (response && response.recipes && Array.isArray(response.recipes)) {
       // 按照最简排序算法对配方进行排序

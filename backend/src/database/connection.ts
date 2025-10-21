@@ -167,12 +167,30 @@ export class Database {
   all<T = any>(sql: string, params: any[] = []): Promise<T[]> {
     const db = this.ensureInitialized();
     return new Promise((resolve, reject) => {
+      const startTime = Date.now();
       try {
         const stmt = db.prepare(sql);
         const rows = stmt.all(...params);
+        const duration = Date.now() - startTime;
+        
+        // 记录SQL执行时间（超过100ms记录为警告，否则为debug）
+        if (duration > 100) {
+          logger.warn(`慢查询 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration });
+        } else {
+          logger.debug(`SQL查询 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration });
+        }
+        
         resolve(rows as T[]);
-      } catch (err) {
-        logger.error('SQL查询失败', { sql, params, error: err });
+      } catch (err: any) {
+        const duration = Date.now() - startTime;
+        logger.error('SQL查询失败', { 
+          sql, 
+          params, 
+          duration, 
+          error: err?.message,
+          code: err?.code,
+          errno: err?.errno
+        });
         reject(err);
       }
     });
@@ -182,11 +200,30 @@ export class Database {
   get<T = any>(sql: string, params: any[] = []): Promise<T | undefined> {
     const db = this.ensureInitialized();
     return new Promise((resolve, reject) => {
+      const startTime = Date.now();
       try {
         const stmt = db.prepare(sql);
         const row = stmt.get(...params);
+        const duration = Date.now() - startTime;
+        
+        // 记录SQL执行时间
+        if (duration > 100) {
+          logger.warn(`慢查询 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration });
+        } else {
+          logger.debug(`SQL查询 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration });
+        }
+        
         resolve(row as T | undefined);
-      } catch (err) {
+      } catch (err: any) {
+        const duration = Date.now() - startTime;
+        logger.error('SQL查询失败', { 
+          sql, 
+          params, 
+          duration, 
+          error: err?.message,
+          code: err?.code,
+          errno: err?.errno
+        });
         reject(err);
       }
     });
@@ -196,11 +233,30 @@ export class Database {
   run(sql: string, params: any[] = []): Promise<{ lastID: number; changes: number }> {
     const db = this.ensureInitialized();
     return new Promise((resolve, reject) => {
+      const startTime = Date.now();
       try {
         const stmt = db.prepare(sql);
         const info = stmt.run(...params);
+        const duration = Date.now() - startTime;
+        
+        // 记录SQL执行时间
+        if (duration > 100) {
+          logger.warn(`慢写入 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration, changes: info.changes });
+        } else {
+          logger.debug(`SQL写入 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration, changes: info.changes });
+        }
+        
         resolve({ lastID: info.lastInsertRowid as number, changes: info.changes });
-      } catch (err) {
+      } catch (err: any) {
+        const duration = Date.now() - startTime;
+        logger.error('SQL写入失败', { 
+          sql, 
+          params, 
+          duration, 
+          error: err?.message,
+          code: err?.code,
+          errno: err?.errno
+        });
         reject(err);
       }
     });

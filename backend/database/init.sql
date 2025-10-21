@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS recipes (
   result TEXT NOT NULL,
   user_id INTEGER NOT NULL,  -- 关联 user.id（应用层管理）
   likes INTEGER DEFAULT 0,  -- 点赞数（冗余字段，提高查询性能）
+  is_public INTEGER DEFAULT 1,  -- 是否公开展示 (0=否, 1=是)
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
   UNIQUE(item_a, item_b),
   CHECK (item_a <= item_b)  -- 确保字典序 item_a <= item_b，允许相同材料
@@ -37,6 +38,7 @@ CREATE TABLE IF NOT EXISTS items (
   emoji TEXT,
   pinyin TEXT,
   is_base INTEGER DEFAULT 0,  -- 0=false, 1=true
+  is_public INTEGER DEFAULT 1,  -- 是否公开展示 (0=否, 1=是)
   user_id INTEGER,  -- 发现者用户ID，关联 user.id
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );

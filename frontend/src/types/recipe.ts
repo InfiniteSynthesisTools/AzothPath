@@ -45,6 +45,10 @@ export interface RecipeSearchParams {
   result?: string;
   cursor?: string; // 游标分页
   orderBy?: string; // 排序字段
+  // 管理用途：是否包含未公开数据（仅管理员有效）。传 '1' / '0' 或 true / false
+  includePrivate?: string | boolean;
+  // 是否为每条配方计算路径统计（开销大，默认不算）。传 '1' / '0' 或 true / false
+  includeStats?: string | boolean;
 }
 
 export interface RecipeListResponse {

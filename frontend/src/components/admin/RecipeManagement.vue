@@ -77,6 +77,17 @@
             {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
+        <el-table-column prop="is_public" label="公开" width="100">
+          <template #default="{ row }">
+            <el-switch
+              :model-value="row.is_public === 1"
+              active-text="公开"
+              inactive-text="隐藏"
+              :disabled="!userStore.isAdmin"
+              @change="(val: boolean) => updateRecipePublic(row, val)"
+            />
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="viewRecipeDetail(row)">
@@ -136,6 +147,7 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh } from '@element-plus/icons-vue';
 import { recipeApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
+import { useUserStore } from '@/stores';
 
 // 响应式数据
 const loading = ref(false);
@@ -148,6 +160,7 @@ const pageSize = ref(20);
 const totalRecipes = ref(0);
 const detailDialogVisible = ref(false);
 const selectedRecipe = ref<any>(null);
+const userStore = useUserStore();
 
 // 方法
 const loadRecipes = async () => {
@@ -218,6 +231,17 @@ const deleteRecipe = async (recipe: any) => {
       console.error('删除配方失败:', error);
       ElMessage.error('删除失败');
     }
+  }
+};
+
+const updateRecipePublic = async (row: any, val: boolean) => {
+  try {
+    const { api } = await import('@/utils/request');
+    await api.put(`/recipes/${row.id}/public`, { is_public: val ? 1 : 0 });
+    row.is_public = val ? 1 : 0;
+    ElMessage.success('更新成功');
+  } catch (error) {
+    ElMessage.error('更新失败');
   }
 };
 

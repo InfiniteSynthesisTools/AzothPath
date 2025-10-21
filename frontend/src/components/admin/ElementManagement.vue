@@ -69,6 +69,17 @@
             <el-tag type="warning">{{ row.recipe_count || 0 }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column prop="is_public" label="公开" width="100">
+          <template #default="{ row }">
+            <el-switch
+              :model-value="row.is_public === 1"
+              active-text="公开"
+              inactive-text="隐藏"
+              :disabled="!userStore.isAdmin"
+              @change="(val: boolean) => updateItemPublic(row, val)"
+            />
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="200" fixed="right">
           <template #default="{ row }">
             <el-button size="small" @click="viewElementDetail(row)">
@@ -131,6 +142,7 @@ import { ref, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh } from '@element-plus/icons-vue';
 import { recipeApi } from '@/api';
+import { useUserStore } from '@/stores';
 
 // 响应式数据
 const loading = ref(false);
@@ -143,6 +155,7 @@ const pageSize = ref(20);
 const totalElements = ref(0);
 const detailDialogVisible = ref(false);
 const selectedElement = ref<any>(null);
+const userStore = useUserStore();
 
 // 计算属性 - 现在直接使用elements，过滤和排序由后端处理
 const filteredElements = computed(() => elements.value);
@@ -156,7 +169,9 @@ const loadElements = async () => {
       limit: pageSize.value,
       search: searchQuery.value,
       type: typeFilter.value,
-      sortBy: sortBy.value
+      sortBy: sortBy.value,
+      // 管理端：请求未公开数据
+      includePrivate: userStore.isAdmin ? '1' : '0'
     });
     // 响应拦截器已经处理了数据结构，直接使用result
     elements.value = result.items || [];
@@ -221,6 +236,17 @@ const deleteElement = async (element: any) => {
       console.error('删除元素失败:', error);
       ElMessage.error('删除失败');
     }
+  }
+};
+
+const updateItemPublic = async (row: any, val: boolean) => {
+  try {
+    const { api } = await import('@/utils/request');
+    await api.put(`/items/${row.id}/public`, { is_public: val ? 1 : 0 });
+    row.is_public = val ? 1 : 0;
+    ElMessage.success('更新成功');
+  } catch (error) {
+    ElMessage.error('更新失败');
   }
 };
 

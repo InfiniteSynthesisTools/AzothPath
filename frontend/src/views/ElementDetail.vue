@@ -73,7 +73,7 @@
       </div>
 
       <!-- 配方列表卡片 -->
-      <div class="recipes-section" v-if="element && element.recipe_count > 0">
+      <div class="recipes-section" v-if="element && (element.recipe_count || 0) > 0">
         <div class="section-header">
           <h2 class="section-title">配方列表</h2>
           <div class="section-subtitle">按照最简排序算法排序</div>
@@ -87,6 +87,11 @@
             class="recipe-card"
           >
             <div class="recipe-header">
+              <div class="recipe-left">
+                <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="toggling[recipe.id] === true">
+                  <span class="heart">❤</span> {{ recipe.likes || 0 }}
+                </button>
+              </div>
               <div class="recipe-formula">
                 <div class="ingredient-cards">
                   <div class="ingredient-card" @click="goToElementDetail(recipe.item_a)">
@@ -222,7 +227,7 @@ const fetchElementDetail = async () => {
     if (elementData) {
       element.value = elementData;
       // 获取配方列表
-      await fetchRecipes(elementId);
+      await fetchRecipes();
     } else {
       ElMessage.error('获取元素详情失败');
     }
@@ -262,7 +267,7 @@ const sortRecipesBySimplestPath = (recipes: RecipeDetail[]): RecipeDetail[] => {
 };
 
 // 获取配方列表
-const fetchRecipes = async (elementId: number) => {
+const fetchRecipes = async () => {
   recipesLoading.value = true;
   try {
     // 使用后端API获取配方列表
@@ -319,6 +324,26 @@ const goToElementDetail = async (elementName: string) => {
 // 返回上一页
 const goBack = () => {
   router.back();
+};
+
+// 点赞交互
+const toggling = ref<Record<number, boolean>>({});
+const toggleLikeRecipe = async (recipe: RecipeDetail) => {
+  if (toggling.value[recipe.id]) return;
+  toggling.value[recipe.id] = true;
+  try {
+    const res = await recipeApi.like(recipe.id);
+    recipe.is_liked = res.liked;
+    recipe.likes = res.likes;
+  } catch (error: any) {
+    if (error?.response?.status === 401) {
+      ElMessage.warning('请先登录后再点赞');
+    } else {
+      ElMessage.error(error?.response?.data?.message || '操作失败');
+    }
+  } finally {
+    toggling.value[recipe.id] = false;
+  }
 };
 
 // 监听路由参数变化，当元素ID改变时重新获取数据
@@ -512,6 +537,12 @@ onMounted(() => {
   margin-bottom: 16px;
 }
 
+.recipe-left {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
 .recipe-formula {
   font-size: 16px;
   font-weight: 600;
@@ -593,6 +624,31 @@ onMounted(() => {
   font-size: 14px;
   font-weight: 500;
   color: #1890ff;
+}
+
+.like-btn {
+  border: 1px solid #e0e3e7;
+  background: #ffffff;
+  color: #f85149;
+  border-radius: 12px;
+  padding: 2px 8px;
+  line-height: 1;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.like-btn:hover:not(:disabled) {
+  background: #fff5f5;
+}
+.like-btn.liked {
+  background: #ffe4e4;
+  border-color: #ffc2c2;
+}
+.like-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 

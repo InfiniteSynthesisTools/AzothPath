@@ -100,6 +100,7 @@ export const recipeApi = {
     type?: string;
     sortBy?: string;
     sortOrder?: string;
+    includePrivate?: string | boolean;
   } = {}) {
     return api.get<{
       items: any[];

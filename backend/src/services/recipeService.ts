@@ -85,8 +85,10 @@ export class RecipeService {
     userId?: number;
     result?: string;
     cursor?: string; // 游标分页
+    includePrivate?: boolean; // 管理用途：包含未公开
+    includeStats?: boolean;   // 是否计算每条配方的路径统计（默认关闭，较耗时）
   }) {
-    const { page = 1, limit = 20, search, orderBy = 'created_at', userId, result, cursor } = params;
+    const { page = 1, limit = 20, search, orderBy = 'created_at', userId, result, cursor, includePrivate = false, includeStats = false } = params;
     
     // 使用JOIN替代子查询，大幅提升性能
     let sql = `
@@ -130,6 +132,11 @@ export class RecipeService {
       sqlParams.push(cursor);
     }
 
+    // 公开过滤（除非显式包含非公开）
+    if (!includePrivate) {
+      conditions.push('r.is_public = 1');
+    }
+
     if (conditions.length > 0) {
       sql += ` WHERE ${conditions.join(' AND ')}`;
     }
@@ -149,30 +156,33 @@ export class RecipeService {
 
     const recipes = await database.all(sql, sqlParams);
 
-    // 为每个配方计算深度、宽度、广度统计信息（配方路径本身，而不是结果元素）
-    const recipesWithStats = await Promise.all(
-      recipes.map(async (recipe) => {
-        try {
-          const pathStats = await this.calculateRecipePathStats(recipe);
+    // 默认不计算统计信息（昂贵）。如需统计，通过 includeStats 显式开启
+    let recipesWithStats = recipes as any[];
+    if (includeStats) {
+      recipesWithStats = await Promise.all(
+        recipes.map(async (recipe) => {
+          try {
+            const pathStats = await this.calculateRecipePathStats(recipe);
+            return {
+              ...recipe,
+              depth: pathStats.depth,
+              width: pathStats.width,
+              breadth: pathStats.breadth
+            };
+          } catch (error) {
+            logger.error(`计算配方 ${recipe.id} 的统计信息失败:`, error);
+          }
+          
+          // 如果计算失败，返回默认值
           return {
             ...recipe,
-            depth: pathStats.depth,
-            width: pathStats.width,
-            breadth: pathStats.breadth
+            depth: 0,
+            width: 0,
+            breadth: 0
           };
-        } catch (error) {
-          logger.error(`计算配方 ${recipe.id} 的统计信息失败:`, error);
-        }
-        
-        // 如果计算失败，返回默认值
-        return {
-          ...recipe,
-          depth: 0,
-          width: 0,
-          breadth: 0
-        };
-      })
-    );
+        })
+      );
+    }
 
     // 异步获取总数（避免阻塞主查询）
     // 构建计数查询的参数（排除分页参数）
@@ -212,6 +222,24 @@ export class RecipeService {
     };
   }
 
+  /** 更新物品公开状态 */
+  async updateItemPublic(id: number, isPublic: number) {
+    await database.init();
+    const res = await database.run('UPDATE items SET is_public = ? WHERE id = ?', [isPublic, id]);
+    if (res.changes === 0) {
+      throw new Error('物品不存在');
+    }
+  }
+
+  /** 更新配方公开状态 */
+  async updateRecipePublic(id: number, isPublic: number) {
+    await database.init();
+    const res = await database.run('UPDATE recipes SET is_public = ? WHERE id = ?', [isPublic, id]);
+    if (res.changes === 0) {
+      throw new Error('配方不存在');
+    }
+  }
+
   /**
    * 异步获取总数（避免阻塞主查询）
    */
@@ -241,8 +269,9 @@ export class RecipeService {
     search?: string;
     result?: string;
     userId?: number;
+    includePrivate?: boolean;
   }) {
-    const { page = 1, limit = 20, search, result, userId } = params;
+    const { page = 1, limit = 20, search, result, userId, includePrivate = false } = params;
     const offset = (page - 1) * limit;
 
     // 优化：使用JOIN获取结果物品和emoji
@@ -267,6 +296,9 @@ export class RecipeService {
       resultParams.push(result);
     }
 
+    if (!includePrivate) {
+      conditions.push('r.is_public = 1');
+    }
     if (conditions.length > 0) {
       resultSql += ` WHERE ${conditions.join(' AND ')}`;
     }
@@ -291,7 +323,7 @@ export class RecipeService {
         LEFT JOIN items ib ON ib.name = r.item_b  
         LEFT JOIN items ir ON ir.name = r.result
         ${userId ? 'LEFT JOIN recipe_likes rl ON rl.recipe_id = r.id AND rl.user_id = ?' : ''}
-        WHERE r.result = ?
+        WHERE r.result = ? AND ${includePrivate ? '1=1' : 'r.is_public = 1'}
         ORDER BY r.likes DESC, r.created_at DESC
       `;
       
@@ -366,7 +398,7 @@ export class RecipeService {
        LEFT JOIN items ia ON ia.name = r.item_a
        LEFT JOIN items ib ON ib.name = r.item_b  
        LEFT JOIN items ir ON ir.name = r.result
-       WHERE r.id = ?`,
+       WHERE r.id = ? AND r.is_public = 1`,
       [id]
     );
 
@@ -518,8 +550,8 @@ export class RecipeService {
    * 搜索合成路径（BFS 算法）
    */
   async searchPath(targetItem: string): Promise<{ tree: CraftingTreeNode; stats: PathStats } | null> {
-    // 获取所有配方
-    const recipes = await database.all<Recipe>('SELECT * FROM recipes');
+    // 获取所有公开配方
+    const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
     const items = await database.all<Item>('SELECT * FROM items WHERE is_base = 1');
     
     const baseItemNames = items.map(item => item.name);
@@ -714,6 +746,11 @@ export class RecipeService {
       'CREATE INDEX IF NOT EXISTS idx_recipes_search ON recipes(item_a, item_b, result)',
       'CREATE INDEX IF NOT EXISTS idx_recipes_result_created ON recipes(result, created_at DESC)',
       'CREATE INDEX IF NOT EXISTS idx_recipes_result_likes ON recipes(result, likes DESC)',
+      // 公开过滤相关索引
+      'CREATE INDEX IF NOT EXISTS idx_recipes_is_public ON recipes(is_public)',
+      'CREATE INDEX IF NOT EXISTS idx_recipes_result_public ON recipes(result, is_public)',
+      'CREATE INDEX IF NOT EXISTS idx_recipes_public_created ON recipes(is_public, created_at DESC, id DESC)',
+      'CREATE INDEX IF NOT EXISTS idx_recipes_public_likes ON recipes(is_public, likes DESC, id DESC)',
       
       // 覆盖索引优化
       'CREATE INDEX IF NOT EXISTS idx_recipes_cover ON recipes(id, created_at, likes, user_id)',
@@ -734,9 +771,9 @@ export class RecipeService {
    */
   async analyzeUnreachableGraphs(): Promise<{ unreachableGraphs: UnreachableGraph[]; systemStats: GraphSystemStats }> {
     // 获取所有配方和物品
-    const recipes = await database.all<Recipe>('SELECT * FROM recipes');
-    const items = await database.all<Item>('SELECT * FROM items');
-    const baseItems = await database.all<Item>('SELECT * FROM items WHERE is_base = 1');
+    const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
+    const items = await database.all<Item>('SELECT name FROM items');
+    const baseItems = await database.all<Item>('SELECT name FROM items WHERE is_base = 1');
     
     const baseItemNames = baseItems.map(item => item.name);
     const allItemNames = items.map(item => item.name);
@@ -1221,7 +1258,7 @@ export class RecipeService {
          u.name as discoverer_name
        FROM items i
        LEFT JOIN user u ON i.user_id = u.id
-       WHERE i.id = ?`,
+       WHERE i.id = ? AND i.is_public = 1`,
       [id]
     );
 
@@ -1270,8 +1307,8 @@ export class RecipeService {
    */
   private async calculateRecipePathStats(recipe: Recipe): Promise<{ depth: number; width: number; breadth: number }> {
     // 获取所有配方和基础材料
-    const recipes = await database.all<Recipe>('SELECT * FROM recipes');
-    const items = await database.all<Item>('SELECT * FROM items WHERE is_base = 1');
+    const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
+    const items = await database.all<Item>('SELECT name FROM items WHERE is_base = 1');
     
     const baseItemNames = items.map(item => item.name);
     
@@ -1411,8 +1448,9 @@ export class RecipeService {
     type?: string;
     sortBy?: string;
     sortOrder?: string;
+    includePrivate?: boolean;
   }) {
-    const { page, limit, search = '', type = '', sortBy = 'name', sortOrder = 'asc' } = params;
+    const { page, limit, search = '', type = '', sortBy = 'name', sortOrder = 'asc', includePrivate = false } = params;
     const offset = (page - 1) * limit;
 
     // 构建查询条件
@@ -1432,6 +1470,9 @@ export class RecipeService {
       whereConditions.push('is_base = 0');
     }
 
+    if (!includePrivate) {
+      whereConditions.push('is_public = 1');
+    }
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
 
     // 排序条件

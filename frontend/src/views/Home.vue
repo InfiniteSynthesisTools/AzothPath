@@ -66,6 +66,11 @@
                   :key="recipe.id" 
                   class="recipe-item"
                 >
+                  <div class="recipe-left">
+                    <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="togglingIds.has(recipe.id)">
+                      <span class="heart">❤</span> {{ recipe.likes || 0 }}
+                    </button>
+                  </div>
                   <div class="recipe-display">
                     <span class="material">
                       <span v-if="recipe.item_a_emoji" class="emoji">{{ recipe.item_a_emoji }}</span>
@@ -83,9 +88,6 @@
                     </span>
                   </div>
                   <div class="recipe-meta">
-                    <button class="like-btn" :class="{ liked: recipe.is_liked }" @click="toggleLikeRecipe(recipe)" :disabled="togglingIds.has(recipe.id)">
-                      <span class="heart">❤</span> {{ recipe.likes || 0 }}
-                    </button>
                     <span class="time">{{ formatTimeAgo(recipe.created_at) }}</span>
                   </div>
                 </div>
@@ -109,6 +111,11 @@
                   :key="recipe.id" 
                   class="recipe-item"
                 >
+                  <div class="recipe-left">
+                    <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="togglingIds.has(recipe.id)">
+                      <span class="heart">❤</span> {{ recipe.likes || 0 }}
+                    </button>
+                  </div>
                   <div class="recipe-display">
                     <span class="material">
                       <span v-if="recipe.item_a_emoji" class="emoji">{{ recipe.item_a_emoji }}</span>
@@ -126,9 +133,6 @@
                     </span>
                   </div>
                   <div class="recipe-meta">
-                    <button class="like-btn" :class="{ liked: recipe.is_liked }" @click="toggleLikeRecipe(recipe)" :disabled="togglingIds.has(recipe.id)">
-                      <span class="heart">❤</span> {{ recipe.likes || 0 }}
-                    </button>
                     <span class="time">{{ formatTimeAgo(recipe.created_at) }}</span>
                   </div>
                 </div>
@@ -404,6 +408,12 @@ onMounted(() => {
   border-color: #d0d7de;
 }
 
+.recipe-left {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+}
+
 .recipe-display {
   display: flex;
   align-items: center;
@@ -573,6 +583,9 @@ onMounted(() => {
   .recipe-meta {
     justify-content: space-between;
     white-space: normal;
+  }
+  .recipe-meta .time {
+    display: none;
   }
   
   /* 移动端限制宽度，避免过长导致拥挤 */

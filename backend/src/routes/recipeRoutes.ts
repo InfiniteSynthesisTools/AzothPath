@@ -25,19 +25,28 @@ router.get('/', async (req: Request, res: Response) => {
 
     // 尝试从认证信息中获取用户ID
     let userId: number | undefined;
+    let includePrivate = false; // 仅管理员可见未公开内容
     try {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
         const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
         userId = decoded.userId;
+        // 管理员可查看未公开数据（默认开启，可通过 includePrivate=0 显式关闭）
+        const user = await userService.getCurrentUser(userId);
+        const isAdmin = user && user.auth === 9;
+        if (isAdmin) {
+          const q = (req.query.includePrivate as string) || '1';
+          includePrivate = q === '1' || q === 'true';
+        }
       }
     } catch (error) {
       // 如果token验证失败，继续执行但不传递userId
       logger.debug('Token验证失败，继续执行（无用户上下文）');
     }
 
-    const recipes = await recipeService.getRecipes({ page, limit, search, orderBy, userId, result, cursor });
+    const includeStats = ((req.query.includeStats as string) || '0');
+    const recipes = await recipeService.getRecipes({ page, limit, search, orderBy, userId, result, cursor, includePrivate, includeStats: includeStats === '1' || includeStats === 'true' });
 
     res.json({
       code: 200,
@@ -66,12 +75,19 @@ router.get('/grouped', async (req: Request, res: Response) => {
 
     // 尝试从认证信息中获取用户ID
     let userId: number | undefined;
+    let includePrivate = false;
     try {
       const authHeader = req.headers.authorization;
       if (authHeader && authHeader.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
         const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
         userId = decoded.userId;
+        const user = await userService.getCurrentUser(userId);
+        const isAdmin = user && user.auth === 9;
+        if (isAdmin) {
+          const q = (req.query.includePrivate as string) || '1';
+          includePrivate = q === '1' || q === 'true';
+        }
       }
     } catch (error) {
       logger.debug('Token验证失败，继续执行（无用户上下文）');
@@ -82,7 +98,8 @@ router.get('/grouped', async (req: Request, res: Response) => {
       limit, 
       search, 
       result, 
-      userId 
+      userId,
+      includePrivate
     });
 
     res.json({
@@ -170,6 +187,30 @@ router.post('/submit', authMiddleware, rateLimits.strict, async (req: AuthReques
       code: 400,
       message: error.message || '提交配方失败'
     });
+  }
+});
+
+/**
+ * PUT /api/recipes/:id/public
+ * 更新配方公开状态（需要认证，建议前端限制管理员使用）
+ */
+router.put('/:id/public', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    // 检查管理员权限
+    const user = await userService.getCurrentUser(req.userId!);
+    if (!user || user.auth < 9) {
+      return res.status(403).json({ code: 403, message: '权限不足' });
+    }
+    const recipeId = parseInt(req.params.id);
+    const { is_public } = req.body as { is_public: number };
+    if (isNaN(recipeId) || (is_public !== 0 && is_public !== 1)) {
+      return res.status(400).json({ code: 400, message: '参数错误' });
+    }
+    await recipeService.updateRecipePublic(recipeId, is_public);
+    res.json({ code: 200, message: '更新成功' });
+  } catch (error: any) {
+    logger.error('更新配方公开状态失败', error);
+    res.status(500).json({ code: 500, message: error.message || '更新失败' });
   }
 });
 

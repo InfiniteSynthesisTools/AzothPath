@@ -620,8 +620,7 @@ GET /api/recipes/graph/stats → { ...stats }
 **Correct Approach:**
 ```markdown
 ## Game Information
-- **Current**: 无尽合成 (Chinese name)
-- **Legacy Reference**: Infinite Craft (original English name - preserved for context)
+- **Current**: 无尽合成
 ```
 
 **Incorrect Approach:**

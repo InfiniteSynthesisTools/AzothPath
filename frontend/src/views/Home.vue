@@ -52,7 +52,7 @@
     <div class="cards-section">
       <el-row :gutter="20">
         <!-- 最新配方 -->
-        <el-col :xs="24" :sm="12" :lg="6">
+        <el-col :xs="24" :sm="12" :md="12" :lg="12">
           <el-card class="feature-card" shadow="hover">
             <template #header>
               <div class="card-header">
@@ -83,7 +83,9 @@
                     </span>
                   </div>
                   <div class="recipe-meta">
-                    <span class="likes">❤️ {{ recipe.likes || 0 }}</span>
+                    <button class="like-btn" :class="{ liked: recipe.is_liked }" @click="toggleLikeRecipe(recipe)" :disabled="togglingIds.has(recipe.id)">
+                      <span class="heart">❤</span> {{ recipe.likes || 0 }}
+                    </button>
                     <span class="time">{{ formatTimeAgo(recipe.created_at) }}</span>
                   </div>
                 </div>
@@ -93,7 +95,7 @@
         </el-col>
 
         <!-- 最热配方 -->
-        <el-col :xs="24" :sm="12" :lg="6">
+        <el-col :xs="24" :sm="12" :md="12" :lg="12">
           <el-card class="feature-card" shadow="hover">
             <template #header>
               <div class="card-header">
@@ -124,7 +126,9 @@
                     </span>
                   </div>
                   <div class="recipe-meta">
-                    <span class="likes">❤️ {{ recipe.likes || 0 }}</span>
+                    <button class="like-btn" :class="{ liked: recipe.is_liked }" @click="toggleLikeRecipe(recipe)" :disabled="togglingIds.has(recipe.id)">
+                      <span class="heart">❤</span> {{ recipe.likes || 0 }}
+                    </button>
                     <span class="time">{{ formatTimeAgo(recipe.created_at) }}</span>
                   </div>
                 </div>
@@ -134,7 +138,7 @@
         </el-col>
 
         <!-- 总图显示 -->
-        <el-col :xs="24" :sm="12" :lg="6">
+        <el-col :xs="24" :sm="24" :md="24" :lg="24">
           <el-card class="feature-card" shadow="hover">
             <template #header>
               <div class="card-header">
@@ -153,27 +157,6 @@
             </div>
           </el-card>
         </el-col>
-
-        <!-- 进入游戏 -->
-        <el-col :xs="24" :sm="12" :lg="6">
-          <el-card class="feature-card" shadow="hover">
-            <template #header>
-              <div class="card-header">
-                <h3>🎮 进入游戏</h3>
-              </div>
-            </template>
-            <div class="card-content placeholder">
-              <div class="placeholder-content">
-                <el-icon size="48" color="#67C23A"><VideoPlay /></el-icon>
-                <p>开始游戏</p>
-                <p class="placeholder-desc">体验合成乐趣</p>
-                <el-button type="success" size="small" @click="goToGame">
-                  开始游戏
-                </el-button>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
       </el-row>
     </div>
   </div>
@@ -183,7 +166,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Document, Box, CircleCheck, Star, MapLocation, VideoPlay } from '@element-plus/icons-vue';
+import { Document, Box, CircleCheck, Star, MapLocation } from '@element-plus/icons-vue';
 import { recipeApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
 
@@ -204,6 +187,7 @@ interface RecipeWithEmoji {
   item_a_emoji?: string;
   item_b_emoji?: string;
   result_emoji?: string;
+  is_liked?: boolean;
 }
 
 const stats = ref({
@@ -220,6 +204,27 @@ const stats = ref({
 
 const latestRecipes = ref<RecipeWithEmoji[]>([]);
 const popularRecipes = ref<RecipeWithEmoji[]>([]);
+
+// 点赞交互（调用后端 POST /api/recipes/:id/like）
+const togglingIds = new Set<number>();
+const toggleLikeRecipe = async (recipe: RecipeWithEmoji) => {
+  if (togglingIds.has(recipe.id)) return;
+  togglingIds.add(recipe.id);
+  try {
+    const res = await recipeApi.like(recipe.id);
+    recipe.is_liked = res.liked;
+    recipe.likes = res.likes;
+  } catch (err: any) {
+    // 未登录或其他错误
+    if (err?.response?.status === 401) {
+      ElMessage.warning('请先登录后再点赞');
+    } else {
+      ElMessage.error(err?.response?.data?.message || '操作失败');
+    }
+  } finally {
+    togglingIds.delete(recipe.id);
+  }
+};
 
 // 格式化相对时间
 const formatTimeAgo = (dateString: string) => {
@@ -288,12 +293,6 @@ const loadPopularRecipes = async () => {
 // 跳转到图谱页面
 const goToGraph = () => {
   router.push({ name: 'GraphView' });
-};
-
-// 跳转到游戏页面
-const goToGame = () => {
-  // 这里可以跳转到游戏页面，暂时使用提示
-  ElMessage.info('游戏功能开发中...');
 };
 
 onMounted(() => {
@@ -394,6 +393,10 @@ onMounted(() => {
   border: 1px solid #e8eaed;
   border-radius: 6px;
   transition: all 0.3s;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 .recipe-item:hover {
@@ -404,9 +407,11 @@ onMounted(() => {
 .recipe-display {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font-size: 12px;
-  margin-bottom: 4px;
+  margin-bottom: 0;
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
 .material {
@@ -415,28 +420,35 @@ onMounted(() => {
   border: 1px solid #d0d7de;
   border-radius: 4px;
   color: #606266;
+  /* 宽度与文字内容相当 */
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 80px;
 }
 
 .plus, .arrow {
   color: #909399;
   font-weight: bold;
   font-size: 10px;
+  flex: 0 0 auto;
+  white-space: nowrap;
 }
 
 .result {
   padding: 2px 6px;
-  background: #0969da;
-  color: white;
+  background: #e8f3ff; /* 浅色底 */
+  color: #0969da; /* 与品牌色协调 */
   border-radius: 4px;
   font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  flex: 0 0 auto;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 80px;
 }
 
 .emoji {
@@ -447,15 +459,42 @@ onMounted(() => {
 
 .recipe-meta {
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  gap: 8px;
   font-size: 10px;
   color: #656d76;
+  white-space: nowrap;
+  flex: 0 0 auto;
 }
 
 .likes {
   color: #f85149;
   font-weight: 500;
+}
+
+.like-btn {
+  border: 1px solid #e0e3e7;
+  background: #ffffff;
+  color: #f85149;
+  border-radius: 12px;
+  padding: 2px 8px;
+  line-height: 1;
+  font-size: 10px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.like-btn:hover:not(:disabled) {
+  background: #fff5f5;
+}
+.like-btn.liked {
+  background: #ffe4e4;
+  border-color: #ffc2c2;
+}
+.like-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 /* ========== 响应式设计 ========== */
@@ -525,9 +564,22 @@ onMounted(() => {
     gap: 2px;
   }
   
+  /* 移动端下整体改为上下布局，避免右侧信息拥挤 */
+  .recipe-item {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px;
+  }
+  .recipe-meta {
+    justify-content: space-between;
+    white-space: normal;
+  }
+  
+  /* 移动端限制宽度，避免过长导致拥挤 */
   .material, .result {
     max-width: 60px;
     font-size: 10px;
+    flex: 0 1 auto;
   }
 }
 

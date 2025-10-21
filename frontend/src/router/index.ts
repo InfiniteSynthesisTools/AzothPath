@@ -1,6 +1,8 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useUserStore } from '@/stores';
 import MainLayout from '@/layouts/MainLayout.vue';
+// 冰柱图页面 - 使用懒加载
+const IcicleChartView = () => import('@/views/IcicleChartView.vue');
 
 // 路由配置
 const routes: RouteRecordRaw[] = [
@@ -42,7 +44,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: '/profile',
         name: 'Profile',
-        redirect: (to) => {
+        redirect: () => {
           const userStore = useUserStore();
           if (userStore.userInfo?.id) {
             return { path: `/profile/${userStore.userInfo.id}` };
@@ -86,6 +88,15 @@ const routes: RouteRecordRaw[] = [
         name: 'GraphView',
         component: () => import('@/views/GraphView.vue'),
         meta: { title: '总图显示' }
+      },
+      {
+        path: '/icicle-chart',
+        name: 'IcicleChart',
+        component: IcicleChartView,
+        meta: {
+          title: '冰柱图',
+          requiresAuth: false
+        }
       }
     ]
   },
@@ -117,7 +128,7 @@ const router = createRouter({
 });
 
 // 全局前置守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _, next) => {
   // 设置页面标题
   document.title = to.meta.title ? `${to.meta.title} - Azoth Path` : 'Azoth Path - 无尽合成工具站';
 

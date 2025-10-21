@@ -68,6 +68,25 @@ export interface GraphSystemStats {
   };
 }
 
+export interface IcicleNode {
+  id: string;
+  name: string;
+  emoji?: string;
+  isBase: boolean;
+  value: number; // 节点宽度
+  children?: IcicleNode[];
+  recipe?: {
+    item_a: string;
+    item_b: string;
+  };
+}
+
+export interface IcicleChartData {
+  nodes: IcicleNode[];
+  totalElements: number;
+  maxDepth: number;
+}
+
 export class RecipeService {
   // 图缓存相关属性
   private graphCache: {
@@ -1601,6 +1620,112 @@ export class RecipeService {
       page,
       limit
     };
+  }
+
+  /**
+   * 生成冰柱图数据
+   */
+  async generateIcicleChart(): Promise<IcicleChartData> {
+    // 使用缓存获取图数据
+    const cache = await this.getGraphCache();
+    
+    const allItems = cache.allItemNames;
+    const baseItems = cache.baseItemNames;
+    const itemToRecipes = cache.itemToRecipes;
+    
+    const nodes: IcicleNode[] = [];
+    let maxDepth = 0;
+    
+    // 为每个元素构建冰柱树
+    for (const itemName of allItems) {
+      const tree = this.buildIcicleTree(itemName, baseItems, itemToRecipes, new Set());
+      if (tree) {
+        nodes.push(tree);
+        maxDepth = Math.max(maxDepth, this.calculateIcicleTreeDepth(tree));
+      }
+    }
+    
+    return {
+      nodes,
+      totalElements: allItems.length,
+      maxDepth
+    };
+  }
+
+  /**
+   * 递归构建冰柱树
+   */
+  private buildIcicleTree(
+    itemName: string,
+    baseItems: string[],
+    itemToRecipes: Record<string, Recipe[]>,
+    visited: Set<string>
+  ): IcicleNode | null {
+    // 避免循环依赖
+    if (visited.has(itemName)) {
+      return null;
+    }
+    visited.add(itemName);
+    
+    const isBase = baseItems.includes(itemName);
+    
+    // 基础元素：固定宽度为1
+    if (isBase) {
+      return {
+        id: `base_${itemName}`,
+        name: itemName,
+        isBase: true,
+        value: 1
+      };
+    }
+    
+    // 合成元素：获取最简配方
+    const recipes = itemToRecipes[itemName];
+    if (!recipes || recipes.length === 0) {
+      return null;
+    }
+    
+    // 选择第一个配方作为最简配方
+    const recipe = recipes[0];
+    
+    // 递归构建子节点
+    const childA = this.buildIcicleTree(recipe.item_a, baseItems, itemToRecipes, new Set(visited));
+    const childB = this.buildIcicleTree(recipe.item_b, baseItems, itemToRecipes, new Set(visited));
+    
+    if (!childA || !childB) {
+      return null;
+    }
+    
+    // 合成元素的宽度是子节点宽度之和
+    const value = childA.value + childB.value;
+    
+    return {
+      id: `synthetic_${itemName}`,
+      name: itemName,
+      isBase: false,
+      value,
+      children: [childA, childB],
+      recipe: {
+        item_a: recipe.item_a,
+        item_b: recipe.item_b
+      }
+    };
+  }
+
+  /**
+   * 计算冰柱树的最大深度
+   */
+  private calculateIcicleTreeDepth(node: IcicleNode): number {
+    if (!node.children || node.children.length === 0) {
+      return 1;
+    }
+    
+    let maxChildDepth = 0;
+    for (const child of node.children) {
+      maxChildDepth = Math.max(maxChildDepth, this.calculateIcicleTreeDepth(child));
+    }
+    
+    return maxChildDepth + 1;
   }
 }
 

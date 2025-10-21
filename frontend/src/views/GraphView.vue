@@ -111,16 +111,34 @@
                       @change="debouncedRenderIcicle"
                     />
                   </div>
+                  
+                  <div class="view-controls">
+                    <el-button-group>
+                      <el-button @click="zoomOut" title="缩小">
+                        <el-icon><Minus /></el-icon>
+                      </el-button>
+                      <el-button @click="resetView" title="重置视图">
+                        <el-icon><Refresh /></el-icon>
+                      </el-button>
+                      <el-button @click="zoomIn" title="放大">
+                        <el-icon><Plus /></el-icon>
+                      </el-button>
+                    </el-button-group>
+                  </div>
                 </div>
               </div>
               
               <div class="chart-wrapper">
                 <div id="icicle-container" class="chart-container" v-loading="loadingIcicle">
-                  <div v-if="!hasData" class="placeholder">
+                  <div v-if="loadingIcicle" class="placeholder">
+                    <el-icon size="48" color="#909399"><MapLocation /></el-icon>
+                    <p>正在加载冰柱图数据...</p>
+                  </div>
+                  <div v-else-if="!hasData" class="placeholder">
                     <el-icon size="48" color="#909399"><MapLocation /></el-icon>
                     <p>请等待数据加载...</p>
                   </div>
-                  <div v-else-if="icicleData.length === 0" class="placeholder">
+                  <div v-else-if="!icicleChartData" class="placeholder">
                     <el-icon size="48" color="#909399"><Search /></el-icon>
                     <p>未找到符合条件的元素</p>
                   </div>
@@ -240,7 +258,10 @@ import {
   FullScreen,
   MapLocation,
   Connection,
-  TrendCharts
+  TrendCharts,
+  Minus,
+  Plus,
+  Refresh
 } from '@element-plus/icons-vue';
 import { recipeApi } from '@/api';
 
@@ -265,7 +286,7 @@ const minDepthFilter = ref(0);
 const maxDepthFilter = ref(20);
 const minWidthFilter = ref(0);
 const maxWidthFilter = ref(10000);
-const icicleData = ref([]);
+const icicleChartData = ref<any>(null);
 
 // 有向图相关数据
 const dagSearch = ref('');
@@ -276,6 +297,10 @@ const dagMinDepthFilter = ref(0);
 const dagMaxDepthFilter = ref(20);
 const dagMinWidthFilter = ref(0);
 const dagMaxWidthFilter = ref(10000);
+
+// 视图控制
+const zoomLevel = ref(1);
+const viewOffset = ref({ x: 0, y: 0 });
 
 // 防抖函数
 let debounceTimer: NodeJS.Timeout | null = null;
@@ -308,6 +333,13 @@ const loadStats = async () => {
     stats.maxDepth = 0; // API暂时没有提供最大深度，设为0
     stats.baseItems = data.base_items || 0;
     hasData.value = true;
+    
+    // 统计数据加载完成后，自动渲染冰柱图
+    if (activeTab.value === 'icicle') {
+      nextTick(() => {
+        renderIcicleChart();
+      });
+    }
   } catch (error) {
     console.error('加载统计数据失败:', error);
     ElMessage.error('加载统计数据失败');
@@ -323,27 +355,227 @@ const handleTabClick = (tab: any) => {
   }
 };
 
-// 冰柱图渲染（简化实现）
-const renderIcicleChart = () => {
+// 冰柱图渲染（真实实现）
+const renderIcicleChart = async () => {
   if (!hasData.value) return;
   
   loadingIcicle.value = true;
   
-  // 这里应该调用API获取冰柱图数据
-  // 暂时使用模拟数据
-  setTimeout(() => {
+  try {
+    // 调用真实的后端API获取冰柱图数据
+    const response = await recipeApi.getIcicleChart();
+    icicleChartData.value = response;
+    
+    console.log('冰柱图数据:', icicleChartData.value);
+    
+    const container = document.getElementById('icicle-container');
+    if (container && icicleChartData.value) {
+      console.log('开始渲染冰柱图，节点数量:', icicleChartData.value.nodes?.length);
+      // 渲染真实的冰柱图数据
+      container.innerHTML = `
+        <div style="position: relative; min-width: 100%; min-height: 600px; overflow: auto; background: #f8f9fa; border-radius: 8px;">
+          ${renderIcicleNodes(icicleChartData.value.nodes)}
+        </div>
+      `;
+      
+      // 应用视图变换
+      applyViewTransform();
+      
+      // 添加事件监听器
+      addIcicleEventListeners();
+    } else {
+      console.log('容器或数据为空:', { container: !!container, data: !!icicleChartData.value });
+    }
+  } catch (error) {
+    console.error('获取冰柱图数据失败:', error);
     const container = document.getElementById('icicle-container');
     if (container) {
       container.innerHTML = `
         <div style="padding: 40px; text-align: center; color: #909399;">
           <el-icon size="64" color="#909399"><MapLocation /></el-icon>
-          <p style="margin-top: 16px; font-size: 16px;">冰柱图功能开发中</p>
-          <p style="margin-top: 8px; font-size: 14px;">当前搜索: "${icicleSearch.value}"</p>
+          <p style="margin-top: 16px; font-size: 16px;">获取冰柱图数据失败</p>
+          <p style="margin-top: 8px; font-size: 14px;">请检查后端服务是否正常运行</p>
         </div>
       `;
     }
+  } finally {
     loadingIcicle.value = false;
-  }, 1000);
+  }
+};
+
+// 添加冰柱图事件监听器
+const addIcicleEventListeners = () => {
+  const container = document.getElementById('icicle-container');
+  if (!container) return;
+  
+  // 鼠标悬停显示工具提示
+  container.addEventListener('mouseover', (event) => {
+    const target = event.target as HTMLElement;
+    const nodeElement = target.closest('.icicle-node');
+    if (nodeElement) {
+      const nodeData = nodeElement.getAttribute('data-node');
+      if (nodeData) {
+        const node = JSON.parse(nodeData);
+        showIcicleTooltip(event, node);
+      }
+    }
+  });
+  
+  // 鼠标离开隐藏工具提示
+  container.addEventListener('mouseout', () => {
+    hideIcicleTooltip();
+  });
+  
+  // 点击节点
+  container.addEventListener('click', (event) => {
+    const target = event.target as HTMLElement;
+    const nodeElement = target.closest('.icicle-node');
+    if (nodeElement) {
+      const nodeData = nodeElement.getAttribute('data-node');
+      if (nodeData) {
+        const node = JSON.parse(nodeData);
+        handleIcicleNodeClick(node);
+      }
+    }
+  });
+};
+
+// 计算每个节点的位置和尺寸
+const calculateNodeLayout = (nodes: any[], startX = 0, startY = 0, level = 0) => {
+  const baseWidth = 40; // 基础元素宽度
+  const nodeHeight = 35; // 节点高度
+  const verticalGap = 10; // 垂直间距
+  const horizontalGap = 2; // 水平间距
+  
+  const layoutNodes: any[] = [];
+  let currentX = startX;
+  
+  nodes.forEach(node => {
+    // 计算节点宽度
+    const nodeWidth = node.isBase ? baseWidth : Math.max(60, node.value * baseWidth);
+    
+    // 计算节点位置
+    const layout = {
+      ...node,
+      x: currentX,
+      y: startY + level * (nodeHeight + verticalGap),
+      width: nodeWidth,
+      height: nodeHeight,
+      level: level
+    };
+    
+    layoutNodes.push(layout);
+    
+    // 递归计算子节点布局
+    if (node.children && node.children.length > 0) {
+      const childLayouts = calculateNodeLayout(node.children, currentX, startY, level + 1);
+      layoutNodes.push(...childLayouts);
+    }
+    
+    currentX += nodeWidth + horizontalGap;
+  });
+  
+  return layoutNodes;
+};
+
+// 渲染冰柱图
+const renderIcicleNodes = (nodes: any[]): string => {
+  if (!nodes || nodes.length === 0) return '';
+  
+  // 计算所有节点的布局
+  const layoutNodes = calculateNodeLayout(nodes);
+  
+  // 计算画布大小（用于调试）
+  // const maxX = Math.max(...layoutNodes.map(node => node.x + node.width));
+  // const maxY = Math.max(...layoutNodes.map(node => node.y + node.height));
+  
+  // 渲染所有节点
+  return layoutNodes.map(node => {
+    const nodeColor = node.isBase ? '#e74c3c' : `hsl(${(node.value * 137.5) % 360}, 70%, 60%)`;
+    const nodeEmoji = node.emoji || (node.isBase ? '🔘' : '⚗️');
+    
+    return `
+      <div 
+        class="icicle-node"
+        style="
+          position: absolute;
+          left: ${node.x}px;
+          top: ${node.y}px;
+          width: ${node.width}px;
+          height: ${node.height}px;
+          background-color: ${nodeColor};
+          border-radius: 4px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          color: white;
+          font-weight: 500;
+          border: 1px solid rgba(255, 255, 255, 0.3);
+          cursor: pointer;
+          transition: all 0.3s ease;
+          box-sizing: border-box;
+          overflow: hidden;
+          z-index: ${10 - node.level};
+        "
+        data-node='${JSON.stringify(node).replace(/"/g, '&quot;')}'
+      >
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 2px 4px; text-align: center; width: 100%;">
+          <span style="font-size: 14px; line-height: 1;">${nodeEmoji}</span>
+          <span style="font-size: 10px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${node.name}</span>
+          ${!node.isBase ? `<span style="font-size: 8px; opacity: 0.8;">${node.value}</span>` : ''}
+        </div>
+      </div>
+    `;
+  }).join('');
+};
+
+// 工具提示函数
+const showIcicleTooltip = (event: any, node: any) => {
+  const tooltip = document.createElement('div');
+  tooltip.id = 'icicle-tooltip';
+  tooltip.style.cssText = `
+    position: fixed;
+    left: ${event.clientX + 10}px;
+    top: ${event.clientY + 10}px;
+    background: rgba(0, 0, 0, 0.9);
+    color: white;
+    padding: 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    z-index: 1000;
+    pointer-events: none;
+    max-width: 200px;
+    backdrop-filter: blur(4px);
+  `;
+  
+  const emoji = node.emoji || (node.isBase ? '🔘' : '⚗️');
+  tooltip.innerHTML = `
+    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600;">
+      <span style="font-size: 16px;">${emoji}</span>
+      <span style="font-size: 14px;">${node.name}</span>
+    </div>
+    <div style="font-size: 12px; opacity: 0.9; line-height: 1.4;">
+      ${node.isBase ? '基础元素' : `
+        <div>合成元素</div>
+        ${node.recipe ? `<div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.3);">配方: ${node.recipe.item_a} + ${node.recipe.item_b}</div>` : ''}
+        <div>宽度: ${node.value}</div>
+      `}
+    </div>
+  `;
+  
+  document.body.appendChild(tooltip);
+};
+
+const hideIcicleTooltip = () => {
+  const tooltip = document.getElementById('icicle-tooltip');
+  if (tooltip) {
+    tooltip.remove();
+  }
+};
+
+const handleIcicleNodeClick = (node: any) => {
+  console.log('点击冰柱图节点:', node);
+  ElMessage.info(`点击了: ${node.name}`);
 };
 
 // 有向图渲染（简化实现）
@@ -373,6 +605,34 @@ const renderDAGChart = () => {
 const updateDAGGraph = () => {
   if (activeTab.value === 'dag') {
     renderDAGChart();
+  }
+};
+
+// 视图控制函数
+const zoomIn = () => {
+  zoomLevel.value = Math.min(zoomLevel.value + 0.2, 3);
+  applyViewTransform();
+};
+
+const zoomOut = () => {
+  zoomLevel.value = Math.max(zoomLevel.value - 0.2, 0.5);
+  applyViewTransform();
+};
+
+const resetView = () => {
+  zoomLevel.value = 1;
+  viewOffset.value = { x: 0, y: 0 };
+  applyViewTransform();
+};
+
+const applyViewTransform = () => {
+  const container = document.getElementById('icicle-container');
+  if (container) {
+    const content = container.querySelector('div');
+    if (content) {
+      content.style.transform = `scale(${zoomLevel.value}) translate(${viewOffset.value.x}px, ${viewOffset.value.y}px)`;
+      content.style.transformOrigin = 'top left';
+    }
   }
 };
 

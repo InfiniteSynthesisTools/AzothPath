@@ -117,6 +117,28 @@ router.get('/grouped', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/recipes/icicle-chart
+ * 获取冰柱图数据
+ */
+router.get('/icicle-chart', async (req: Request, res: Response) => {
+  try {
+    const data = await recipeService.generateIcicleChart();
+    
+    res.json({
+      code: 200,
+      message: '获取冰柱图数据成功',
+      data
+    });
+  } catch (error: any) {
+    logger.error('获取冰柱图数据失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取冰柱图数据失败'
+    });
+  }
+});
+
+/**
  * GET /api/recipes/:id
  * 获取配方详情
  */
@@ -357,6 +379,8 @@ router.post('/optimize', authMiddleware, async (req: AuthRequest, res: Response)
     });
   }
 });
+
+
 
 
 export default router;

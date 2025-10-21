@@ -113,5 +113,12 @@ export const recipeApi = {
   // 获取单个物品详情
   getItemById(id: number) {
     return api.get<any>(`/items/${id}`);
+  },
+
+  /**
+   * 获取冰柱图数据
+   */
+  getIcicleChart() {
+    return api.get('/recipes/icicle-chart');
   }
 };

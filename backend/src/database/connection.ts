@@ -12,6 +12,12 @@ const DB_PATH = process.env.DB_PATH
 
 const INIT_SQL_PATH = path.resolve(path.join(__dirname, '../../'), 'database/init.sql');
 
+// 慢查询阈值（毫秒），默认 100ms，可通过环境变量覆盖
+const SLOW_QUERY_MS = (() => {
+  const v = parseInt(process.env.SLOW_QUERY_MS || '100', 10);
+  return Number.isFinite(v) && v > 0 ? v : 100;
+})();
+
 // 确保数据库目录存在
 const dbDir = path.dirname(DB_PATH);
 if (!fs.existsSync(dbDir)) {
@@ -172,18 +178,26 @@ export class Database {
         const stmt = db.prepare(sql);
         const rows = stmt.all(...params);
         const duration = Date.now() - startTime;
-        
-        // 记录SQL执行时间（超过100ms记录为警告，否则为debug）
-        if (duration > 100) {
-          logger.warn(`慢查询 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration });
-        } else {
-          logger.debug(`SQL查询 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration });
+
+        // 数据库级别日志（所有查询都记录完整SQL与耗时）
+        logger.database('SQL查询', {
+          kind: 'all',
+          sql,
+          params,
+          duration,
+          rowCount: Array.isArray(rows) ? rows.length : undefined
+        });
+
+        // 慢查询单独告警
+        if (duration > SLOW_QUERY_MS) {
+          logger.warn(`慢查询 (${duration}ms)`, { sql, params, duration });
         }
-        
+
         resolve(rows as T[]);
       } catch (err: any) {
         const duration = Date.now() - startTime;
         logger.error('SQL查询失败', { 
+          kind: 'all',
           sql, 
           params, 
           duration, 
@@ -205,18 +219,24 @@ export class Database {
         const stmt = db.prepare(sql);
         const row = stmt.get(...params);
         const duration = Date.now() - startTime;
-        
-        // 记录SQL执行时间
-        if (duration > 100) {
-          logger.warn(`慢查询 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration });
-        } else {
-          logger.debug(`SQL查询 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration });
+
+        logger.database('SQL查询', {
+          kind: 'get',
+          sql,
+          params,
+          duration,
+          found: row ? 1 : 0
+        });
+
+        if (duration > SLOW_QUERY_MS) {
+          logger.warn(`慢查询 (${duration}ms)`, { sql, params, duration });
         }
-        
+
         resolve(row as T | undefined);
       } catch (err: any) {
         const duration = Date.now() - startTime;
         logger.error('SQL查询失败', { 
+          kind: 'get',
           sql, 
           params, 
           duration, 
@@ -238,18 +258,25 @@ export class Database {
         const stmt = db.prepare(sql);
         const info = stmt.run(...params);
         const duration = Date.now() - startTime;
-        
-        // 记录SQL执行时间
-        if (duration > 100) {
-          logger.warn(`慢写入 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration, changes: info.changes });
-        } else {
-          logger.debug(`SQL写入 (${duration}ms)`, { sql: sql.substring(0, 100), params, duration, changes: info.changes });
+
+        logger.database('SQL写入', {
+          kind: 'run',
+          sql,
+          params,
+          duration,
+          changes: info.changes,
+          lastID: Number(info.lastInsertRowid)
+        });
+
+        if (duration > SLOW_QUERY_MS) {
+          logger.warn(`慢写入 (${duration}ms)`, { sql, params, duration });
         }
-        
+
         resolve({ lastID: info.lastInsertRowid as number, changes: info.changes });
       } catch (err: any) {
         const duration = Date.now() - startTime;
         logger.error('SQL写入失败', { 
+          kind: 'run',
           sql, 
           params, 
           duration, 
@@ -265,13 +292,21 @@ export class Database {
   // 执行事务
   async transaction<T>(callback: (db: Database) => Promise<T>): Promise<T> {
     // better-sqlite3 supports transaction APIs; use explicit BEGIN/COMMIT to remain compatible
+    const txnStart = Date.now();
     await this.run('BEGIN TRANSACTION');
     try {
       const result = await callback(this);
       await this.run('COMMIT');
+      const txnDuration = Date.now() - txnStart;
+      logger.database('事务提交', { duration: txnDuration, success: true });
+      if (txnDuration > SLOW_QUERY_MS) {
+        logger.warn(`慢事务 (${txnDuration}ms)`, { duration: txnDuration });
+      }
       return result;
     } catch (error) {
       await this.run('ROLLBACK');
+      const txnDuration = Date.now() - txnStart;
+      logger.error('事务回滚', { duration: txnDuration, error: (error as any)?.message });
       throw error;
     }
   }

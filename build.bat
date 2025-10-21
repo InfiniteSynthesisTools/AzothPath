@@ -168,10 +168,11 @@ echo echo "初始化数据库..."
 echo node dist/database/connection.js
 echo echo ""
 echo echo "✅ 后端服务启动中..."
-echo nohup node dist/index.js ^> ../logs/backend.log 2^>^&1 ^&
+echo LOGFILE="../logs/backend_$(date +%%Y%%m%%d_%%H%%M%%S).log"
+echo nohup node dist/index.js ^> "$LOGFILE" 2^>^&1 ^&
 echo cd ..
 echo echo ""
-echo echo "✅ 后端已启动，日志文件: logs/backend.log"
+echo echo "✅ 后端已启动，日志文件: $LOGFILE"
 echo echo "📝 前端静态文件位于 frontend 目录"
 echo echo "💡 请使用 Nginx 或其他 Web 服务器托管前端文件"
 ) > "%BUILD_DIR%\start.sh"
@@ -274,6 +275,8 @@ echo WorkingDirectory=/var/www/azothpath/backend
 echo ExecStart=/usr/bin/node /var/www/azothpath/backend/dist/index.js
 echo Restart=on-failure
 echo RestartSec=10
+echo # 建议使用应用内置文件日志（每次启动生成新文件 logs/backend_YYYYMMDD_HHmmss.log）
+echo # 如需 systemd 重定向，使用 append 模式，避免清理旧日志：
 echo StandardOutput=append:/var/www/azothpath/logs/backend.log
 echo StandardError=append:/var/www/azothpath/logs/backend-error.log
 echo.
@@ -332,7 +335,7 @@ echo │   │   ├── azothpath.db
 echo │   │   └── init.sql
 echo │   ├── package.json
 echo │   └── .env
-echo ├── logs/                  # 日志目录
+echo ├── logs/                  # 日志目录（按启动时间命名）
 echo ├── nginx.conf             # Nginx 配置示例
 echo └── start.sh               # 启动脚本
 echo ```
@@ -345,7 +348,8 @@ echo - 数据库: SQLite ^(本地文件^)
 echo.
 echo ## 日志管理
 echo.
-echo - 后端日志: `logs/backend.log`
+echo - 后端日志: `logs/backend_YYYYMMDD_HHmmss.log` ^(应用自动生成，每次启动一个^)
+echo - 兼容: 如使用 systemd 重定向，仍会生成 `logs/backend.log` （追加写入）
 echo - 错误日志: `logs/backend-error.log`
 echo - Nginx 访问日志: `/var/log/nginx/access.log`
 echo - Nginx 错误日志: `/var/log/nginx/error.log`
@@ -353,7 +357,8 @@ echo.
 echo ## 常用命令
 echo.
 echo ```bash
-echo tail -f logs/backend.log
+echo # 查看最新日志文件
+echo tail -f \^$(ls -1tr logs/backend_*.log ^| tail -1)
 echo ```
 echo.
 echo ## 故障排查

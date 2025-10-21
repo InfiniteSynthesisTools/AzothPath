@@ -454,33 +454,6 @@ export class RecipeService {
   }
 
   /**
-   * 确保物品存在于 items 表（自动收录）
-   * 
-   * 说明: 
-   * - 用户可能乱序导入配方，导致 item_a、item_b、result 都可能不存在于数据库
-   * - 外部 API 有自己的物品库，验证时不依赖我们的数据库
-   * - API 只返回 result 的 emoji，item_a 和 item_b 的 emoji 初始为空
-   * 
-   * @param itemName 物品名称
-   * @returns 贡献分（新物品 +2，已存在 0）
-   */
-  private async ensureItemExists(itemName: string): Promise<number> {
-    const existing = await database.get('SELECT * FROM items WHERE name = ?', [itemName]);
-    if (!existing) {
-      // 基础材料列表（与数据库初始化保持一致）
-      const baseItems = ['金', '木', '水', '火', '土'];
-      const isBase = baseItems.includes(itemName);
-      await database.run(
-        'INSERT INTO items (name, is_base, created_at) VALUES (?, ?, ?)',
-        [itemName, isBase ? 1 : 0, getCurrentUTC8TimeForDB()]
-      );
-      logger.info(`新物品添加到词典: ${itemName}, +2分`);
-      return 2; // 新物品 +2 分
-    }
-    return 0; // 已存在物品不加分
-  }
-
-  /**
    * 点赞/取消点赞配方
    */
   async toggleLike(recipeId: number, userId: number): Promise<{ liked: boolean; likes: number }> {

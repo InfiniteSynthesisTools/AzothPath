@@ -1,6 +1,7 @@
 import express, { Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import { databaseBackupService } from '../services/databaseBackupService';
+import { recipeService } from '../services/recipeService';
 import os from 'os';
 import process from 'process';
 import fs from 'fs';
@@ -225,6 +226,58 @@ router.post('/backup/manual', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/system/cache/status
+ * 获取图缓存状态
+ */
+router.get('/cache/status', async (req: Request, res: Response) => {
+  try {
+    const cacheStatus = recipeService.getCacheStatus();
+    
+    res.json({
+      code: 200,
+      message: '获取缓存状态成功',
+      data: {
+        ...cacheStatus,
+        ttl: recipeService['CACHE_TTL'] / 1000, // 转换为秒
+        lastUpdatedFormatted: cacheStatus.lastUpdated ? new Date(cacheStatus.lastUpdated).toISOString() : null,
+        ageFormatted: cacheStatus.age ? formatDuration(cacheStatus.age) : null
+      }
+    });
+  } catch (error: any) {
+    logger.error('获取缓存状态失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取缓存状态失败'
+    });
+  }
+});
+
+/**
+ * POST /api/system/cache/refresh
+ * 手动刷新图缓存
+ */
+router.post('/cache/refresh', async (req: Request, res: Response) => {
+  try {
+    logger.info('收到手动刷新缓存请求');
+    await recipeService.refreshGraphCache();
+    
+    const cacheStatus = recipeService.getCacheStatus();
+    
+    res.json({
+      code: 200,
+      message: '缓存刷新成功',
+      data: cacheStatus
+    });
+  } catch (error: any) {
+    logger.error('刷新缓存失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '刷新缓存失败'
+    });
+  }
+});
+
+/**
  * 格式化字节数
  */
 function formatBytes(bytes: number, decimals = 2): string {
@@ -237,6 +290,23 @@ function formatBytes(bytes: number, decimals = 2): string {
   const i = Math.floor(Math.log(bytes) / Math.log(k));
 
   return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+}
+
+/**
+ * 格式化时间间隔
+ */
+function formatDuration(ms: number): string {
+  const seconds = Math.floor(ms / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  
+  if (hours > 0) {
+    return `${hours}小时${minutes % 60}分钟${seconds % 60}秒`;
+  } else if (minutes > 0) {
+    return `${minutes}分钟${seconds % 60}秒`;
+  } else {
+    return `${seconds}秒`;
+  }
 }
 
 export default router;

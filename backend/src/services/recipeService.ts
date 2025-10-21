@@ -69,6 +69,77 @@ export interface GraphSystemStats {
 }
 
 export class RecipeService {
+  // 图缓存相关属性
+  private graphCache: {
+    recipes: Recipe[];
+    items: Item[];
+    baseItems: Item[];
+    itemToRecipes: Record<string, Recipe[]>;
+    recipeGraph: Record<string, string[]>;
+    baseItemNames: string[];
+    allItemNames: string[];
+    lastUpdated: number;
+  } | null = null;
+  
+  // 缓存有效期（5分钟）
+  private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟
+
+  /**
+   * 获取或更新图缓存
+   */
+  private async getGraphCache(): Promise<{
+    recipes: Recipe[];
+    items: Item[];
+    baseItems: Item[];
+    itemToRecipes: Record<string, Recipe[]>;
+    recipeGraph: Record<string, string[]>;
+    baseItemNames: string[];
+    allItemNames: string[];
+  }> {
+    const now = Date.now();
+    
+    // 如果缓存不存在或已过期，重新构建
+    if (!this.graphCache || now - this.graphCache.lastUpdated > this.CACHE_TTL) {
+      logger.info('图缓存已过期或不存在，重新构建...');
+      
+      // 获取所有公开配方和物品
+      const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
+      const items = await database.all<Item>('SELECT name FROM items');
+      const baseItems = await database.all<Item>('SELECT name FROM items WHERE is_base = 1');
+      
+      const baseItemNames = baseItems.map(item => item.name);
+      const allItemNames = items.map(item => item.name);
+
+      // 构建依赖图
+      const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
+      
+      // 更新缓存
+      this.graphCache = {
+        recipes,
+        items,
+        baseItems,
+        itemToRecipes,
+        recipeGraph,
+        baseItemNames,
+        allItemNames,
+        lastUpdated: now
+      };
+      
+      logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品`);
+    }
+    
+    return this.graphCache;
+  }
+
+  /**
+   * 强制刷新图缓存
+   */
+  async refreshGraphCache(): Promise<void> {
+    this.graphCache = null;
+    await this.getGraphCache();
+    logger.info('图缓存已强制刷新');
+  }
+
   /**
    * 获取配方列表（优化版本）
    * 性能优化：
@@ -547,24 +618,34 @@ export class RecipeService {
   }
 
   /**
-   * 搜索合成路径（BFS 算法）
+   * 搜索合成路径（BFS 算法）- 使用缓存优化
    */
   async searchPath(targetItem: string): Promise<{ tree: CraftingTreeNode; stats: PathStats } | null> {
-    // 获取所有公开配方
-    const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
-    const items = await database.all<Item>('SELECT * FROM items WHERE is_base = 1');
+    // 使用缓存获取图数据
+    const cache = await this.getGraphCache();
     
-    const baseItemNames = items.map(item => item.name);
+    // 构建合成树
+    const memo: Record<string, CraftingTreeNode | null> = {};
+    const tree = this.buildCraftingTree(targetItem, cache.baseItemNames, cache.itemToRecipes, memo);
     
-    // 构建物品到配方的映射
-    const itemToRecipes: Record<string, Recipe[]> = {};
-    for (const recipe of recipes) {
-      if (!itemToRecipes[recipe.result]) {
-        itemToRecipes[recipe.result] = [];
-      }
-      itemToRecipes[recipe.result].push(recipe);
+    if (!tree) {
+      return null;
     }
 
+    // 计算统计信息
+    const stats = this.calculateTreeStats(tree, cache.itemToRecipes);
+
+    return { tree, stats };
+  }
+
+  /**
+   * 内部搜索方法（不使用缓存，避免递归调用）
+   */
+  private async searchPathInternal(
+    targetItem: string,
+    baseItemNames: string[],
+    itemToRecipes: Record<string, Recipe[]>
+  ): Promise<{ tree: CraftingTreeNode; stats: PathStats } | null> {
     // 构建合成树
     const memo: Record<string, CraftingTreeNode | null> = {};
     const tree = this.buildCraftingTree(targetItem, baseItemNames, itemToRecipes, memo);
@@ -767,30 +848,40 @@ export class RecipeService {
   }
 
   /**
-   * 检测和分析不可及图
+   * 检测和分析不可及图 - 使用缓存优化
    */
   async analyzeUnreachableGraphs(): Promise<{ unreachableGraphs: UnreachableGraph[]; systemStats: GraphSystemStats }> {
-    // 获取所有配方和物品
-    const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
-    const items = await database.all<Item>('SELECT name FROM items');
-    const baseItems = await database.all<Item>('SELECT name FROM items WHERE is_base = 1');
-    
-    const baseItemNames = baseItems.map(item => item.name);
-    const allItemNames = items.map(item => item.name);
-
-    // 构建依赖图
-    const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
+    // 使用缓存获取图数据
+    const cache = await this.getGraphCache();
     
     // 分析可达性
-    const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
+    const { reachableItems, unreachableItems } = this.analyzeReachability(cache.baseItemNames, cache.itemToRecipes, cache.allItemNames);
     
     // 构建不可达图
-    const unreachableGraphs = this.buildUnreachableGraphs(unreachableItems, recipeGraph);
+    const unreachableGraphs = this.buildUnreachableGraphs(unreachableItems, cache.recipeGraph);
     
     // 计算系统统计
-    const systemStats = await this.calculateSystemStats(reachableItems, unreachableGraphs, recipes, itemToRecipes);
+    const systemStats = await this.calculateSystemStats(reachableItems, unreachableGraphs, cache.recipes, cache.itemToRecipes, cache.baseItemNames);
 
     return { unreachableGraphs, systemStats };
+  }
+
+  /**
+   * 获取缓存状态信息
+   */
+  getCacheStatus(): { hasCache: boolean; lastUpdated?: number; age?: number } {
+    if (!this.graphCache) {
+      return { hasCache: false };
+    }
+    
+    const now = Date.now();
+    const age = now - this.graphCache.lastUpdated;
+    
+    return {
+      hasCache: true,
+      lastUpdated: this.graphCache.lastUpdated,
+      age: age
+    };
   }
 
   /**
@@ -1173,7 +1264,8 @@ export class RecipeService {
     reachableItems: Set<string>,
     unreachableGraphs: UnreachableGraph[],
     recipes: Recipe[],
-    itemToRecipes: Record<string, Recipe[]>
+    itemToRecipes: Record<string, Recipe[]>,
+    baseItemNames: string[]
   ): Promise<GraphSystemStats> {
     const totalValidItems = reachableItems.size;
     const totalUnreachableItems = unreachableGraphs.reduce((sum, graph) => sum + graph.nodes.length, 0);
@@ -1186,7 +1278,7 @@ export class RecipeService {
     }
 
     // 计算合法图的统计信息
-    const validGraphStats = await this.calculateValidGraphStats(reachableItems, recipes, itemToRecipes);
+    const validGraphStats = await this.calculateValidGraphStats(reachableItems, recipes, itemToRecipes, baseItemNames);
 
     return {
       totalValidItems,
@@ -1203,7 +1295,8 @@ export class RecipeService {
   private async calculateValidGraphStats(
     reachableItems: Set<string>,
     recipes: Recipe[],
-    itemToRecipes: Record<string, Recipe[]>
+    itemToRecipes: Record<string, Recipe[]>,
+    baseItemNames: string[]
   ): Promise<GraphSystemStats['validGraphStats']> {
     let maxDepth = 0;
     let totalDepth = 0;
@@ -1216,7 +1309,7 @@ export class RecipeService {
     // 对每个可达物品计算路径统计
     for (const item of reachableItems) {
       try {
-        const result = await this.searchPath(item);
+        const result = await this.searchPathInternal(item, baseItemNames, itemToRecipes);
         if (result) {
           const { stats } = result;
           maxDepth = Math.max(maxDepth, stats.depth);
@@ -1306,25 +1399,13 @@ export class RecipeService {
    * 广度：配方中两个输入素材的广度总和
    */
   private async calculateRecipePathStats(recipe: Recipe): Promise<{ depth: number; width: number; breadth: number }> {
-    // 获取所有配方和基础材料
-    const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
-    const items = await database.all<Item>('SELECT name FROM items WHERE is_base = 1');
-    
-    const baseItemNames = items.map(item => item.name);
-    
-    // 构建物品到配方的映射
-    const itemToRecipes: Record<string, Recipe[]> = {};
-    for (const r of recipes) {
-      if (!itemToRecipes[r.result]) {
-        itemToRecipes[r.result] = [];
-      }
-      itemToRecipes[r.result].push(r);
-    }
+    // 使用缓存获取图数据
+    const cache = await this.getGraphCache();
 
     // 计算 item_a 的统计信息
-    const statsA = await this.calculateItemStats(recipe.item_a, baseItemNames, itemToRecipes);
+    const statsA = await this.calculateItemStats(recipe.item_a, cache.baseItemNames, cache.itemToRecipes);
     // 计算 item_b 的统计信息
-    const statsB = await this.calculateItemStats(recipe.item_b, baseItemNames, itemToRecipes);
+    const statsB = await this.calculateItemStats(recipe.item_b, cache.baseItemNames, cache.itemToRecipes);
 
     // 深度：取两个素材的最大深度
     const depth = Math.max(statsA.depth, statsB.depth);

@@ -25,6 +25,11 @@
           <el-menu-item index="/import" v-if="userStore.isLoggedIn">导入</el-menu-item>
           <el-menu-item index="/contribution">贡献榜</el-menu-item>
           <el-menu-item index="/admin" v-if="userStore.isAdmin">管理</el-menu-item>
+          <el-menu-item>
+            <a href="https://hc.tsdo.in/" target="_blank" style="text-decoration: none; color: inherit;">
+              开始游戏 🎮
+            </a>
+          </el-menu-item>
         </el-menu>
         
         <div class="user-actions">
@@ -94,6 +99,12 @@
           <el-icon><Setting /></el-icon>
           <span>管理</span>
         </el-menu-item>
+        <el-divider />
+        <el-menu-item>
+          <a href="https://hc.tsdo.in/" target="_blank" style="text-decoration: none; color: inherit; display: flex; align-items: center;">
+            <span>开始游戏 🎮</span>
+          </a>
+        </el-menu-item>
         <el-divider v-if="!userStore.isLoggedIn" />
         <el-menu-item v-if="!userStore.isLoggedIn" index="/login">
           <el-icon><User /></el-icon>
@@ -130,7 +141,6 @@ import {
   Document, 
   Tickets, 
   Upload, 
-  Trophy, 
   Setting 
 } from '@element-plus/icons-vue';
 import Sidebar from '@/components/Sidebar.vue';

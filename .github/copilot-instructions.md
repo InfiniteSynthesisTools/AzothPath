@@ -27,6 +27,25 @@
 - ✅ Hot reload enabled (no manual restart needed)
 - ✅ Like system with toggle functionality implemented
 
+## 🎯 关键发现与架构洞察
+
+### 核心数据流模式
+- **配方提交**: 用户提交 → 外部API验证 → 自动收录物品 → 计算贡献分
+- **点赞系统**: 需要同时更新 `recipes.likes` 和 `recipe_likes` 表
+- **批量导入**: 异步任务队列处理，支持进度跟踪和错误重试
+
+### 性能优化策略
+- **数据库索引**: 复合索引优化搜索和排序性能
+- **游标分页**: 支持大数据量场景的游标分页
+- **JOIN优化**: 使用LEFT JOIN替代子查询提升查询性能
+- **缓存策略**: 热门物品路径缓存，TTL 1小时
+
+### 图算法实现
+- **可达性分析**: BFS算法从基础材料开始分析
+- **循环检测**: 检测A+A=A等循环依赖模式
+- **图分类**: 孤立图、边界图、循环图、线性图
+- **统计指标**: 入度、出度、图密度、聚类系数
+
 ## Project Overview
 **Azoth Path（无尽合成工具站）** is a community-driven web tool for the game "无尽合成", helping players discover and share item synthesis recipes. The system validates recipes through external game API and rewards users for discovering new synthesis paths.
 
@@ -43,6 +62,73 @@ When making code changes:
 - Frontend: Vite will automatically reload (HMR)
 - Backend: nodemon will automatically restart on file save
 - Database schema changes: May require manual `npm run db:init`
+
+### 关键开发工作流
+
+#### 数据库操作模式
+```typescript
+// 所有数据库操作使用 database 单例
+import { database } from '../database/connection';
+
+// 查询模式
+const recipes = await database.all<Recipe>('SELECT * FROM recipes WHERE is_public = 1');
+const recipe = await database.get<Recipe>('SELECT * FROM recipes WHERE id = ?', [id]);
+
+// 写入模式
+const result = await database.run(
+  'INSERT INTO recipes (item_a, item_b, result, user_id) VALUES (?, ?, ?, ?)',
+  [itemA, itemB, result, userId]
+);
+
+// 事务模式
+await database.transaction(async (tx) => {
+  // 在事务中执行多个操作
+  await tx.run('INSERT INTO recipes ...', params);
+  await tx.run('UPDATE user SET contribute = contribute + ? WHERE id = ?', [points, userId]);
+});
+```
+
+#### 前端状态管理模式
+```typescript
+// Pinia store 模式
+const useRecipeStore = defineStore('recipe', () => {
+  const recipes = ref<Recipe[]>([]);
+  const loading = ref(false);
+  
+  const fetchRecipes = async (params?: RecipeSearchParams) => {
+    loading.value = true;
+    try {
+      const data = await recipeApi.list(params);
+      recipes.value = data.recipes;
+      return data;
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  return { recipes, loading, fetchRecipes };
+});
+```
+
+#### API 响应格式
+```typescript
+// 成功响应
+{
+  recipes: Recipe[],
+  total: number,
+  page: number,
+  limit: number,
+  hasMore: boolean,
+  nextCursor?: number
+}
+
+// 错误响应
+{
+  code: number,
+  message: string,
+  ...(process.env.NODE_ENV === 'development' && { stack: string })
+}
+```
 
 ## Architecture
 
@@ -170,6 +256,36 @@ Example:
   - Other errors → log to error_message, allow retry
 - **Auto-discovery**: New items from API automatically added to `items` table with emoji
 
+### 外部API验证流程
+```typescript
+// 在 importService.ts 中的验证逻辑
+const response = await axios.get('https://hc.tsdo.in/api', {
+  params: { itemA, itemB }
+});
+
+// 验证成功条件
+if (response.data && response.data.result === expectedResult) {
+  // 配方验证成功
+  // 自动收录新物品到 items 表
+  // 计算贡献分
+}
+```
+
+### 贡献分计算规则（关键理解）
+**实时计算**（每次配方验证成功后更新）：
+- **新配方奖励**: 成功插入 recipes 表 → +1 分
+- **新物品奖励**: 成功插入 items 表 → 每个新物品 +2 分
+  - 配方包含 3 个物品（item_a, item_b, result）
+  - **用户可能乱序导入**，所以 item_a 和 item_b 也可能是新物品
+  - 最多可获得 6 分（3 个新物品 × 2）
+- **任务奖励**: 完成悬赏任务 → 获得任务设定的奖励分
+
+**关键理解**:
+- **外部 API 验证**: 游戏 API 有自己的物品库，不依赖我们的数据库
+- **乱序导入**: 用户可能先导入 "铁剑 + 火焰 = 炎之剑"，但 "铁剑" 和 "火焰" 的配方还没导入
+- **物品自动收录**: 验证成功后，item_a、item_b、result 都会被添加到 items 表（如果不存在）
+- **emoji 获取**: API 只返回 result 的 emoji，item_a 和 item_b 的 emoji 初始为空（后续导入时更新）
+
 ### Contribution Score System
 **实时计算规则**（每次配方验证成功后更新）:
 1. **新配方奖励**: 成功插入 recipes 表 → +1 分
@@ -244,6 +360,45 @@ stores/
   └── task.ts - Task/bounty management
 ```
 
+## 🛠️ 开发工具与环境
+
+### 前端开发环境
+- **构建工具**: Vite 5.x + TypeScript 5.x
+- **开发服务器**: http://localhost:11451 (代理到后端)
+- **热重载**: Vite HMR 自动刷新
+- **路径别名**: `@` 指向 `src/` 目录
+
+### 后端开发环境  
+- **运行时**: Node.js 18+ + TypeScript
+- **开发服务器**: http://localhost:19198
+- **热重载**: nodemon 自动重启
+- **时区设置**: UTC+8 (中国标准时间)
+
+### 数据库配置
+```typescript
+// SQLite 性能优化配置
+PRAGMA journal_mode = WAL;        // 并发读写
+PRAGMA synchronous = NORMAL;      // 安全与性能平衡
+PRAGMA cache_size = -2000;        // 8MB 缓存
+PRAGMA busy_timeout = 5000;       // 处理锁竞争
+```
+
+### 关键开发命令
+```bash
+# 前端开发
+cd frontend && npm run dev        # 启动开发服务器
+cd frontend && npm run build      # 构建生产版本
+
+# 后端开发  
+cd backend && npm run dev         # 启动开发服务器
+cd backend && npm run db:init     # 初始化数据库
+cd backend && npm run build       # 编译 TypeScript
+
+# 完整启动（推荐）
+./run.bat                         # Windows
+./run.sh                          # Linux/macOS
+```
+
 ## Critical Developer Workflows
 
 ### Database Initialization
@@ -287,6 +442,33 @@ class RecipeGraph:
     base_items: Set[str]               # {"金", "木", "水", "火", "土", "宝石"}
     self_loop_recipes: Set[Recipe]     # Circular recipes (A+A=A)
     circular_items: Set[str]           # Items involved in cycles
+```
+
+### TypeScript 后端实现模式
+
+#### 图算法实现位置
+- **核心服务**: `backend/src/services/recipeService.ts`
+- **主要算法**: `searchPath()`, `analyzeUnreachableGraphs()`, `buildDependencyGraph()`
+- **性能优化**: 使用 BFS 可达性分析 + 缓存策略
+
+#### 图分类系统
+系统将物品图分为四种类型：
+- **孤立图 (Isolated Graph)**: 无法从基础材料合成的物品
+- **边界图 (Boundary Graph)**: 可以直接从基础材料合成的物品  
+- **循环图 (Circular Graph)**: 包含循环依赖的物品
+- **线性图 (Linear Graph)**: 正常的合成路径，无循环依赖
+
+#### 统计指标计算
+```typescript
+// 在 recipeService.ts 中的统计计算
+const stats = {
+  inDegree: totalInDegree,        // 总入度（被依赖次数）
+  outDegree: totalOutDegree,      // 总出度（依赖其他节点次数）
+  avgDegree: avgDegree,           // 平均度数
+  density: density,               // 图密度
+  clustering: clustering,         // 聚类系数
+  boundaryNodes: boundaryNodes    // 边界节点数
+};
 ```
 
 #### Key Algorithms
@@ -481,6 +663,45 @@ GET /api/recipes/graph/stats → { ...stats }
 - Rate limiting on API endpoints to prevent abuse
 - ORM parameterized queries to prevent SQL injection
 
+### 安全配置要点
+- **JWT 密钥**: 必须通过环境变量 `JWT_SECRET` 配置
+- **默认管理员**: 生产环境必须删除或修改默认账户 (admin/admin123)
+- **输入验证**: 限制为中文、英文、数字、空格、连字符和下划线
+- **SQL 注入防护**: 使用参数化查询和白名单验证
+
+## 🚀 部署与打包
+
+### 打包流程
+```bash
+# Windows 打包
+.\build.bat
+
+# 生成目录结构
+dist/
+├── frontend/              # 前端静态文件
+├── backend/               # 后端应用
+├── logs/                  # 日志目录
+├── start.sh               # Linux 启动脚本
+└── ecosystem.config.js    # PM2 配置
+```
+
+### 生产环境要求
+- **Node.js**: 18+ 版本
+- **数据库**: SQLite 3.x
+- **反向代理**: Nginx (推荐)
+- **进程管理**: PM2 (推荐)
+
+### 环境变量配置
+```env
+# 必需配置
+JWT_SECRET=your_secure_jwt_secret_key_here
+
+# 可选配置
+DB_PATH=database/azothpath.db
+PORT=19198
+NODE_ENV=production
+```
+
 ## Common Pitfalls
 
 1. **Don't create foreign keys** - This is by design for operational flexibility
@@ -488,6 +709,26 @@ GET /api/recipes/graph/stats → { ...stats }
 3. **taskId is number, not string** - Changed from UUID to auto-increment
 4. **Check import_tasks_content.task_id** - Links to parent task for batch operations
 5. **Update parent task counters** - When processing content, update import_tasks aggregates
+
+## 🎯 AI Agent 最佳实践
+
+### 代码修改模式
+- **数据库操作**: 始终使用 `database` 单例，遵循事务模式
+- **前端状态**: 使用 Pinia stores 管理状态，遵循响应式模式
+- **API 设计**: 保持前后端字段名一致，不进行转换
+- **错误处理**: 使用统一的错误响应格式
+
+### 性能优化要点
+- **数据库索引**: 为常用查询字段创建复合索引
+- **查询优化**: 使用 JOIN 替代子查询，避免 N+1 查询
+- **分页策略**: 大数据量场景使用游标分页
+- **缓存策略**: 热门数据使用内存缓存
+
+### 测试与验证
+- **配方验证**: 依赖外部 API 进行配方有效性验证
+- **数据一致性**: 确保 `recipes.likes` 与 `recipe_likes` 表同步
+- **贡献分计算**: 实时计算，避免重复计分
+- **图算法**: 验证循环依赖和可达性分析的正确性
 
 ## Database Schema Reference
 
@@ -659,6 +900,20 @@ API 文档包含完整的前端 TypeScript 类型定义，确保前后端数据�
 - `ImportTask` - 导入任务类型
 - `Notification` - 通知类型
 - `Task` - 悬赏任务类型
+
+## 📚 文件引用
+- `prd.md` - 完整的产品需求和技术规范文档
+- `recipe_calculator.py` - Python 参考实现（917行），包含 RecipeGraph 类
+  - 实现 BFS 可达性分析（O(V+E) 复杂度）
+  - 多路径枚举与记忆化（O(k^d) 最坏情况）
+  - 循环依赖检测（A+A=A 模式）
+  - 树分析，包含深度/步骤/材料统计
+  - **状态**: 参考实现，需要移植到 TypeScript 后端用于生产
+- `API_DOCUMENTATION.md` - 完整的 API 接口文档，包含请求/响应示例和错误码
+- Section 3.2.1 in prd.md - 完整的算法设计和复杂度分析
+- Section 4.2.4 in prd.md - 完整的 SQL 模式和索引
+- Section 4.3 in prd.md - 前端架构和类型定义
+- Section 4.4 in prd.md - 后端架构和 API 端点
 
 ## File References
 - `prd.md` - Complete product requirements and technical specifications

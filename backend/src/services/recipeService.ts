@@ -1633,17 +1633,31 @@ export class RecipeService {
     const baseItems = cache.baseItemNames;
     const itemToRecipes = cache.itemToRecipes;
     
-    const nodes: IcicleNode[] = [];
+    const nodesWithStats: Array<{ node: IcicleNode; stats: PathStats }> = [];
     let maxDepth = 0;
     
-    // 为每个元素构建冰柱树
+    // 为每个元素构建冰柱树并计算统计信息
     for (const itemName of allItems) {
       const tree = this.buildIcicleTree(itemName, baseItems, itemToRecipes, new Set());
       if (tree) {
-        nodes.push(tree);
+        // 计算路径统计信息
+        const stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
+        nodesWithStats.push({ node: tree, stats });
         maxDepth = Math.max(maxDepth, this.calculateIcicleTreeDepth(tree));
       }
     }
+    
+    // 按照最简路径算法对根节点进行排序
+    // 排序规则：深度最小 → 宽度最小 → 广度最大 → 字典序
+    nodesWithStats.sort((a, b) => {
+      if (a.stats.depth !== b.stats.depth) return a.stats.depth - b.stats.depth;
+      if (a.stats.width !== b.stats.width) return a.stats.width - b.stats.width;
+      if (a.stats.breadth !== b.stats.breadth) return b.stats.breadth - a.stats.breadth;
+      return a.node.name.localeCompare(b.node.name);
+    });
+    
+    // 提取排序后的节点
+    const nodes = nodesWithStats.map(item => item.node);
     
     return {
       nodes,
@@ -1726,6 +1740,65 @@ export class RecipeService {
     }
     
     return maxChildDepth + 1;
+  }
+
+  /**
+   * 计算冰柱树的统计信息
+   */
+  private calculateIcicleTreeStats(node: IcicleNode, itemToRecipes: Record<string, Recipe[]>): PathStats {
+    const materials: Record<string, number> = {};
+    let breadthSum = 0;
+    
+    const traverse = (currentNode: IcicleNode, depth: number, isRoot: boolean = true): { maxDepth: number; steps: number } => {
+      // 计算该节点的广度
+      const recipes = itemToRecipes[currentNode.name] || [];
+      
+      // 基础材料：广度是使用该材料作为输入材料的配方数量
+      if (currentNode.isBase) {
+        // 查找所有使用该基础材料作为输入材料的配方
+        const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe => 
+          recipe.item_a === currentNode.name || recipe.item_b === currentNode.name
+        );
+        breadthSum += inputRecipes.length;
+        materials[currentNode.name] = (materials[currentNode.name] || 0) + 1;
+        return { maxDepth: depth, steps: 0 };
+      }
+
+      // 合成材料：广度是能合成该材料的配方数量
+      if (!isRoot) {
+        breadthSum += recipes.length;
+      }
+
+      // 递归遍历子节点
+      let resultA = { maxDepth: depth, steps: 0 };
+      let resultB = { maxDepth: depth, steps: 0 };
+      
+      if (currentNode.children) {
+        const [childA, childB] = currentNode.children;
+        if (childA) {
+          resultA = traverse(childA, depth + 1, false);
+        }
+        if (childB) {
+          resultB = traverse(childB, depth + 1, false);
+        }
+      }
+
+      return {
+        maxDepth: Math.max(resultA.maxDepth, resultB.maxDepth),
+        steps: 1 + resultA.steps + resultB.steps
+      };
+    };
+
+    const { maxDepth, steps } = traverse(node, 0, true);
+    const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);
+
+    return {
+      depth: maxDepth,
+      width: steps,
+      total_materials: totalMaterials,
+      breadth: breadthSum,
+      materials
+    };
   }
 }
 

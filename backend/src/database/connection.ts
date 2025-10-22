@@ -179,14 +179,16 @@ export class Database {
         const rows = stmt.all(...params);
         const duration = Date.now() - startTime;
 
-        // 数据库级别日志（所有查询都记录完整SQL与耗时）
-        logger.database('SQL查询', {
-          kind: 'all',
-          sql,
-          params,
-          duration,
-          rowCount: Array.isArray(rows) ? rows.length : undefined
-        });
+        // 数据库级别日志（仅记录慢查询和错误）
+        if (duration > SLOW_QUERY_MS) {
+          logger.database('SQL查询', {
+            kind: 'all',
+            sql,
+            params,
+            duration,
+            rowCount: Array.isArray(rows) ? rows.length : undefined
+          });
+        }
 
         // 慢查询单独告警
         if (duration > SLOW_QUERY_MS) {
@@ -220,13 +222,16 @@ export class Database {
         const row = stmt.get(...params);
         const duration = Date.now() - startTime;
 
-        logger.database('SQL查询', {
-          kind: 'get',
-          sql,
-          params,
-          duration,
-          found: row ? 1 : 0
-        });
+        // 仅记录慢查询
+        if (duration > SLOW_QUERY_MS) {
+          logger.database('SQL查询', {
+            kind: 'get',
+            sql,
+            params,
+            duration,
+            found: row ? 1 : 0
+          });
+        }
 
         if (duration > SLOW_QUERY_MS) {
           logger.warn(`慢查询 (${duration}ms)`, { sql, params, duration });
@@ -259,14 +264,17 @@ export class Database {
         const info = stmt.run(...params);
         const duration = Date.now() - startTime;
 
-        logger.database('SQL写入', {
-          kind: 'run',
-          sql,
-          params,
-          duration,
-          changes: info.changes,
-          lastID: Number(info.lastInsertRowid)
-        });
+        // 仅记录慢写入
+        if (duration > SLOW_QUERY_MS) {
+          logger.database('SQL写入', {
+            kind: 'run',
+            sql,
+            params,
+            duration,
+            changes: info.changes,
+            lastID: Number(info.lastInsertRowid)
+          });
+        }
 
         if (duration > SLOW_QUERY_MS) {
           logger.warn(`慢写入 (${duration}ms)`, { sql, params, duration });

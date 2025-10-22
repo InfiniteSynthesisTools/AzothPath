@@ -9,10 +9,10 @@ import { getCurrentUTC8Time, formatDateTimeForDB } from './timezone';
 export enum LogLevel {
   ERROR = 0,
   WARN = 1,
-  SUCCESS = 2,
+  INFO = 2,
   DATABASE = 3,
   API = 4, 
-  INFO = 5,
+  SUCCESS = 5,
   DEBUG = 6
 }
 

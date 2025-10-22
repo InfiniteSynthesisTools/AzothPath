@@ -27,6 +27,20 @@
 - ✅ Hot reload enabled (no manual restart needed)
 - ✅ Like system with toggle functionality implemented
 
+## ⚠️ CRITICAL Development Rules
+
+### DO NOT Restart Servers
+**IMPORTANT**: The developer keeps both frontend and backend servers running continuously. AI Agent should:
+- ✅ **NEVER** manually run `npm run dev` or restart servers
+- ✅ **RELY** on hot-reload (Vite HMR for frontend, nodemon for backend)
+- ✅ **TRUST** that file changes will auto-reload
+- ✅ **ONLY** mention manual restart if explicitly required (e.g., after `.env` changes)
+
+When making code changes:
+- Frontend: Vite will automatically reload (HMR)
+- Backend: nodemon will automatically restart on file save
+- Database schema changes: May require manual `npm run db:init`
+
 ## 🎯 关键发现与架构洞察
 
 ### 核心数据流模式
@@ -702,13 +716,51 @@ PORT=19198
 NODE_ENV=production
 ```
 
-## Common Pitfalls
+## 🚨 Common Pitfalls & Troubleshooting
 
-1. **Don't create foreign keys** - This is by design for operational flexibility
-2. **Always normalize recipes** - Ensure `item_a < item_b` before insertion
-3. **taskId is number, not string** - Changed from UUID to auto-increment
-4. **Check import_tasks_content.task_id** - Links to parent task for batch operations
-5. **Update parent task counters** - When processing content, update import_tasks aggregates
+### Database Issues
+1. **Foreign Keys**: Don't create foreign keys - application-layer integrity only
+2. **Recipe Normalization**: Always ensure `item_a < item_b` before insertion
+3. **ID Types**: `taskId` is number (auto-increment), not string/UUID
+4. **Task Relationships**: `import_tasks_content.task_id` links to parent task
+5. **Counter Updates**: Always update parent task aggregates when processing content
+
+### Development Issues
+6. **Server Restart**: NEVER manually restart servers - rely on hot reload
+7. **Database Schema**: Schema changes require `npm run db:init`
+8. **Field Names**: API uses exact database field names (no transformation)
+9. **Like Synchronization**: Must update both `recipes.likes` and `recipe_likes` tables
+10. **Transaction Management**: Use `database.transaction()` for multi-step operations
+
+### Integration Issues
+11. **External API**: Handle 400/403 errors as immediate failures, others as retryable
+12. **Contribution Scoring**: Real-time calculation on recipe validation success
+13. **Item Discovery**: New items automatically added to `items` table from API
+14. **Graph Algorithms**: BFS reachability analysis requires proper cycle detection
+15. **Performance**: Monitor slow queries (>100ms) and optimize with indexes
+
+### Debugging Tools
+- **Database Logs**: All queries logged with timing in `backend/src/utils/logger.ts`
+- **Slow Query Detection**: Automatic warnings for queries > 100ms
+- **Transaction Tracing**: Complete transaction lifecycle logging
+- **API Error Tracking**: Structured error responses with stack traces in development
+
+## 🔄 Maintenance & Evolution
+
+### Documentation Updates
+When updating this file, follow these principles:
+- ✅ **PRESERVE** all existing content and historical context
+- ✅ **UPDATE** outdated information with current facts
+- ✅ **ADD** new patterns and insights discovered from codebase analysis
+- ✅ **MAINTAIN** cross-references between documentation files
+- ✅ **DOCUMENT** architectural decisions and their rationale
+
+### Codebase Evolution
+- **Backward Compatibility**: Maintain API compatibility when possible
+- **Database Migrations**: Use `database/init.sql` for schema changes
+- **Type Safety**: Leverage TypeScript types across frontend and backend
+- **Testing Strategy**: Focus on integration testing for critical data flows
+- **Performance Monitoring**: Continuously monitor and optimize slow operations
 
 ## 🎯 AI Agent 最佳实践
 
@@ -729,6 +781,164 @@ NODE_ENV=production
 - **数据一致性**: 确保 `recipes.likes` 与 `recipe_likes` 表同步
 - **贡献分计算**: 实时计算，避免重复计分
 - **图算法**: 验证循环依赖和可达性分析的正确性
+
+## 🔧 Essential Architecture Patterns
+
+### Database Singleton Pattern
+**CRITICAL**: All database operations must use the singleton `database` instance from `backend/src/database/connection.ts`
+
+```typescript
+// ✅ CORRECT: Use database singleton
+import { database } from '../database/connection';
+
+const recipes = await database.all<Recipe>('SELECT * FROM recipes');
+const result = await database.run('INSERT INTO recipes ...', params);
+await database.transaction(async (tx) => {
+  // Transaction operations
+});
+
+// ❌ WRONG: Don't create new database connections
+import { getDatabase } from '../database/connection';
+const db = await getDatabase(); // Avoid this pattern
+```
+
+### Frontend Store Pattern
+**Pinia stores follow reactive patterns with TypeScript types:**
+
+```typescript
+// Example from frontend/src/stores/recipe.ts
+const useRecipeStore = defineStore('recipe', () => {
+  const recipes = ref<Recipe[]>([]);
+  const loading = ref(false);
+  
+  const fetchRecipes = async (params?: RecipeSearchParams) => {
+    loading.value = true;
+    try {
+      const data = await recipeApi.list(params);
+      recipes.value = data.recipes;
+      return data;
+    } finally {
+      loading.value = false;
+    }
+  };
+  
+  return { recipes, loading, fetchRecipes };
+});
+```
+
+### API Layer Pattern
+**Frontend API calls use axios wrapper with consistent error handling:**
+
+```typescript
+// Example from frontend/src/api/recipe.ts
+export const recipeApi = {
+  list(params: RecipeSearchParams) {
+    return api.get<RecipeListResponse>('/recipes', { params });
+  },
+  
+  like(id: number) {
+    return api.post<{ liked: boolean; likes: number }>(`/recipes/${id}/like`);
+  }
+};
+```
+
+### Service Layer Pattern
+**Backend services handle business logic with database operations:**
+
+```typescript
+// Example from backend/src/services/recipeService.ts
+export class RecipeService {
+  async searchPath(item: string): Promise<CraftingPath | null> {
+    // BFS-based path search implementation
+    // Uses database singleton for queries
+  }
+}
+```
+
+## 🚀 Critical Development Workflows
+
+### Database Operations
+- **Initialization**: `cd backend && npm run db:init`
+- **Reset**: `cd backend && npm run db:reset` (force recreation)
+- **Schema Changes**: Always update `database/init.sql` and run `db:init`
+
+### Development Servers
+- **Backend**: `cd backend && npm run dev` (port 19198, nodemon auto-restart)
+- **Frontend**: `cd frontend && npm run dev` (port 11451, Vite HMR)
+- **Hot Reload**: Both servers auto-reload on file changes - NO manual restart needed
+
+### Build Commands
+- **Frontend Build**: `cd frontend && npm run build`
+- **Backend Build**: `cd backend && npm run build`
+- **Production Start**: `cd backend && npm start`
+
+## 📊 Data Flow Architecture
+
+### Recipe Submission Pipeline
+```
+1. User submits recipe (text "A+B=C" or JSON batch)
+2. Create import_tasks record (returns taskId)
+3. Parse & create import_tasks_content entries (status: pending)
+4. Background queue processes each entry:
+   - Update status → processing
+   - Call external validation API (https://hc.tsdo.in/api)
+   - Check duplicates in recipes table
+   - Update status → success/failed/duplicate
+   - Update parent task counters in real-time
+5. When all items processed → import_tasks.status = completed
+```
+
+### Contribution Score Calculation
+**Real-time calculation on recipe validation success:**
+- **New Recipe**: +1 point (successful insertion to recipes table)
+- **New Item**: +2 points per new item (item_a, item_b, result)
+- **Task Reward**: + task prize points
+- **Maximum**: 7 points per recipe (1 + 3×2)
+
+### External API Integration
+- **Validation Endpoint**: `https://hc.tsdo.in/api` (GET with itemA, itemB params)
+- **Error Handling**: Status 400/403 → immediate failure, other errors → retry
+- **Auto-Discovery**: New items automatically added to `items` table
+
+## 🔍 Key Integration Points
+
+### Database Schema Evolution
+- **No Foreign Keys**: Application-layer integrity management
+- **Dictionary Ordering**: `item_a` always < `item_b` (lexical order)
+- **Redundant Fields**: `recipes.likes` synchronized with `recipe_likes` table
+- **Async Processing**: Batch imports use task queue with progress tracking
+
+### Graph Algorithm Implementation
+- **Core Service**: `backend/src/services/recipeService.ts`
+- **Algorithms**: BFS reachability analysis, cycle detection, multi-path enumeration
+- **Graph Classification**: Isolated, boundary, circular, linear graphs
+- **Performance**: Memoization, caching strategies, complexity analysis
+
+### Frontend-Backend Communication
+- **API Response Format**: Consistent `{ code, message, data }` structure
+- **Field Naming**: Direct database field names (no transformation)
+- **Error Handling**: Unified error codes and messages
+- **Authentication**: JWT tokens with Bearer scheme
+
+## ⚡ Performance Considerations
+
+### Database Optimization
+- **WAL Mode**: Concurrent reads/writes with journal_mode = WAL
+- **Cache Size**: 8MB cache with cache_size = -2000
+- **Busy Timeout**: 5-second timeout for lock contention
+- **Index Strategy**: Compound indexes for common query patterns
+
+### Frontend Optimization
+- **Virtual Scrolling**: For large recipe lists
+- **Lazy Loading**: Tree components for deep crafting paths
+- **Caching**: API response caching for frequently accessed data
+- **Bundle Splitting**: Code splitting for better initial load performance
+
+### Backend Optimization
+- **Query Logging**: All queries logged with timing and performance metrics
+- **Slow Query Detection**: Automatic warning for queries > 100ms
+- **Connection Pooling**: Better-sqlite3 connection management
+- **Background Processing**: Async task queues for batch operations
 
 ## Database Schema Reference
 

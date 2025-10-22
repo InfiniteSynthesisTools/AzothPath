@@ -108,8 +108,8 @@ const handleImport = async () => {
     ElMessage.success(`✅ 导入完成！成功导入 ${result.totalCount} 条配方`);
     handleReset();
     
-    // 跳转到配方列表页面查看结果
-    router.push('/recipes');
+    // 跳转到首页查看结果
+    router.push('/');
   } catch (error: any) {
     ElMessage.error(error.message || '导入失败');
   } finally {

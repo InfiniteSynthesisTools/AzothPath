@@ -5,6 +5,7 @@ import axios from 'axios';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 import { validationLimiter } from '../utils/validationLimiter';
 import { userService } from './userService';
+import { taskService } from './taskService';  // 导入 taskService
 
 // 任务队列配置
 const MAX_RETRY_COUNT = apiConfig.retryCount;
@@ -212,7 +213,24 @@ class ImportTaskQueue {
       // 5. 标记为成功
       await this.markAsSuccess(task, recipeId);
 
-      // 6. 更新任务统计
+      // 6. 检查并完成相关悬赏任务
+      try {
+        const taskInfo = await database.get<{ user_id: number }>(
+          'SELECT user_id FROM import_tasks WHERE id = ?',
+          [task.task_id]
+        );
+        const userId = taskInfo?.user_id || 1;
+        
+        const taskResult = await taskService.checkAndCompleteTaskForRecipe(recipeId, userId);
+        if (taskResult) {
+          logger.success(`配方${recipeId}完成悬赏任务，用户${userId}获得${taskResult.prize}分奖励`);
+        }
+      } catch (taskError: any) {
+        // 任务检测失败不影响配方导入
+        logger.error(`检查悬赏任务失败（不影响配方导入）:`, taskError);
+      }
+
+      // 7. 更新任务统计
       await this.updateTaskStats(task.task_id);
       dbWriteTime = Date.now() - dbStart;
 

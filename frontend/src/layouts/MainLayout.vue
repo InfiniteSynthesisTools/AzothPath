@@ -120,7 +120,7 @@
 
     <!-- 内容区域 -->
     <div class="main-content" :class="{ 'with-sidebar': sidebarVisible }">
-      <router-view />
+      <router-view :key="$route.fullPath" />
     </div>
 
     <!-- 侧边栏 -->
@@ -134,7 +134,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores';
 import { ElMessage } from 'element-plus';
@@ -164,6 +164,35 @@ const mobileMenuVisible = ref(false);
 
 // 当前激活的菜单项
 const activeMenu = computed(() => route.path);
+
+// 监听路由变化，确保组件正确刷新
+watch(() => route.fullPath, (newPath, oldPath) => {
+  console.log('路由变化:', { oldPath, newPath });
+  // 如果路由变化但组件没有刷新，强制重新加载
+  if (newPath !== oldPath && location.pathname !== newPath) {
+    console.warn('路由不匹配，强制刷新:', { vuePath: newPath, browserPath: location.pathname });
+    // 强制同步浏览器地址栏和 Vue Router
+    if (location.pathname !== newPath) {
+      location.href = newPath;
+    }
+  }
+});
+
+// 添加全局点击事件监听器，确保导航链接正常工作
+document.addEventListener('click', (event) => {
+  const target = event.target as HTMLElement;
+  const link = target.closest('a[href]');
+  
+  if (link && link.getAttribute('href')?.startsWith('/')) {
+    const href = link.getAttribute('href');
+    if (href && href !== route.path) {
+      console.log('检测到导航链接点击:', href);
+      // 确保 Vue Router 处理导航
+      event.preventDefault();
+      router.push(href);
+    }
+  }
+});
 
 // 跳转到个人中心
 const goToProfile = () => {

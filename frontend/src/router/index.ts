@@ -162,4 +162,14 @@ router.beforeEach((to, _, next) => {
   next();
 });
 
+// 全局后置守卫 - 确保导航完成
+router.afterEach((to, from) => {
+  console.log('路由导航完成:', { 
+    from: from.path, 
+    to: to.path,
+    fullPath: to.fullPath,
+    matched: to.matched.map(m => m.path)
+  });
+});
+
 export default router;

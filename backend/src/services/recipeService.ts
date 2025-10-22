@@ -1409,11 +1409,27 @@ export class RecipeService {
     const item = await database.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string }>(
       `SELECT 
          i.*,
-         (SELECT COUNT(*) FROM recipes WHERE item_a = i.name OR item_b = i.name) as usage_count,
-         (SELECT COUNT(*) FROM recipes WHERE result = i.name) as recipe_count,
+         COALESCE(usage_stats.usage_count, 0) as usage_count,
+         COALESCE(result_stats.recipe_count, 0) as recipe_count,
          u.name as discoverer_name
        FROM items i
        LEFT JOIN user u ON i.user_id = u.id
+       LEFT JOIN (
+         -- 计算作为材料被使用的次数
+         SELECT item_name, SUM(cnt) as usage_count
+         FROM (
+           SELECT item_a as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_a
+           UNION ALL
+           SELECT item_b as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_b
+         )
+         GROUP BY item_name
+       ) as usage_stats ON usage_stats.item_name = i.name
+       LEFT JOIN (
+         -- 计算作为结果出现的次数
+         SELECT result as item_name, COUNT(*) as recipe_count
+         FROM recipes
+         GROUP BY result
+       ) as result_stats ON result_stats.item_name = i.name
        WHERE i.id = ? AND i.is_public = 1`,
       [id]
     );
@@ -1639,13 +1655,29 @@ export class RecipeService {
         orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, id ASC`;
     }
 
-    // 查询物品列表
+    // 查询物品列表（优化：使用 LEFT JOIN 预聚合替代每行子查询）
     const items = await database.all<Item & { usage_count: number; recipe_count: number }>(
       `SELECT 
          i.*,
-         (SELECT COUNT(*) FROM recipes WHERE item_a = i.name OR item_b = i.name) as usage_count,
-         (SELECT COUNT(*) FROM recipes WHERE result = i.name) as recipe_count
+         COALESCE(usage_stats.usage_count, 0) as usage_count,
+         COALESCE(result_stats.recipe_count, 0) as recipe_count
        FROM items i
+       LEFT JOIN (
+         -- 计算每个物品作为材料被使用的次数（item_a 和 item_b 合并统计）
+         SELECT item_name, SUM(cnt) as usage_count
+         FROM (
+           SELECT item_a as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_a
+           UNION ALL
+           SELECT item_b as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_b
+         )
+         GROUP BY item_name
+       ) as usage_stats ON usage_stats.item_name = i.name
+       LEFT JOIN (
+         -- 计算每个物品作为结果出现的次数
+         SELECT result as item_name, COUNT(*) as recipe_count
+         FROM recipes
+         GROUP BY result
+       ) as result_stats ON result_stats.item_name = i.name
        ${whereClause}
        ${orderClause}
        LIMIT ? OFFSET ?`,

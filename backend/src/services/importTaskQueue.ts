@@ -367,6 +367,7 @@ class ImportTaskQueue {
 
   /**
    * 更新用户贡献度
+   * 新规则：只有 result（C）是新物品时才计入发现贡献
    */
   private async updateUserContribution(userId: number, task: ImportTaskContent): Promise<void> {
     try {
@@ -375,26 +376,27 @@ class ImportTaskQueue {
       // 1. 新配方贡献度：+1分
       totalContribution += 1;
       
-      // 2. 检查新物品贡献度：每个新物品+2分
-      const items = [task.item_a, task.item_b, task.result];
-      for (const item of items) {
-        // 检查该物品是否已经存在
-        const existingItem = await database.get<{ id: number }>(
-          'SELECT id FROM items WHERE name = ?',
-          [item]
-        );
-        
-        // 如果物品不存在，说明是新物品
-        if (!existingItem) {
-          totalContribution += 2;
-          logger.debug(`发现新物品 "${item}"，贡献度+2`);
-        }
+      // 2. 检查新物品贡献度：只有 result 是新物品时才 +2分
+      // A 和 B 即使是新物品也不计入贡献
+      const resultItem = task.result;
+      
+      // 检查 result 是否已经存在
+      const existingResult = await database.get<{ id: number }>(
+        'SELECT id FROM items WHERE name = ?',
+        [resultItem]
+      );
+      
+      // 如果 result 不存在，说明是新发现的物品
+      if (!existingResult) {
+        totalContribution += 2;
+        logger.debug(`发现新物品 "${resultItem}"，贡献度+2`);
       }
       
       // 3. 更新用户贡献度
       if (totalContribution > 0) {
         await userService.incrementContribution(userId, totalContribution);
-        logger.success(`用户 ${userId} 贡献度增加 ${totalContribution} 分 (新配方: +1, 新物品: +${totalContribution - 1})`);
+        const newItemBonus = totalContribution - 1;
+        logger.success(`用户 ${userId} 贡献度增加 ${totalContribution} 分 (新配方: +1${newItemBonus > 0 ? `, 新物品: +${newItemBonus}` : ''})`);
       } else {
         logger.debug(`用户 ${userId} 贡献度无变化 (所有物品已存在)`);
       }
@@ -406,8 +408,10 @@ class ImportTaskQueue {
 
   /**
    * 更新物品字典
-   * 修复：先检查物品是否存在，避免INSERT OR IGNORE导致ID浪费
-   * 修复：记录元素发现者用户ID
+   * 新规则：
+   * - A、B、C 都会添加到 items 表（如果不存在）
+   * - 只有 C（result）会记录发现者 user_id
+   * - A 和 B 如果是新物品，user_id 设为 NULL（表示未被正式发现）
    */
   private async updateItemsDictionary(items: string[], resultEmoji?: string, taskId?: number) {
     // 获取任务的创建者 ID
@@ -425,20 +429,38 @@ class ImportTaskQueue {
       }
     }
 
-    for (const item of items) {
+    // items 数组结构: [item_a, item_b, result]
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      const isResult = (i === 2); // 只有 result (索引2) 才记录发现者
+      
       // 先检查物品是否已存在
-      const existing = await database.get<{ id: number }>(
-        'SELECT id FROM items WHERE name = ? LIMIT 1',
+      const existing = await database.get<{ id: number; user_id: number | null }>(
+        'SELECT id, user_id FROM items WHERE name = ? LIMIT 1',
         [item]
       );
       
-      // 只有不存在时才插入，并记录发现者用户ID
       if (!existing) {
+        // 物品不存在，插入新记录
+        // 只有 result 才记录 user_id，A 和 B 设为 NULL
         await database.run(
           'INSERT INTO items (name, is_base, user_id, created_at) VALUES (?, 0, ?, ?)',
-          [item, userId, getCurrentUTC8TimeForDB()]
+          [item, isResult ? userId : null, getCurrentUTC8TimeForDB()]
         );
-        logger.debug(`新物品添加到词典: ${item} (发现者: ${userId})`);
+        
+        if (isResult) {
+          logger.debug(`新物品添加到词典: ${item} (发现者: ${userId})`);
+        } else {
+          logger.debug(`新物品添加到词典: ${item} (材料，未记录发现者)`);
+        }
+      } else if (isResult && existing.user_id === null) {
+        // 如果是 result，且之前作为材料添加过（user_id 为 NULL）
+        // 现在更新为有发现者
+        await database.run(
+          'UPDATE items SET user_id = ? WHERE name = ? AND user_id IS NULL',
+          [userId, item]
+        );
+        logger.debug(`更新物品发现者: ${item} (发现者: ${userId})`);
       }
     }
     

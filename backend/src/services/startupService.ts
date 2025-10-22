@@ -16,15 +16,70 @@ export class StartupService {
       // 确保数据库已初始化
       await database.init();
       
-      // 1. 重新计算任务完成情况
+      // 1. 重新计算 items 表的发现者
+      await this.recalculateItemDiscoverers();
+      
+      // 2. 重新计算任务完成情况
       await this.recalculateTaskCompletion();
       
-      // 2. 重新计算玩家贡献值
+      // 3. 重新计算玩家贡献值
       await this.recalculateUserContributions();
       
       logger.success('=== 启动初始化完成 ===');
     } catch (error) {
       logger.error('启动初始化失败', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 重新计算 items 表的发现者
+   * 新规则：只有作为 result 首次出现的物品才记录发现者
+   */
+  private async recalculateItemDiscoverers(): Promise<void> {
+    logger.info('开始重新计算物品发现者...');
+    const startTime = Date.now();
+
+    try {
+      await database.transaction(async (tx) => {
+        // 1. 先将所有非基础物品的 user_id 重置为 NULL
+        await tx.run(
+          'UPDATE items SET user_id = NULL WHERE is_base = 0'
+        );
+
+        // 2. 查找每个物品作为 result 首次出现的配方
+        const firstDiscoveries = await tx.all<{
+          item_name: string;
+          user_id: number;
+          created_at: string;
+        }>(
+          `SELECT result as item_name, user_id, MIN(created_at) as created_at
+           FROM recipes
+           GROUP BY result`
+        );
+
+        // 3. 批量更新物品的发现者
+        let updatedCount = 0;
+        for (const discovery of firstDiscoveries) {
+          const result = await tx.run(
+            'UPDATE items SET user_id = ? WHERE name = ? AND is_base = 0',
+            [discovery.user_id, discovery.item_name]
+          );
+          
+          if (result.changes > 0) {
+            updatedCount++;
+            logger.debug(`物品 "${discovery.item_name}" 发现者: 用户${discovery.user_id}`);
+          }
+        }
+
+        const duration = Date.now() - startTime;
+        logger.success(
+          `物品发现者重新计算完毕: 更新了 ${updatedCount} 个物品 (耗时: ${duration}ms)`
+        );
+      });
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error(`重新计算物品发现者失败 (耗时: ${duration}ms)`, error);
       throw error;
     }
   }
@@ -107,6 +162,7 @@ export class StartupService {
    * 基于配方数量、新物品数量和已完成任务奖励
    * 
    * 性能优化版本：使用批量查询替代逐用户查询
+   * 新规则：只有作为 result 首次出现的物品才计入发现贡献
    */
   private async recalculateUserContributions(): Promise<void> {
     logger.info('开始重新计算玩家贡献值...');
@@ -121,34 +177,14 @@ export class StartupService {
            GROUP BY user_id`
         );
 
-        // 2. 批量计算每个用户首次提交的新物品数量 (+2分/物品)
-        // 优化策略：先找出每个物品首次出现的配方，再按用户统计
+        // 2. 批量计算每个用户首次发现的物品数量 (+2分/物品)
+        // 新规则：只统计作为 result 首次出现的物品
         const itemStats = await tx.all<{ user_id: number; new_item_count: number }>(
-          `SELECT user_id, COUNT(DISTINCT item_name) as new_item_count
+          `SELECT user_id, COUNT(DISTINCT result) as new_item_count
            FROM (
-             -- 找出每个物品首次出现的配方及其创建者
-             SELECT 
-               r.user_id,
-               i.name as item_name
-             FROM items i
-             INNER JOIN (
-               -- 找出每个物品最早的配方
-               SELECT 
-                 item_name,
-                 MIN(created_at) as first_created_at,
-                 user_id
-               FROM (
-                 SELECT item_a as item_name, created_at, user_id FROM recipes
-                 UNION ALL
-                 SELECT item_b as item_name, created_at, user_id FROM recipes
-                 UNION ALL
-                 SELECT result as item_name, created_at, user_id FROM recipes
-               )
-               GROUP BY item_name
-             ) first_recipe ON i.name = first_recipe.item_name
-             INNER JOIN recipes r ON r.user_id = first_recipe.user_id
-               AND (r.item_a = i.name OR r.item_b = i.name OR r.result = i.name)
-               AND r.created_at = first_recipe.first_created_at
+             SELECT result, user_id, MIN(created_at) as first_created_at
+             FROM recipes
+             GROUP BY result
            )
            GROUP BY user_id`
         );

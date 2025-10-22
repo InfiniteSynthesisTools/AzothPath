@@ -7,40 +7,62 @@
       
       <!-- 搜索和筛选区域 -->
       <div class="search-section">
-        <el-input
-          v-model="searchKeyword"
-          placeholder="搜索元素名称..."
-          clearable
-          class="search-input"
-          @input="handleSearch"
-        >
-          <template #prefix>
-            <el-icon><Search /></el-icon>
-          </template>
-        </el-input>
+        <div class="search-wrapper">
+          <el-input
+            v-model="searchKeyword"
+            placeholder="搜索元素名称..."
+            clearable
+            size="large"
+            class="search-input"
+            @input="handleSearch"
+          >
+            <template #prefix>
+              <el-icon><Search /></el-icon>
+            </template>
+          </el-input>
+        </div>
         
-        <el-select
-          v-model="filterType"
-          placeholder="筛选类型"
-          clearable
-          class="filter-select"
-          @change="handleFilterChange"
-        >
-          <el-option label="全部" value="" />
-          <el-option label="基础元素" value="base" />
-          <el-option label="合成元素" value="synthetic" />
-        </el-select>
-        
-        <el-select
-          v-model="sortBy"
-          placeholder="排序方式"
-          class="sort-select"
-          @change="handleSortChange"
-        >
-          <el-option label="按名称排序" value="name" />
-          <el-option label="按使用频率排序" value="usage" />
-          <el-option label="按配方数量排序" value="recipes" />
-        </el-select>
+        <div class="filters-wrapper">
+          <el-select
+            v-model="filterType"
+            placeholder="筛选类型"
+            clearable
+            size="large"
+            class="filter-select"
+            @change="handleFilterChange"
+          >
+            <el-option label="全部类型" value="" />
+            <el-option label="基础元素" value="base">
+              <span class="option-emoji">⭐</span>
+              <span>基础元素</span>
+            </el-option>
+            <el-option label="合成元素" value="synthetic">
+              <span class="option-emoji">🔬</span>
+              <span>合成元素</span>
+            </el-option>
+          </el-select>
+          
+          <el-select
+            v-model="sortBy"
+            placeholder="排序方式"
+            size="large"
+            class="sort-select"
+            @change="handleSortChange"
+          >
+            <el-option label="按名称排序" value="name">
+              <span class="option-emoji">🔤</span>
+              <span>按名称</span>
+            </el-option>
+            <el-option label="按使用频率排序" value="usage">
+              <span class="option-emoji">🔥</span>
+              <span>按使用频率</span>
+            </el-option>
+            <el-option label="按配方数量排序" value="recipes">
+              <span class="option-emoji">📊</span>
+              <span>按配方数量</span>
+            </el-option>
+          </el-select>
+        </div>
       </div>
     </div>
 
@@ -60,7 +82,6 @@
           :key="element.id"
           class="element-card"
           shadow="hover"
-          :body-style="{ padding: '16px' }"
           @click="viewElementDetail(element)"
         >
           <div class="element-header">
@@ -251,12 +272,72 @@ onMounted(() => {
 
 .search-section {
   display: flex;
+  flex-direction: column;
   gap: 16px;
-  justify-content: center;
-  align-items: center;
-  flex-wrap: wrap;
-  max-width: 600px;
+  max-width: 900px;
   margin: 0 auto;
+}
+
+.search-wrapper {
+  width: 100%;
+}
+
+.search-input {
+  width: 100%;
+  --el-input-border-radius: 24px;
+}
+
+.search-input :deep(.el-input__wrapper) {
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  transition: all 0.3s;
+  background: #ffffff;
+}
+
+.search-input :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+}
+
+.search-input :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 4px 20px rgba(103, 194, 58, 0.2);
+}
+
+.filters-wrapper {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.filter-select,
+.sort-select {
+  min-width: 200px;
+  flex: 1;
+  max-width: 280px;
+}
+
+.filter-select :deep(.el-input__wrapper),
+.sort-select :deep(.el-input__wrapper) {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s;
+  background: #ffffff;
+}
+
+.filter-select :deep(.el-input__wrapper:hover),
+.sort-select :deep(.el-input__wrapper:hover) {
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.filter-select :deep(.el-input__wrapper.is-focus),
+.sort-select :deep(.el-input__wrapper.is-focus) {
+  box-shadow: 0 3px 12px rgba(103, 194, 58, 0.15);
+}
+
+.option-emoji {
+  margin-right: 8px;
+  font-size: 16px;
 }
 
 .search-input {
@@ -290,6 +371,11 @@ onMounted(() => {
 .element-card {
   transition: all 0.3s ease;
   border-radius: 12px;
+  cursor: pointer;
+}
+
+.element-card :deep(.el-card__body) {
+  padding: 16px;
 }
 
 .element-card:hover {
@@ -398,51 +484,156 @@ onMounted(() => {
 /* 响应式设计 */
 @media (max-width: 768px) {
   .element-list-page {
-    padding: 16px;
+    padding: 12px;
   }
   
   .page-title {
     font-size: 24px;
   }
   
-  .search-section {
-    flex-direction: column;
-    align-items: stretch;
+  .page-subtitle {
+    font-size: 14px;
+    margin-bottom: 16px;
   }
   
-  .search-input,
-  .filter-select,
-  .sort-select {
+  .page-header {
+    margin-bottom: 20px;
+  }
+  
+  .search-section {
+    max-width: 100%;
+    gap: 12px;
+  }
+  
+  .search-wrapper {
     width: 100%;
   }
   
-  .elements-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 16px;
-  }
-  
-  .element-header {
-    flex-direction: column;
-    text-align: center;
-  }
-  
-  .element-emoji {
-    align-self: center;
-  }
-  
-  .element-stats {
+  .filters-wrapper {
+    width: 100%;
     flex-direction: column;
     gap: 8px;
   }
   
-  .element-actions {
-    flex-direction: column;
+  .filter-select,
+  .sort-select {
+    width: 100%;
+    max-width: 100%;
+  }
+  
+  .elements-grid {
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 12px;
+  }
+  
+  /* 移动端卡片紧凑布局 */
+  .element-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+  
+  .element-header {
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  
+  .element-emoji {
+    font-size: 28px;
+    width: 40px;
+    height: 40px;
+    border-radius: 6px;
+  }
+  
+  .element-name {
+    font-size: 16px;
+    margin: 0 0 3px 0;
+  }
+  
+  .element-type {
+    font-size: 11px;
+    padding: 1px 6px;
+  }
+  
+  .element-stats {
+    gap: 12px;
+    margin-bottom: 0;
+    padding: 8px 0 0 0;
+    border-top: 1px solid #f0f0f0;
+    border-bottom: none;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  
+  .stat-value {
+    font-size: 15px;
+  }
+  
+  .pagination-container {
+    margin-top: 20px;
+  }
+  
+  .pagination-container :deep(.el-pagination) {
+    flex-wrap: wrap;
+    justify-content: center;
   }
 }
 
 @media (max-width: 480px) {
+  .element-list-page {
+    padding: 10px;
+  }
+  
   .elements-grid {
     grid-template-columns: 1fr;
+    gap: 10px;
+  }
+  
+  /* 超小屏幕更紧凑 */
+  .element-card :deep(.el-card__body) {
+    padding: 10px;
+  }
+  
+  .element-header {
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  
+  .element-emoji {
+    font-size: 24px;
+    width: 36px;
+    height: 36px;
+  }
+  
+  .element-name {
+    font-size: 15px;
+  }
+  
+  .element-stats {
+    gap: 10px;
+    padding: 6px 0 0 0;
+  }
+  
+  .stat-label {
+    font-size: 10px;
+  }
+  
+  .stat-value {
+    font-size: 14px;
+  }
+  
+  .search-input :deep(.el-input__wrapper) {
+    border-radius: 20px;
+  }
+  
+  .filter-select :deep(.el-input__wrapper),
+  .sort-select :deep(.el-input__wrapper) {
+    border-radius: 10px;
+  }
+  
+  .pagination-container {
+    margin-top: 16px;
   }
 }
 </style>

@@ -1,16 +1,47 @@
 <template>
   <div class="element-detail-page">
-    <!-- 返回按钮 -->
+    <!-- 返回按钮和导航面包屑 -->
     <div class="back-section">
-      <el-button 
-        type="primary" 
-        link 
-        @click="goBack"
-        class="back-button"
-      >
-        <el-icon><ArrowLeft /></el-icon>
-        返回元素列表
-      </el-button>
+      <div class="breadcrumb-wrapper">
+        <el-button 
+          type="primary" 
+          link 
+          @click="goBack"
+          class="back-button"
+        >
+          <el-icon><ArrowLeft /></el-icon>
+          返回
+        </el-button>
+        
+        <!-- 导航历史 -->
+        <div class="nav-history" v-if="navigationHistory.length > 0">
+          <div class="history-header">
+            <span class="history-label">浏览历史 ({{ navigationHistory.length }})：</span>
+            <el-button 
+              v-if="navigationHistory.length > 10"
+              link 
+              size="small"
+              @click="showAllHistory = !showAllHistory"
+              class="toggle-history-btn"
+            >
+              {{ showAllHistory ? '收起' : '展开全部' }}
+            </el-button>
+          </div>
+          <div class="history-tags">
+            <el-tag
+              v-for="item in displayedHistory"
+              :key="item.id"
+              size="small"
+              @click="goToHistoryElement(item)"
+              class="history-tag"
+              closable
+              @close="removeFromHistory(navigationHistory.indexOf(item))"
+            >
+              {{ item.emoji || '🔘' }} {{ item.name }}
+            </el-tag>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- 加载状态 -->
@@ -203,6 +234,71 @@ const recipesLoading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(5);
 
+// 导航历史记录
+interface NavigationItem {
+  id: number;
+  name: string;
+  emoji?: string;
+}
+
+const navigationHistory = ref<NavigationItem[]>([]);
+const showAllHistory = ref(false);
+
+// 计算显示的历史记录
+const displayedHistory = computed(() => {
+  if (showAllHistory.value || navigationHistory.value.length <= 10) {
+    return navigationHistory.value;
+  }
+  // 默认显示最近的10条
+  return navigationHistory.value.slice(-10);
+});
+
+// 从 sessionStorage 恢复导航历史
+const loadNavigationHistory = () => {
+  try {
+    const stored = sessionStorage.getItem('elementNavHistory');
+    if (stored) {
+      navigationHistory.value = JSON.parse(stored);
+    }
+  } catch (error) {
+    console.error('加载导航历史失败:', error);
+  }
+};
+
+// 保存导航历史到 sessionStorage
+const saveNavigationHistory = () => {
+  try {
+    sessionStorage.setItem('elementNavHistory', JSON.stringify(navigationHistory.value));
+  } catch (error) {
+    console.error('保存导航历史失败:', error);
+  }
+};
+
+// 添加到导航历史
+const addToNavigationHistory = (item: NavigationItem) => {
+  // 避免重复添加相同元素
+  const existingIndex = navigationHistory.value.findIndex(h => h.id === item.id);
+  if (existingIndex !== -1) {
+    navigationHistory.value.splice(existingIndex, 1);
+  }
+  
+  // 添加到历史记录（无限制）
+  navigationHistory.value.push(item);
+  
+  saveNavigationHistory();
+};
+
+// 从历史记录中移除
+const removeFromHistory = (index: number) => {
+  navigationHistory.value.splice(index, 1);
+  saveNavigationHistory();
+};
+
+// 跳转到历史元素
+const goToHistoryElement = (item: NavigationItem) => {
+  router.push(`/element/${item.id}`);
+};
+
 // 计算分页后的配方列表
 const paginatedRecipes = computed(() => {
   const start = (currentPage.value - 1) * pageSize.value;
@@ -226,6 +322,14 @@ const fetchElementDetail = async () => {
 
     if (elementData) {
       element.value = elementData;
+      
+      // 添加到导航历史
+      addToNavigationHistory({
+        id: elementData.id,
+        name: elementData.name,
+        emoji: elementData.emoji
+      });
+      
       // 获取配方列表
       await fetchRecipes();
     } else {
@@ -361,6 +465,7 @@ watch(
 
 // 组件挂载时获取数据
 onMounted(() => {
+  loadNavigationHistory();
   fetchElementDetail();
 });
 </script>
@@ -377,9 +482,62 @@ onMounted(() => {
   margin-bottom: 24px;
 }
 
+.breadcrumb-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .back-button {
   font-size: 14px;
   color: #409eff;
+  align-self: flex-start;
+}
+
+.nav-history {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  background: #f5f7fa;
+  border-radius: 8px;
+  border: 1px dashed #dcdfe6;
+}
+
+.history-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.history-label {
+  font-size: 13px;
+  color: #909399;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.toggle-history-btn {
+  font-size: 12px;
+  padding: 0 8px;
+}
+
+.history-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.history-tag {
+  cursor: pointer;
+  transition: all 0.3s;
+  user-select: none;
+}
+
+.history-tag:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
 .loading-container {

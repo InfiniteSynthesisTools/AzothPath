@@ -9,7 +9,7 @@
     <!-- 统计信息 -->
     <div class="stats-section">
       <el-row :gutter="20">
-        <el-col :span="6">
+        <el-col :xs="24" :sm="8" :md="8" :lg="8">
           <el-card shadow="hover">
             <el-statistic :value="stats.total_recipes" title="配方总数">
               <template #prefix>
@@ -18,7 +18,7 @@
             </el-statistic>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="24" :sm="8" :md="8" :lg="8">
           <el-card shadow="hover">
             <el-statistic :value="stats.total_items" title="物品总数">
               <template #prefix>
@@ -27,20 +27,11 @@
             </el-statistic>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="24" :sm="8" :md="8" :lg="8">
           <el-card shadow="hover">
             <el-statistic :value="stats.reachable_items" title="可合成物品">
               <template #prefix>
                 <el-icon><CircleCheck /></el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
-        </el-col>
-        <el-col :span="6">
-          <el-card shadow="hover">
-            <el-statistic :value="stats.base_items" title="基础材料">
-              <template #prefix>
-                <el-icon><Star /></el-icon>
               </template>
             </el-statistic>
           </el-card>
@@ -170,7 +161,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Document, Box, CircleCheck, Star, MapLocation } from '@element-plus/icons-vue';
+import { Document, Box, CircleCheck, MapLocation } from '@element-plus/icons-vue';
 import { recipeApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
 
@@ -537,21 +528,23 @@ onMounted(() => {
 /* 移动端 */
 @media (max-width: 768px) {
   .hero-section {
-    padding: 30px 15px;
+    padding: 24px 16px;
   }
   
   .hero-section h2 {
-    font-size: 24px;
+    font-size: 22px;
+    line-height: 1.3;
   }
   
   .hero-section p {
     font-size: 14px;
+    line-height: 1.5;
   }
   
   .stats-section,
   .cards-section {
     padding: 0 12px;
-    margin: 20px auto;
+    margin: 16px auto;
   }
   
   /* 统计卡片单列显示 */
@@ -561,43 +554,64 @@ onMounted(() => {
   }
   
   .feature-card {
-    height: 300px;
-    margin-bottom: 15px;
+    height: auto !important;
+    min-height: 320px;
+    margin-bottom: 16px;
   }
   
   .card-content {
-    height: 220px;
+    height: auto !important;
+    min-height: 240px;
+    max-height: none !important;
+  }
+  
+  /* 配方项优化 - 关键改进：解决换行问题 */
+  .recipe-item {
+    padding: 12px;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: nowrap; /* 关键：外层不换行 */
+  }
+  
+  .recipe-left {
+    flex-shrink: 0; /* 点赞按钮不收缩 */
   }
   
   .recipe-display {
-    flex-wrap: wrap;
-    gap: 2px;
+    flex: 1;
+    min-width: 0; /* 关键：允许flex子元素收缩 */
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap; /* 内部允许换行 */
+    gap: 4px;
   }
   
-  /* 移动端下整体改为上下布局，避免右侧信息拥挤 */
-  .recipe-item {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 6px;
-  }
-  .recipe-meta {
-    justify-content: space-between;
-    white-space: normal;
-  }
-  .recipe-meta .time {
-    display: none;
-  }
-  
-  /* 移动端限制宽度，避免过长导致拥挤 */
+  /* 物品标签优化 */
   .material, .result {
-    max-width: 60px;
-    font-size: 10px;
-    flex: 0 1 auto;
+    max-width: none; /* 移除最大宽度限制 */
+    flex: 0 0 auto;
+    font-size: 12px;
+    padding: 3px 8px;
+    white-space: nowrap;
+  }
+  
+  .plus, .arrow {
+    flex-shrink: 0;
+    font-size: 11px;
+  }
+  
+  .recipe-meta {
+    flex-shrink: 0; /* 元信息不收缩 */
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
   }
 }
 
 /* 小屏手机 */
-@media (max-width: 375px) {
+@media (max-width: 414px) {
   .hero-section {
     padding: 20px 12px;
   }
@@ -606,12 +620,71 @@ onMounted(() => {
     font-size: 20px;
   }
   
+  .hero-section p {
+    font-size: 13px;
+  }
+  
   .feature-card {
-    height: 280px;
+    min-height: 300px;
   }
   
   .card-content {
-    height: 200px;
+    min-height: 220px;
+  }
+  
+  .recipe-item {
+    padding: 10px;
+    gap: 6px;
+  }
+  
+  .recipe-display {
+    gap: 3px;
+  }
+  
+  .material, .result {
+    font-size: 11px;
+    padding: 2px 6px;
+  }
+  
+  .recipe-meta .time {
+    display: none; /* 超小屏隐藏时间 */
+  }
+}
+
+/* 超小屏手机 */
+@media (max-width: 375px) {
+  .hero-section {
+    padding: 16px 10px;
+  }
+  
+  .hero-section h2 {
+    font-size: 18px;
+  }
+  
+  .hero-section p {
+    font-size: 12px;
+  }
+  
+  .feature-card {
+    min-height: 280px;
+  }
+  
+  .card-content {
+    min-height: 200px;
+  }
+  
+  .recipe-item {
+    padding: 10px;
+    gap: 6px;
+  }
+  
+  .material, .result {
+    font-size: 10px;
+    padding: 2px 5px;
+  }
+  
+  .plus, .arrow {
+    font-size: 10px;
   }
 }
 </style>

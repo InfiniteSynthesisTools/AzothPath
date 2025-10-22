@@ -101,6 +101,7 @@ export class RecipeService {
     itemEmojiMap: Record<string, string>;
     reachableItems: Set<string>;           // ✅ 新增：可达物品集合
     unreachableItems: Set<string>;         // ✅ 新增：不可达物品集合
+    shortestPathTrees: Map<string, IcicleNode>; // 🚀 新增：最短路径树缓存
     lastUpdated: number;
   } | null = null;
   
@@ -128,6 +129,7 @@ export class RecipeService {
     itemEmojiMap: Record<string, string>;
     reachableItems: Set<string>;           // ✅ 新增：可达物品集合
     unreachableItems: Set<string>;         // ✅ 新增：不可达物品集合
+    shortestPathTrees: Map<string, IcicleNode>; // 🚀 新增：最短路径树缓存
   }> {
     const now = Date.now();
     
@@ -157,6 +159,30 @@ export class RecipeService {
         }
       }
       
+      // 🚀 性能优化：预计算所有可达物品的最短路径树
+      const shortestPathTrees = new Map<string, IcicleNode>();
+      logger.info('开始预计算最短路径树...');
+      
+      // 使用全局记忆化缓存构建所有可达物品的最短路径树
+      const globalTreeMemo = new Map<string, IcicleNode | null>();
+      let precomputedCount = 0;
+      const totalReachable = reachableItems.size;
+      
+      for (const itemName of reachableItems) {
+        const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
+        if (tree) {
+          shortestPathTrees.set(itemName, tree);
+        }
+        precomputedCount++;
+        
+        // 每处理500个物品输出一次进度
+        if (precomputedCount % 500 === 0) {
+          logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount/totalReachable*100)}%)`);
+        }
+      }
+      
+      logger.info(`最短路径树预计算完成：共 ${shortestPathTrees.size} 个物品的最短路径树已缓存`);
+      
       // 更新缓存
       this.graphCache = {
         recipes,
@@ -169,6 +195,7 @@ export class RecipeService {
         itemEmojiMap,
         reachableItems,           // ✅ 新增：可达物品集合
         unreachableItems,         // ✅ 新增：不可达物品集合
+        shortestPathTrees,        // 🚀 新增：最短路径树缓存
         lastUpdated: now
       };
       
@@ -925,6 +952,106 @@ export class RecipeService {
   }
 
   /**
+   * 获取单个物品的最短路径树（使用缓存优化）
+   * 
+   * 🚀 性能优化：直接从缓存获取，避免重复计算
+   */
+  async getShortestPathTree(itemName: string): Promise<IcicleNode | null> {
+    const cache = await this.getGraphCache();
+    
+    // 🚀 直接从缓存获取最短路径树
+    const tree = cache.shortestPathTrees.get(itemName);
+    
+    if (tree) {
+      logger.debug(`最短路径树缓存命中：${itemName}`);
+      return tree;
+    }
+    
+    // 如果缓存中没有，检查是否可达
+    if (!cache.reachableItems.has(itemName)) {
+      logger.debug(`物品 ${itemName} 不可达，无法构建路径树`);
+      return null;
+    }
+    
+    // 缓存中没有但物品可达，重新构建（这种情况应该很少发生）
+    logger.info(`最短路径树缓存未命中，重新构建：${itemName}`);
+    const globalTreeMemo = new Map<string, IcicleNode | null>();
+    const newTree = this.buildIcicleTreeWithCache(
+      itemName, 
+      cache.baseItemNames, 
+      cache.itemToRecipes, 
+      cache.itemEmojiMap, 
+      globalTreeMemo
+    );
+    
+    // 更新缓存
+    if (newTree) {
+      cache.shortestPathTrees.set(itemName, newTree);
+    }
+    
+    return newTree;
+  }
+
+  /**
+   * 性能测试：比较优化前后的冰柱图生成时间
+   */
+  async benchmarkIcicleGeneration(): Promise<{
+    optimizedTime: number;
+    originalTime: number;
+    speedup: number;
+    cacheHitRate: number;
+  }> {
+    const cache = await this.getGraphCache();
+    const reachableItems = Array.from(cache.reachableItems);
+    const sampleSize = Math.min(100, reachableItems.length);
+    const sampleItems = reachableItems.slice(0, sampleSize);
+    
+    // 测试优化版本（使用缓存的最短路径树）
+    const optimizedStart = Date.now();
+    let optimizedHitCount = 0;
+    
+    for (const itemName of sampleItems) {
+      const tree = cache.shortestPathTrees.get(itemName);
+      if (tree) {
+        optimizedHitCount++;
+        // 模拟使用缓存数据
+        this.calculateIcicleTreeStats(tree, cache.itemToRecipes);
+      }
+    }
+    const optimizedTime = Date.now() - optimizedStart;
+    
+    // 测试原始版本（重新构建）
+    const originalStart = Date.now();
+    const globalTreeMemo = new Map<string, IcicleNode | null>();
+    
+    for (const itemName of sampleItems) {
+      const tree = this.buildIcicleTreeWithCache(
+        itemName, 
+        cache.baseItemNames, 
+        cache.itemToRecipes, 
+        cache.itemEmojiMap, 
+        globalTreeMemo
+      );
+      if (tree) {
+        this.calculateIcicleTreeStats(tree, cache.itemToRecipes);
+      }
+    }
+    const originalTime = Date.now() - originalStart;
+    
+    const speedup = originalTime > 0 ? originalTime / optimizedTime : 0;
+    const cacheHitRate = sampleSize > 0 ? optimizedHitCount / sampleSize : 0;
+    
+    logger.info(`性能测试结果：优化版本 ${optimizedTime}ms，原始版本 ${originalTime}ms，加速比 ${speedup.toFixed(2)}x，缓存命中率 ${(cacheHitRate * 100).toFixed(1)}%`);
+    
+    return {
+      optimizedTime,
+      originalTime,
+      speedup,
+      cacheHitRate
+    };
+  }
+
+  /**
    * 获取缓存状态信息
    */
   getCacheStatus(): { 
@@ -932,12 +1059,14 @@ export class RecipeService {
     graphCacheAge?: number;
     hasIcicleCache: boolean;
     icicleCacheAge?: number;
+    shortestPathTreeCount?: number; // 🚀 新增：最短路径树数量
   } {
     const now = Date.now();
     
     const graphStatus = this.graphCache ? {
       hasGraphCache: true,
-      graphCacheAge: now - this.graphCache.lastUpdated
+      graphCacheAge: now - this.graphCache.lastUpdated,
+      shortestPathTreeCount: this.graphCache.shortestPathTrees.size
     } : {
       hasGraphCache: false
     };
@@ -1375,14 +1504,19 @@ export class RecipeService {
   private calculateGraphBreadth(nodes: string[], recipeGraph: Record<string, string[]>): number {
     let breadth = 0;
     
-    for (const node of nodes) {
-      // 计算该节点被依赖的次数（入度）
-      let inDegree = 0;
-      for (const [item, deps] of Object.entries(recipeGraph)) {
-        if (deps.includes(node)) {
-          inDegree++;
-        }
+    // 🚀 性能优化：预计算所有节点的入度，避免重复遍历
+    const inDegreeCache = new Map<string, number>();
+    
+    // 首先构建所有节点的入度缓存
+    for (const [item, deps] of Object.entries(recipeGraph)) {
+      for (const dep of deps) {
+        inDegreeCache.set(dep, (inDegreeCache.get(dep) || 0) + 1);
       }
+    }
+    
+    for (const node of nodes) {
+      // 🚀 直接从缓存获取入度
+      const inDegree = inDegreeCache.get(node) || 0;
       breadth += inDegree;
     }
     
@@ -1438,12 +1572,24 @@ export class RecipeService {
     let totalBreadth = 0;
     let count = 0;
 
+    // 🚀 性能优化：使用缓存避免重复搜索相同物品的路径
+    const pathStatsCache = new Map<string, PathStats>();
+    
     // 对每个可达物品计算路径统计
     for (const item of reachableItems) {
       try {
-        const result = await this.searchPathInternal(item, baseItemNames, itemToRecipes);
-        if (result) {
-          const { stats } = result;
+        // 🚀 性能优化：检查缓存
+        let stats = pathStatsCache.get(item);
+        
+        if (!stats) {
+          const result = await this.searchPathInternal(item, baseItemNames, itemToRecipes);
+          if (result) {
+            stats = result.stats;
+            pathStatsCache.set(item, stats);
+          }
+        }
+        
+        if (stats) {
           maxDepth = Math.max(maxDepth, stats.depth);
           totalDepth += stats.depth;
           maxWidth = Math.max(maxWidth, stats.width);
@@ -1528,30 +1674,42 @@ export class RecipeService {
     const cache = await this.getGraphCache();
     
     const reachableItems = Array.from(cache.reachableItems);
-    const baseItems = cache.baseItemNames;
     const itemToRecipes = cache.itemToRecipes;
-    const itemEmojiMap = cache.itemEmojiMap;
     
     logger.info(`冰柱图生成开始：共 ${reachableItems.length} 个可达物品需要处理（总物品数：${cache.allItemNames.length}）`);
     
     const nodesWithStats: Array<{ node: IcicleNode; stats: PathStats }> = [];
     let maxDepth = 0;
     
-    // 🚀 性能优化：使用全局记忆化缓存，避免重复计算相同物品的树
-    const globalTreeMemo = new Map<string, IcicleNode | null>();
-    
-    // 🚀 性能优化：只为可达物品构建冰柱树
+    // 🚀 性能优化：直接从缓存的最短路径树获取数据，避免重复计算
     let processedCount = 0;
     const totalItems = reachableItems.length;
     
+    // 🚀 性能优化：添加统计信息缓存，避免重复计算相同树的统计信息
+    const statsCache = new Map<string, PathStats>();
+    const depthCache = new Map<string, number>();
+    
     for (const itemName of reachableItems) {
-      const tree = this.buildIcicleTreeCached(itemName, baseItems, itemToRecipes, itemEmojiMap, globalTreeMemo);
+      // 🚀 直接从缓存获取最短路径树
+      const tree = cache.shortestPathTrees.get(itemName);
       
       if (tree) {
-        // 计算路径统计信息
-        const stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
+        // 🚀 性能优化：使用缓存避免重复计算相同树的统计信息
+        let stats = statsCache.get(itemName);
+        let treeDepth = depthCache.get(itemName);
+        
+        if (!stats) {
+          stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
+          statsCache.set(itemName, stats);
+        }
+        
+        if (!treeDepth) {
+          treeDepth = this.calculateIcicleTreeDepth(tree);
+          depthCache.set(itemName, treeDepth);
+        }
+        
         nodesWithStats.push({ node: tree, stats });
-        maxDepth = Math.max(maxDepth, this.calculateIcicleTreeDepth(tree));
+        maxDepth = Math.max(maxDepth, treeDepth);
       }
       
       processedCount++;
@@ -1724,17 +1882,26 @@ export class RecipeService {
     const materials: Record<string, number> = {};
     let breadthSum = 0;
     
+    // 🚀 性能优化：添加广度计算缓存，避免重复计算相同物品的广度
+    const breadthCache = new Map<string, number>();
+    
     const traverse = (currentNode: IcicleNode, depth: number, isRoot: boolean = true): { maxDepth: number; steps: number } => {
       // 计算该节点的广度
       const recipes = itemToRecipes[currentNode.name] || [];
       
       // 基础材料：广度是使用该材料作为输入材料的配方数量
       if (currentNode.isBase) {
-        // 查找所有使用该基础材料作为输入材料的配方
-        const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe => 
-          recipe.item_a === currentNode.name || recipe.item_b === currentNode.name
-        );
-        breadthSum += inputRecipes.length;
+        // 🚀 性能优化：使用缓存避免重复计算基础材料的广度
+        let inputRecipesCount = breadthCache.get(currentNode.name);
+        if (inputRecipesCount === undefined) {
+          // 查找所有使用该基础材料作为输入材料的配方
+          const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe => 
+            recipe.item_a === currentNode.name || recipe.item_b === currentNode.name
+          );
+          inputRecipesCount = inputRecipes.length;
+          breadthCache.set(currentNode.name, inputRecipesCount);
+        }
+        breadthSum += inputRecipesCount;
         materials[currentNode.name] = (materials[currentNode.name] || 0) + 1;
         return { maxDepth: depth, steps: 0 };
       }

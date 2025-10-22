@@ -124,6 +124,15 @@ export const recipeApi = {
     return api.get<IcicleChartData>('/recipes/icicle-chart');
   },
 
+  /**
+   * 获取单个物品的最短路径树（使用缓存优化）
+   */
+  getShortestPathTree(item: string) {
+    return api.get<IcicleNode>('/recipes/shortest-path', {
+      params: { item }
+    });
+  },
+
   // 刷新缓存（管理员功能）
   refreshCache(cacheType?: 'graph' | 'icicle' | 'all') {
     return api.post<{ message: string }>('/recipes/refresh-cache', { cacheType });
@@ -136,6 +145,17 @@ export const recipeApi = {
       graphCacheAge?: number;
       hasIcicleCache: boolean;
       icicleCacheAge?: number;
+      shortestPathTreeCount?: number;
     }>('/recipes/cache-status');
+  },
+
+  // 性能测试（管理员功能）
+  benchmark() {
+    return api.post<{
+      optimizedTime: number;
+      originalTime: number;
+      speedup: number;
+      cacheHitRate: number;
+    }>('/recipes/benchmark');
   }
 };

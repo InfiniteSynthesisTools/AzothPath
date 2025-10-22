@@ -139,6 +139,36 @@ router.get('/icicle-chart', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/recipes/shortest-path/:item
+ * 获取单个物品的最短路径树（使用缓存优化）
+ */
+router.get('/shortest-path/:item', async (req: Request, res: Response) => {
+  try {
+    const item = decodeURIComponent(req.params.item);
+    const tree = await recipeService.getShortestPathTree(item);
+
+    if (!tree) {
+      return res.status(404).json({
+        code: 404,
+        message: '未找到该物品的最短路径树'
+      });
+    }
+
+    res.json({
+      code: 200,
+      message: '获取最短路径树成功',
+      data: tree
+    });
+  } catch (error: any) {
+    logger.error('获取最短路径树失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取最短路径树失败'
+    });
+  }
+});
+
+/**
  * GET /api/recipes/:id
  * 获取配方详情
  */
@@ -445,6 +475,37 @@ router.get('/cache-status', authMiddleware, async (req: AuthRequest, res: Respon
     res.status(500).json({
       code: 500,
       message: error.message || '获取缓存状态失败'
+    });
+  }
+});
+
+/**
+ * POST /api/recipes/benchmark
+ * 性能测试：比较优化前后的冰柱图生成时间（管理员功能）
+ */
+router.post('/benchmark', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    // 检查管理员权限
+    const user = await userService.getCurrentUser(req.userId!);
+    if (!user || user.auth < 9) {
+      return res.status(403).json({
+        code: 403,
+        message: '权限不足'
+      });
+    }
+
+    const benchmarkResult = await recipeService.benchmarkIcicleGeneration();
+
+    res.json({
+      code: 200,
+      message: '性能测试完成',
+      data: benchmarkResult
+    });
+  } catch (error: any) {
+    logger.error('性能测试失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '性能测试失败'
     });
   }
 });

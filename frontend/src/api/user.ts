@@ -51,5 +51,48 @@ export const userApi = {
   // 获取用户统计信息
   getUserStats(userId: number) {
     return request.get<{ stats: any }>(`/users/${userId}/stats`);
+  },
+
+  // ==================== 管理员功能 ====================
+
+  // 获取所有用户列表（管理员功能）
+  getAllUsers(params: { 
+    page?: number; 
+    limit?: number; 
+    search?: string; 
+    role?: string; 
+  } = {}) {
+    return request.get<{
+      users: User[];
+      total: number;
+      page: number;
+      limit: number;
+    }>('/users/admin/list', { params });
+  },
+
+  // 更新用户权限（管理员功能）
+  updateUserRole(userId: number, role: number) {
+    return request.put<{ userId: number; newRole: number }>(`/users/admin/${userId}/role`, { role });
+  },
+
+  // 更新用户信息（管理员功能）
+  updateUserInfo(userId: number, updates: {
+    name?: string;
+    contribute?: number;
+    level?: number;
+    auth?: number;
+    created_at?: string;
+  }) {
+    return request.put<{ userId: number; updates: any }>(`/users/admin/${userId}`, updates);
+  },
+
+  // 删除用户（管理员功能）
+  deleteUser(userId: number) {
+    return request.delete<{ userId: number }>(`/users/admin/${userId}`);
+  },
+
+  // 获取用户总数（管理员功能）
+  getUserCount() {
+    return request.get<{ total_users: number }>('/users/admin/count');
   }
 };

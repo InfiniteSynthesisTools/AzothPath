@@ -45,46 +45,43 @@
         v-loading="loading"
         stripe
         style="width: 100%"
+        @sort-change="handleSort"
       >
-        <el-table-column prop="id" label="ID" width="80" />
-        <el-table-column prop="name" label="用户名" width="150">
+        <el-table-column prop="id" label="ID" width="80" sortable="custom" align="center" />
+        
+        <el-table-column prop="name" label="用户名" min-width="150" />
+        
+        <el-table-column prop="auth" label="角色" width="100" align="center">
           <template #default="{ row }">
-            <div class="user-info">
-              <span class="username">{{ row.name }}</span>
-              <el-tag v-if="row.auth === 9" type="danger" size="small">管理员</el-tag>
-            </div>
+            <el-tag :type="row.auth === 9 ? 'danger' : 'primary'" size="small">
+              {{ row.auth === 9 ? '管理员' : '普通用户' }}
+            </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="contribute" label="贡献分" width="100" sortable>
-          <template #default="{ row }">
-            <el-tag type="success">{{ row.contribute }}</el-tag>
-          </template>
-        </el-table-column>
-        <el-table-column prop="level" label="等级" width="80" />
-        <el-table-column prop="recipe_count" label="配方数" width="100" />
-        <el-table-column prop="item_count" label="物品数" width="100" />
-        <el-table-column prop="created_at" label="注册时间" width="180">
+        
+        <el-table-column prop="recipe_count" label="配方数" width="100" align="center" />
+        
+        <el-table-column prop="item_count" label="物品数" width="100" align="center" />
+        
+        <el-table-column prop="created_at" label="注册时间" width="180" sortable="custom">
           <template #default="{ row }">
             {{ formatDateTime(row.created_at) }}
           </template>
         </el-table-column>
-        <el-table-column label="操作" width="200" fixed="right">
+        
+        <el-table-column label="操作" width="150" fixed="right" align="center">
           <template #default="{ row }">
-            <el-button size="small" @click="viewUserDetail(row)">
-              详情
-            </el-button>
             <el-button 
-              v-if="row.auth !== 9" 
               size="small" 
-              type="warning"
-              @click="toggleUserRole(row)"
+              type="primary" 
+              @click="viewUserDetail(row)"
             >
-              {{ row.auth === 9 ? '降级' : '升级' }}
+              编辑
             </el-button>
             <el-button 
-              v-if="row.auth !== 9" 
               size="small" 
               type="danger"
+              :disabled="row.auth === 9"
               @click="deleteUser(row)"
             >
               删除
@@ -107,38 +104,90 @@
       />
     </div>
 
-    <!-- 用户详情对话框 -->
+    <!-- 用户编辑对话框 -->
     <el-dialog
-      v-model="detailDialogVisible"
-      title="用户详情"
-      width="600px"
+      v-model="userDialogVisible"
+      title="编辑用户"
+      width="700px"
+      :close-on-click-modal="false"
     >
-      <div v-if="selectedUser" class="user-detail">
-        <el-descriptions :column="2" border>
-          <el-descriptions-item label="用户ID">{{ selectedUser.id }}</el-descriptions-item>
-          <el-descriptions-item label="用户名">{{ selectedUser.name }}</el-descriptions-item>
-          <el-descriptions-item label="角色">
-            <el-tag :type="selectedUser.auth === 9 ? 'danger' : 'primary'">
-              {{ selectedUser.auth === 9 ? '管理员' : '普通用户' }}
-            </el-tag>
-          </el-descriptions-item>
-          <el-descriptions-item label="等级">{{ selectedUser.level }}</el-descriptions-item>
-          <el-descriptions-item label="贡献分">{{ selectedUser.contribute }}</el-descriptions-item>
-          <el-descriptions-item label="配方数">{{ selectedUser.recipe_count || 0 }}</el-descriptions-item>
-          <el-descriptions-item label="物品数">{{ selectedUser.item_count || 0 }}</el-descriptions-item>
-          <el-descriptions-item label="注册时间" :span="2">
-            {{ formatDateTime(selectedUser.created_at) }}
-          </el-descriptions-item>
-        </el-descriptions>
+      <div v-if="selectedUser" class="user-edit">
+        <!-- 用户基本信息展示 -->
+        <div class="user-info-header">
+          <el-descriptions :column="2" border size="small">
+            <el-descriptions-item label="用户ID">{{ selectedUser.id }}</el-descriptions-item>
+            <el-descriptions-item label="配方数">{{ selectedUser.recipe_count || 0 }}</el-descriptions-item>
+            <el-descriptions-item label="物品数">{{ selectedUser.item_count || 0 }}</el-descriptions-item>
+            <el-descriptions-item label="当前角色">
+              <el-tag :type="selectedUser.auth === 9 ? 'danger' : 'primary'">
+                {{ selectedUser.auth === 9 ? '管理员' : '普通用户' }}
+              </el-tag>
+            </el-descriptions-item>
+          </el-descriptions>
+        </div>
+
+        <!-- 编辑表单 -->
+        <div class="edit-form">
+          <el-form
+            ref="editFormRef"
+            :model="editForm"
+            :rules="editRules"
+            label-width="100px"
+          >
+            <el-row :gutter="20">
+              <el-col :span="12">
+                <el-form-item label="用户名" prop="name">
+                  <el-input v-model="editForm.name" placeholder="请输入用户名" />
+                </el-form-item>
+              </el-col>
+              <el-col :span="12">
+                <el-form-item label="角色" prop="auth">
+                  <el-select v-model="editForm.auth" placeholder="选择角色" style="width: 100%">
+                    <el-option label="普通用户" :value="1" />
+                    <el-option label="管理员" :value="9" />
+                  </el-select>
+                </el-form-item>
+              </el-col>
+            </el-row>
+            
+
+            <el-form-item label="注册时间" prop="created_at">
+              <el-date-picker
+                v-model="editForm.created_at"
+                type="datetime"
+                placeholder="选择注册时间"
+                format="YYYY-MM-DD HH:mm:ss"
+                value-format="YYYY-MM-DD HH:mm:ss"
+                style="width: 100%"
+              />
+            </el-form-item>
+          </el-form>
+        </div>
       </div>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="userDialogVisible = false">
+            取消
+          </el-button>
+          <el-button 
+            type="primary" 
+            @click="saveUserEdit" 
+            :loading="editLoading"
+          >
+            <el-icon><Check /></el-icon>
+            保存
+          </el-button>
+        </div>
+      </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue';
-import { ElMessage, ElMessageBox } from 'element-plus';
-import { Search, Refresh } from '@element-plus/icons-vue';
+import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
+import { Search, Refresh, Check } from '@element-plus/icons-vue';
 import { userApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
 
@@ -151,8 +200,31 @@ const sortBy = ref('contribute');
 const currentPage = ref(1);
 const pageSize = ref(20);
 const totalUsers = ref(0);
-const detailDialogVisible = ref(false);
+const userDialogVisible = ref(false);
 const selectedUser = ref<any>(null);
+
+// 编辑相关
+const editLoading = ref(false);
+const editFormRef = ref<FormInstance>();
+const editForm = ref({
+  name: '',
+  auth: 1,
+  created_at: ''
+});
+
+// 表单验证规则
+const editRules: FormRules = {
+  name: [
+    { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '用户名长度在 3 到 20 个字符', trigger: 'blur' }
+  ],
+  auth: [
+    { required: true, message: '请选择角色', trigger: 'change' }
+  ],
+  created_at: [
+    { required: true, message: '请选择注册时间', trigger: 'change' }
+  ]
+};
 
 // 计算属性
 const filteredUsers = computed(() => {
@@ -191,10 +263,11 @@ const filteredUsers = computed(() => {
 const loadUsers = async () => {
   loading.value = true;
   try {
-    // 临时使用贡献榜数据
-    const result = await userApi.getContributionRank({
+    const result = await userApi.getAllUsers({
       page: currentPage.value,
-      limit: pageSize.value
+      limit: pageSize.value,
+      search: searchQuery.value,
+      role: roleFilter.value
     });
     // 响应拦截器已经处理了数据结构，直接使用result
     const data = result as any;
@@ -209,15 +282,18 @@ const loadUsers = async () => {
 };
 
 const handleSearch = () => {
-  // 搜索逻辑在计算属性中处理
+  currentPage.value = 1;
+  loadUsers();
 };
 
 const handleFilter = () => {
-  // 过滤逻辑在计算属性中处理
+  currentPage.value = 1;
+  loadUsers();
 };
 
 const handleSort = () => {
-  // 排序逻辑在计算属性中处理
+  currentPage.value = 1;
+  loadUsers();
 };
 
 const handleSizeChange = (size: number) => {
@@ -232,35 +308,23 @@ const handleCurrentChange = (page: number) => {
 
 const viewUserDetail = (user: any) => {
   selectedUser.value = user;
-  detailDialogVisible.value = true;
+  // 初始化编辑表单数据
+  editForm.value = {
+    name: user.name,
+    auth: user.auth,
+    created_at: user.created_at
+  };
+  userDialogVisible.value = true;
 };
 
-const toggleUserRole = async (user: any) => {
-  try {
-    await ElMessageBox.confirm(
-      `确定要${user.auth === 9 ? '降级' : '升级'}用户 ${user.name} 吗？`,
-      '确认操作',
-      {
-        confirmButtonText: '确定',
-        cancelButtonText: '取消',
-        type: 'warning',
-      }
-    );
-
-    // 这里需要实现切换用户角色的API
-    // await userApi.toggleUserRole(user.id, user.auth === 9 ? 1 : 9);
-    
-    ElMessage.success('操作成功');
-    loadUsers();
-  } catch (error) {
-    if (error !== 'cancel') {
-      console.error('切换用户角色失败:', error);
-      ElMessage.error('操作失败');
-    }
-  }
-};
 
 const deleteUser = async (user: any) => {
+  // 检查是否为管理员用户
+  if (user.auth === 9) {
+    ElMessage.warning('不能删除管理员用户');
+    return;
+  }
+
   try {
     await ElMessageBox.confirm(
       `确定要删除用户 ${user.name} 吗？此操作不可恢复！`,
@@ -272,8 +336,7 @@ const deleteUser = async (user: any) => {
       }
     );
 
-    // 这里需要实现删除用户的API
-    // await userApi.deleteUser(user.id);
+    await userApi.deleteUser(user.id);
     
     ElMessage.success('删除成功');
     loadUsers();
@@ -282,6 +345,28 @@ const deleteUser = async (user: any) => {
       console.error('删除用户失败:', error);
       ElMessage.error('删除失败');
     }
+  }
+};
+
+
+// 保存用户编辑
+const saveUserEdit = async () => {
+  if (!editFormRef.value || !selectedUser.value) return;
+  
+  try {
+    await editFormRef.value.validate();
+    editLoading.value = true;
+    
+    await userApi.updateUserInfo(selectedUser.value.id, editForm.value);
+    
+    ElMessage.success('用户信息更新成功');
+    userDialogVisible.value = false;
+    loadUsers();
+  } catch (error) {
+    console.error('更新用户信息失败:', error);
+    ElMessage.error('更新失败');
+  } finally {
+    editLoading.value = false;
   }
 };
 
@@ -320,7 +405,73 @@ onMounted(() => {
   margin-top: 20px;
 }
 
-.user-detail {
+.user-edit {
   padding: 20px 0;
+}
+
+.user-info-header {
+  margin-bottom: 30px;
+  padding: 15px;
+  background-color: #f8f9fa;
+  border-radius: 8px;
+}
+
+.edit-form {
+  padding: 20px 0;
+}
+
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  padding-top: 20px;
+  border-top: 1px solid #ebeef5;
+}
+
+:deep(.el-form-item__label) {
+  font-weight: 500;
+  color: #606266;
+}
+
+:deep(.el-descriptions__label) {
+  font-weight: 500;
+  color: #606266;
+}
+
+:deep(.el-descriptions__content) {
+  color: #303133;
+}
+
+:deep(.el-descriptions__body) {
+  background-color: #fafafa;
+}
+
+:deep(.el-descriptions__table .el-descriptions__cell) {
+  padding: 12px 15px;
+}
+
+:deep(.el-dialog__header) {
+  padding-bottom: 20px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+:deep(.el-dialog__body) {
+  padding: 30px 20px;
+}
+
+:deep(.el-dialog__footer) {
+  padding: 20px;
+  background-color: #f8f9fa;
+}
+
+/* 基础表格样式 */
+:deep(.el-table__header th) {
+  background-color: #f5f7fa;
+  color: #606266;
+  font-weight: 600;
+}
+
+:deep(.el-table__body tr:hover > td) {
+  background-color: #f5f7fa;
 }
 </style>

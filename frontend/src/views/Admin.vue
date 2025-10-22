@@ -99,7 +99,7 @@
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
 import { Document, Box, User, Clock } from '@element-plus/icons-vue';
-import { recipeApi, taskApi } from '@/api';
+import { recipeApi, taskApi, userApi } from '@/api';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import RecipeManagement from '@/components/admin/RecipeManagement.vue';
 import TaskManagement from '@/components/admin/TaskManagement.vue';
@@ -133,9 +133,9 @@ const loadSystemStats = async () => {
     // 响应拦截器已经处理了数据结构，直接使用taskStats
     systemStats.value.active_tasks = taskStats.active || 0;
 
-    // 加载用户统计（这里需要实现获取用户总数的API）
-    // const userStats = await userApi.getStats();
-    // systemStats.value.total_users = userStats.total || 0;
+    // 加载用户统计
+    const userStats = await userApi.getUserCount();
+    systemStats.value.total_users = userStats.data?.total_users || 0;
 
   } catch (error) {
     console.error('加载系统统计失败:', error);

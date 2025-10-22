@@ -150,7 +150,7 @@ interface Element {
 const elements = ref<Element[]>([]);
 const loading = ref(false);
 const searchKeyword = ref('');
-const filterType = ref('');
+const filterType = ref('synthetic');
 const sortBy = ref('usage');
 const currentPage = ref(1);
 const pageSize = ref(20);

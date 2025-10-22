@@ -162,6 +162,54 @@ CREATE INDEX IF NOT EXISTS idx_recipe_likes_recipe_id ON recipe_likes(recipe_id)
 CREATE INDEX IF NOT EXISTS idx_recipe_likes_user_id ON recipe_likes(user_id);
 
 -- ====================================
+-- 7. tags 表 (标签系统)
+-- ====================================
+CREATE TABLE IF NOT EXISTS tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT UNIQUE NOT NULL,  -- 标签名称（唯一）
+  description TEXT,  -- 标签描述
+  color TEXT,  -- 标签颜色（用于前端展示，如 #FF5733）
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_tags_name ON tags(name);
+
+-- 插入预设标签
+INSERT OR IGNORE INTO tags (name, description, color) VALUES 
+  ('化学物质', '化学元素或化合物', '#FF6B6B'),
+  ('工具', '可以使用的工具', '#4ECDC4'),
+  ('武器', '用于战斗的武器', '#FFE66D'),
+  ('生物', '动物、植物等生命体', '#95E1D3'),
+  ('食物', '可食用的物品', '#FFA07A'),
+  ('材料', '基础材料或原料', '#C7CEEA'),
+  ('建筑', '建筑物或结构', '#B4A7D6'),
+  ('自然', '自然现象或资源', '#98D8C8'),
+  ('能量', '能源或动力相关', '#F7DC6F'),
+  ('抽象', '概念性物品', '#BB8FCE');
+
+-- ====================================
+-- 8. item_tags 表 (物品标签关联)
+-- ====================================
+CREATE TABLE IF NOT EXISTS item_tags (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  item_id INTEGER NOT NULL,  -- 关联 items.id（应用层管理）
+  tag_id INTEGER NOT NULL,  -- 关联 tags.id（应用层管理）
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(item_id, tag_id)  -- 防止重复关联
+);
+
+-- 关键性能优化索引
+-- 1. 根据物品查标签（查询某个物品有哪些标签）
+CREATE INDEX IF NOT EXISTS idx_item_tags_item_id ON item_tags(item_id);
+
+-- 2. 根据标签查物品（查询有某个标签的所有物品）
+CREATE INDEX IF NOT EXISTS idx_item_tags_tag_id ON item_tags(tag_id);
+
+-- 3. 复合索引：同时根据物品和标签查询（去重检查、删除操作）
+CREATE INDEX IF NOT EXISTS idx_item_tags_item_tag ON item_tags(item_id, tag_id);
+
+-- ====================================
 -- 初始化完成
 -- ====================================
 SELECT 'Database initialized successfully!' AS message;
+

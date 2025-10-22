@@ -337,6 +337,40 @@ export class TaskService {
   }
 
   /**
+   * 更新任务悬赏值（仅管理员）
+   */
+  async updateTaskPrize(taskId: number, newPrize: number) {
+    // 验证悬赏范围
+    if (typeof newPrize !== 'number' || newPrize < 0 || newPrize > 200) {
+      throw new Error('奖励必须是 0-200 之间的整数');
+    }
+
+    // 检查任务是否存在
+    const task = await this.getTaskById(taskId);
+    if (!task) {
+      throw new Error('任务不存在');
+    }
+
+    // 只允许修改活跃任务的悬赏
+    if (task.status !== 'active') {
+      throw new Error('只能修改活跃任务的悬赏');
+    }
+
+    // 更新悬赏值
+    const result = await database.run(
+      'UPDATE task SET prize = ? WHERE id = ?',
+      [newPrize, taskId]
+    );
+
+    if (result.changes === 0) {
+      throw new Error('任务不存在');
+    }
+
+    logger.info(`任务${taskId}悬赏已更新: ${task.prize} → ${newPrize}`);
+    return true;
+  }
+
+  /**
    * 删除任务（仅管理员）
    */
   async deleteTask(taskId: number) {

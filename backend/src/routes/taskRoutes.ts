@@ -203,6 +203,60 @@ router.post('/:id/complete', authMiddleware, async (req: AuthRequest, res: Respo
 });
 
 /**
+ * PATCH /api/tasks/:id
+ * 更新任务悬赏（需要管理员权限）
+ */
+router.patch('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.id);
+    const { prize } = req.body;
+
+    if (isNaN(taskId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的任务 ID'
+      });
+    }
+
+    // 检查管理员权限
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({
+        code: 403,
+        message: '需要管理员权限'
+      });
+    }
+
+    if (prize === undefined || prize === null) {
+      return res.status(400).json({
+        code: 400,
+        message: '缺少悬赏参数'
+      });
+    }
+
+    await taskService.updateTaskPrize(taskId, prize);
+
+    res.json({
+      code: 200,
+      message: '任务悬赏更新成功'
+    });
+  } catch (error: any) {
+    logger.error('更新任务悬赏失败', error);
+
+    if (error.message === '任务不存在' || error.message === '只能修改活跃任务的悬赏' || error.message === '奖励必须是 0-200 之间的整数') {
+      return res.status(400).json({
+        code: 400,
+        message: error.message
+      });
+    }
+
+    res.status(500).json({
+      code: 500,
+      message: error.message || '更新任务悬赏失败'
+    });
+  }
+});
+
+/**
  * DELETE /api/tasks/:id
  * 删除任务（需要管理员权限）
  */

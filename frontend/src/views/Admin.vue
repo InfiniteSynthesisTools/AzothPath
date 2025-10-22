@@ -78,6 +78,11 @@
         <el-tab-pane label="📊 任务管理" name="tasks">
           <TaskManagement />
         </el-tab-pane>
+        
+        <el-tab-pane label="🏷️ 标签管理" name="tags">
+          <TagManagement />
+        </el-tab-pane>
+        
         <el-tab-pane label="🧪 元素列表" name="elements">
           <ElementManagement />
         </el-tab-pane>
@@ -98,6 +103,7 @@ import { recipeApi, taskApi } from '@/api';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import RecipeManagement from '@/components/admin/RecipeManagement.vue';
 import TaskManagement from '@/components/admin/TaskManagement.vue';
+import TagManagement from '@/components/admin/TagManagement.vue';
 import ElementManagement from '@/components/admin/ElementManagement.vue';
 import SystemDetails from '@/components/admin/SystemDetails.vue';
 

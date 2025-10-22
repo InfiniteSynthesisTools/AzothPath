@@ -16,7 +16,7 @@
 
       <!-- 统计卡片 -->
       <el-row :gutter="20" class="stats-row">
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon">📊</div>
@@ -27,7 +27,7 @@
             </div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon">🎯</div>
@@ -38,7 +38,7 @@
             </div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon">✅</div>
@@ -49,7 +49,7 @@
             </div>
           </el-card>
         </el-col>
-        <el-col :span="6">
+        <el-col :xs="12" :sm="12" :md="6" :lg="6">
           <el-card class="stat-card">
             <div class="stat-content">
               <div class="stat-icon">💰</div>
@@ -87,7 +87,10 @@
         <el-empty v-if="tasks.length === 0" description="暂无任务" />
         <el-row :gutter="20" v-else>
           <el-col 
-            :span="8" 
+            :xs="24" 
+            :sm="12" 
+            :md="8" 
+            :lg="8"
             v-for="task in tasks" 
             :key="task.id"
             class="task-col"
@@ -529,32 +532,141 @@ onMounted(() => {
 /* 响应式设计 */
 @media (max-width: 768px) {
   .page-container {
-    padding: 15px;
+    padding: 12px;
   }
   
   .page-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 15px;
+    gap: 12px;
+    margin-bottom: 16px;
   }
   
-  .stats-row .el-col {
-    margin-bottom: 15px;
+  .page-header h1 {
+    font-size: 20px;
+  }
+  
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+  
+  .header-actions .el-button {
+    flex: 1;
+  }
+  
+  .stats-row {
+    margin-bottom: 16px;
+  }
+  
+  .stats-row :deep(.el-col) {
+    margin-bottom: 12px;
+  }
+  
+  .stat-card {
+    margin-bottom: 0;
   }
   
   .stat-content {
-    padding: 16px;
-    gap: 12px;
+    padding: 12px;
+    gap: 10px;
   }
   
   .stat-icon {
-    width: 40px;
-    height: 40px;
-    font-size: 18px;
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
   }
   
   .stat-value {
-    font-size: 20px;
+    font-size: 18px;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+  }
+  
+  .status-tabs {
+    padding: 12px;
+    margin-bottom: 16px;
+  }
+  
+  .tab-switch {
+    width: 100%;
+    justify-content: space-around;
+  }
+  
+  .tab-item {
+    flex: 1;
+    text-align: center;
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .task-col {
+    margin-bottom: 16px;
+  }
+  
+  .pagination-wrapper {
+    margin-top: 20px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination) {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 8px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination .el-pager) {
+    display: flex;
+    flex-wrap: wrap;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-container {
+    padding: 10px;
+  }
+  
+  .page-header h1 {
+    font-size: 18px;
+  }
+  
+  .header-actions .el-button {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
+  
+  .stat-content {
+    padding: 10px;
+    gap: 8px;
+  }
+  
+  .stat-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+  }
+  
+  .stat-value {
+    font-size: 16px;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+  }
+  
+  .status-tabs {
+    padding: 10px;
+  }
+  
+  .tab-item {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .task-col {
+    margin-bottom: 12px;
   }
 }
 </style>

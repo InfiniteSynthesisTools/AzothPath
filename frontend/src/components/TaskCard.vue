@@ -71,6 +71,12 @@ const userStore = useUserStore();
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   cursor: pointer;
   border: 1px solid #e5e7eb;
+  transition: all 0.3s ease;
+}
+
+.task-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transform: translateY(-2px);
 }
 
 .task-card.completed {
@@ -140,16 +146,75 @@ const userStore = useUserStore();
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .task-card {
+    border-radius: 6px;
+  }
+  
+  .task-header {
+    margin-bottom: 12px;
+  }
+  
+  .task-tags {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  .task-tags .el-tag {
+    font-size: 11px;
+  }
+  
+  .task-tags .el-tag:not(:first-child) {
+    margin-left: 0;
+  }
+  
+  .more-icon {
+    font-size: 14px;
+  }
+  
+  .task-title {
+    margin-bottom: 10px;
+  }
+  
   .item-name {
     font-size: 16px;
   }
   
+  .task-prize {
+    margin-bottom: 10px;
+  }
+  
   .prize-text {
     font-size: 13px;
+    padding: 3px 6px;
   }
   
   .task-time {
     font-size: 11px;
+  }
+}
+
+@media (max-width: 480px) {
+  .task-header {
+    margin-bottom: 10px;
+  }
+  
+  .task-tags .el-tag {
+    font-size: 10px;
+    padding: 0 6px;
+    height: 20px;
+    line-height: 20px;
+  }
+  
+  .item-name {
+    font-size: 15px;
+  }
+  
+  .prize-text {
+    font-size: 12px;
+  }
+  
+  .task-time {
+    font-size: 10px;
   }
 }
 </style>

@@ -56,6 +56,7 @@ router.get('/', async (req: Request, res: Response) => {
     const type = req.query.type as string || '';
     const sortBy = req.query.sortBy as string || 'name';
     const sortOrder = req.query.sortOrder as string || 'asc';
+    const exact = (req.query.exact as string) === 'true';  // 精确匹配参数
     let includePrivate = false;
 
     // 管理员可查看未公开数据（带token且权限为admin时）
@@ -87,7 +88,8 @@ router.get('/', async (req: Request, res: Response) => {
       type,
       sortBy,
       sortOrder,
-      includePrivate
+      includePrivate,
+      exact  // 传递精确匹配参数
     });
 
     res.json({

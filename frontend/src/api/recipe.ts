@@ -101,6 +101,7 @@ export const recipeApi = {
     sortBy?: string;
     sortOrder?: string;
     includePrivate?: string | boolean;
+    exact?: boolean;  // 精确匹配物品名称
   } = {}) {
     return api.get<{
       items: any[];

@@ -1609,8 +1609,9 @@ export class RecipeService {
     sortBy?: string;
     sortOrder?: string;
     includePrivate?: boolean;
+    exact?: boolean;  // 精确匹配物品名称
   }) {
-    const { page, limit, search = '', type = '', sortBy = 'name', sortOrder = 'asc', includePrivate = false } = params;
+    const { page, limit, search = '', type = '', sortBy = 'name', sortOrder = 'asc', includePrivate = false, exact = false } = params;
     const offset = (page - 1) * limit;
 
     // 构建查询条件
@@ -1619,8 +1620,15 @@ export class RecipeService {
 
     // 搜索条件
     if (search) {
-      whereConditions.push('(name LIKE ? OR emoji LIKE ?)');
-      queryParams.push(`%${search}%`, `%${search}%`);
+      if (exact) {
+        // 精确匹配物品名称
+        whereConditions.push('name = ?');
+        queryParams.push(search);
+      } else {
+        // 模糊匹配
+        whereConditions.push('(name LIKE ? OR emoji LIKE ?)');
+        queryParams.push(`%${search}%`, `%${search}%`);
+      }
     }
 
     // 类型条件

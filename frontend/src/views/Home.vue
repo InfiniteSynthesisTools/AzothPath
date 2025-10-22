@@ -63,17 +63,17 @@
                     </button>
                   </div>
                   <div class="recipe-display">
-                    <span class="material">
+                    <span class="material clickable" @click.stop="goToElement(recipe.item_a)">
                       <span v-if="recipe.item_a_emoji" class="emoji">{{ recipe.item_a_emoji }}</span>
                       {{ recipe.item_a }}
                     </span>
                     <span class="plus">+</span>
-                    <span class="material">
+                    <span class="material clickable" @click.stop="goToElement(recipe.item_b)">
                       <span v-if="recipe.item_b_emoji" class="emoji">{{ recipe.item_b_emoji }}</span>
                       {{ recipe.item_b }}
                     </span>
                     <span class="arrow">→</span>
-                    <span class="result">
+                    <span class="result clickable" @click.stop="goToElement(recipe.result)">
                       <span v-if="recipe.result_emoji" class="emoji">{{ recipe.result_emoji }}</span>
                       {{ recipe.result }}
                     </span>
@@ -108,17 +108,17 @@
                     </button>
                   </div>
                   <div class="recipe-display">
-                    <span class="material">
+                    <span class="material clickable" @click.stop="goToElement(recipe.item_a)">
                       <span v-if="recipe.item_a_emoji" class="emoji">{{ recipe.item_a_emoji }}</span>
                       {{ recipe.item_a }}
                     </span>
                     <span class="plus">+</span>
-                    <span class="material">
+                    <span class="material clickable" @click.stop="goToElement(recipe.item_b)">
                       <span v-if="recipe.item_b_emoji" class="emoji">{{ recipe.item_b_emoji }}</span>
                       {{ recipe.item_b }}
                     </span>
                     <span class="arrow">→</span>
-                    <span class="result">
+                    <span class="result clickable" @click.stop="goToElement(recipe.result)">
                       <span v-if="recipe.result_emoji" class="emoji">{{ recipe.result_emoji }}</span>
                       {{ recipe.result }}
                     </span>
@@ -290,6 +290,27 @@ const goToGraph = () => {
   router.push({ name: 'GraphView' });
 };
 
+// 跳转到元素详情页面
+const goToElement = async (elementName: string) => {
+  try {
+    // 通过精确匹配查询元素信息
+    const response = await recipeApi.getItems({ 
+      search: elementName,
+      exact: true  // 使用精确匹配
+    }) as any;
+    
+    if (response.items && response.items.length > 0) {
+      const element = response.items[0];
+      router.push(`/element/${element.id}`);
+    } else {
+      ElMessage.warning(`未找到元素: ${elementName}`);
+    }
+  } catch (error) {
+    console.error('查询元素失败:', error);
+    ElMessage.error('无法打开元素详情');
+  }
+};
+
 onMounted(() => {
   loadStats();
   loadLatestRecipes();
@@ -430,6 +451,17 @@ onMounted(() => {
   text-overflow: ellipsis;
 }
 
+.material.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.material.clickable:hover {
+  background: #f0f2f5;
+  border-color: #409eff;
+  color: #409eff;
+}
+
 .plus, .arrow {
   color: #909399;
   font-weight: bold;
@@ -450,6 +482,16 @@ onMounted(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+}
+
+.result.clickable {
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.result.clickable:hover {
+  background: #d0e8ff;
+  color: #0052b3;
 }
 
 .emoji {

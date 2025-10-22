@@ -950,7 +950,11 @@ export class RecipeService {
   }
 
   /**
-   * 分析可达性（BFS算法）
+   * 分析可达性（BFS算法）- 优化版
+   * 
+   * 性能优化：预先构建反向索引（材料 → 配方），避免每次都遍历所有配方
+   * 原算法复杂度：O(n²) - 外层n个物品，内层每次遍历所有配方
+   * 优化后复杂度：O(n + e) - n个物品 + e条边（配方数量）
    */
   private analyzeReachability(
     baseItems: string[], 
@@ -960,12 +964,36 @@ export class RecipeService {
     const reachableItems = new Set<string>(baseItems);
     const queue = [...baseItems];
 
+    // 🚀 性能优化：预先构建反向索引 - 材料 → 使用该材料的所有配方
+    // 这样就不需要每次都遍历所有配方了
+    const materialToRecipes = new Map<string, Recipe[]>();
+    for (const recipes of Object.values(itemToRecipes)) {
+      for (const recipe of recipes) {
+        // item_a 作为材料
+        if (!materialToRecipes.has(recipe.item_a)) {
+          materialToRecipes.set(recipe.item_a, []);
+        }
+        materialToRecipes.get(recipe.item_a)!.push(recipe);
+
+        // item_b 作为材料
+        if (!materialToRecipes.has(recipe.item_b)) {
+          materialToRecipes.set(recipe.item_b, []);
+        }
+        materialToRecipes.get(recipe.item_b)!.push(recipe);
+      }
+    }
+
+    logger.info(`可达性分析：构建了反向索引，材料种类: ${materialToRecipes.size}`);
+
     while (queue.length > 0) {
       const current = queue.shift()!;
       
-      // 查找所有使用当前物品作为材料的配方
-      for (const recipe of Object.values(itemToRecipes).flat()) {
-        if (recipe.item_a === current || recipe.item_b === current) {
+      // 🚀 只查找使用当前物品作为材料的配方（不是遍历所有配方）
+      const recipesUsingCurrent = materialToRecipes.get(current) || [];
+      
+      for (const recipe of recipesUsingCurrent) {
+        // 只有当两个材料都可达时，结果才可达
+        if (reachableItems.has(recipe.item_a) && reachableItems.has(recipe.item_b)) {
           const result = recipe.result;
           if (!reachableItems.has(result)) {
             reachableItems.add(result);
@@ -975,10 +1003,14 @@ export class RecipeService {
       }
     }
 
+    logger.info(`可达性分析完成：可达物品 ${reachableItems.size} 个`);
+
     // 不可及物品 = 所有物品 - 可达物品
     const unreachableItems = new Set<string>(
       allItemNames.filter(item => !reachableItems.has(item))
     );
+
+    logger.info(`不可达物品: ${unreachableItems.size} 个`);
 
     return { reachableItems, unreachableItems };
   }
@@ -1646,19 +1678,37 @@ export class RecipeService {
     const itemToRecipes = cache.itemToRecipes;
     const itemEmojiMap = cache.itemEmojiMap;
     
+    logger.info(`冰柱图生成开始：共 ${allItems.length} 个物品需要处理`);
+    
     const nodesWithStats: Array<{ node: IcicleNode; stats: PathStats }> = [];
     let maxDepth = 0;
     
+    // 🚀 性能优化：使用全局记忆化缓存，避免重复计算相同物品的树
+    const globalTreeMemo = new Map<string, IcicleNode | null>();
+    
     // 为每个元素构建冰柱树并计算统计信息
+    let processedCount = 0;
+    const totalItems = allItems.length;
+    
     for (const itemName of allItems) {
-      const tree = this.buildIcicleTree(itemName, baseItems, itemToRecipes, itemEmojiMap, new Set());
+      const tree = this.buildIcicleTreeCached(itemName, baseItems, itemToRecipes, itemEmojiMap, globalTreeMemo);
+      
       if (tree) {
         // 计算路径统计信息
         const stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
         nodesWithStats.push({ node: tree, stats });
         maxDepth = Math.max(maxDepth, this.calculateIcicleTreeDepth(tree));
       }
+      
+      processedCount++;
+      
+      // 每处理1000个物品输出一次进度
+      if (processedCount % 1000 === 0) {
+        logger.info(`冰柱图生成进度：${processedCount}/${totalItems} (${Math.round(processedCount/totalItems*100)}%)`);
+      }
     }
+    
+    logger.info(`冰柱图树构建完成：生成了 ${nodesWithStats.length} 个有效节点，最大深度 ${maxDepth}`);
     
     // 按照最简路径算法对根节点进行排序
     // 排序规则：深度最小 → 宽度最小 → 广度最大 → 字典序
@@ -1669,8 +1719,12 @@ export class RecipeService {
       return a.node.name.localeCompare(b.node.name);
     });
     
+    logger.info('冰柱图排序完成');
+    
     // 提取排序后的节点
     const nodes = nodesWithStats.map(item => item.node);
+    
+    logger.info(`冰柱图生成完成：返回 ${nodes.length} 个节点`);
     
     return {
       nodes,
@@ -1680,55 +1734,93 @@ export class RecipeService {
   }
 
   /**
-   * 递归构建冰柱树
+   * 递归构建冰柱树（带全局缓存优化）
+   * 
+   * 🚀 性能优化：
+   * 1. 使用全局记忆化Map，在递归内部检查缓存
+   * 2. 只在根节点使用visited防止循环，子节点直接使用缓存
+   * 3. 避免每次递归都克隆Set（性能杀手）
    */
-  private buildIcicleTree(
+  private buildIcicleTreeCached(
     itemName: string,
     baseItems: string[],
     itemToRecipes: Record<string, Recipe[]>,
     itemEmojiMap: Record<string, string>,
-    visited: Set<string>
+    globalMemo: Map<string, IcicleNode | null>
   ): IcicleNode | null {
-    // 避免循环依赖
-    if (visited.has(itemName)) {
-      return null;
+    // 🚀 全局缓存命中：直接返回
+    if (globalMemo.has(itemName)) {
+      return globalMemo.get(itemName)!;
     }
-    visited.add(itemName);
+    
+    // 🚀 构建树（在递归内部使用缓存，不需要visited）
+    const tree = this.buildIcicleTreeWithCache(itemName, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
+    
+    // 🚀 缓存结果
+    globalMemo.set(itemName, tree);
+    
+    return tree;
+  }
+
+  /**
+   * 递归构建冰柱树（内部方法，使用全局缓存）
+   * 
+   * 🚀 关键优化：不使用visited Set，而是依赖globalMemo来防止重复计算
+   * 如果物品已经在缓存中（包括循环依赖的null结果），直接返回
+   */
+  private buildIcicleTreeWithCache(
+    itemName: string,
+    baseItems: string[],
+    itemToRecipes: Record<string, Recipe[]>,
+    itemEmojiMap: Record<string, string>,
+    globalMemo: Map<string, IcicleNode | null>
+  ): IcicleNode | null {
+    // 🚀 缓存命中（包括循环依赖返回的null）
+    if (globalMemo.has(itemName)) {
+      return globalMemo.get(itemName)!;
+    }
+    
+    // 🚀 标记为正在处理（防止循环依赖）
+    globalMemo.set(itemName, null);
     
     const isBase = baseItems.includes(itemName);
     
     // 基础元素：固定宽度为1
     if (isBase) {
-      return {
+      const node: IcicleNode = {
         id: `base_${itemName}`,
         name: itemName,
         emoji: itemEmojiMap[itemName],
         isBase: true,
         value: 1
       };
+      globalMemo.set(itemName, node);
+      return node;
     }
     
     // 合成元素：获取最简配方
     const recipes = itemToRecipes[itemName];
     if (!recipes || recipes.length === 0) {
+      // 保持null，表示无法构建
       return null;
     }
     
     // 选择第一个配方作为最简配方
     const recipe = recipes[0];
     
-    // 递归构建子节点
-    const childA = this.buildIcicleTree(recipe.item_a, baseItems, itemToRecipes, itemEmojiMap, new Set(visited));
-    const childB = this.buildIcicleTree(recipe.item_b, baseItems, itemToRecipes, itemEmojiMap, new Set(visited));
+    // 🚀 递归构建子节点（使用缓存，不克隆Set）
+    const childA = this.buildIcicleTreeWithCache(recipe.item_a, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
+    const childB = this.buildIcicleTreeWithCache(recipe.item_b, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
     
     if (!childA || !childB) {
+      // 保持null，表示依赖项无法构建
       return null;
     }
     
     // 合成元素的宽度是子节点宽度之和
     const value = childA.value + childB.value;
     
-    return {
+    const node: IcicleNode = {
       id: `synthetic_${itemName}`,
       name: itemName,
       emoji: itemEmojiMap[itemName],
@@ -1740,6 +1832,9 @@ export class RecipeService {
         item_b: recipe.item_b
       }
     };
+    
+    globalMemo.set(itemName, node);
+    return node;
   }
 
   /**

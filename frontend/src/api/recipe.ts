@@ -5,7 +5,8 @@ import type {
   RecipeSearchParams,
   RecipeListResponse,
   CraftingPath,
-  SubmitRecipeResponse
+  SubmitRecipeResponse,
+  IcicleChartData
 } from '@/types';
 
 export const recipeApi = {
@@ -120,6 +121,21 @@ export const recipeApi = {
    * 获取冰柱图数据
    */
   getIcicleChart() {
-    return api.get('/recipes/icicle-chart');
+    return api.get<IcicleChartData>('/recipes/icicle-chart');
+  },
+
+  // 刷新缓存（管理员功能）
+  refreshCache(cacheType?: 'graph' | 'icicle' | 'all') {
+    return api.post<{ message: string }>('/recipes/refresh-cache', { cacheType });
+  },
+
+  // 获取缓存状态（管理员功能）
+  getCacheStatus() {
+    return api.get<{
+      hasGraphCache: boolean;
+      graphCacheAge?: number;
+      hasIcicleCache: boolean;
+      icicleCacheAge?: number;
+    }>('/recipes/cache-status');
   }
 };

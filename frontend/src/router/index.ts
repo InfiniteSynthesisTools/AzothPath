@@ -1,8 +1,6 @@
 import { createRouter, createWebHistory, type RouteRecordRaw } from 'vue-router';
 import { useUserStore } from '@/stores';
 import MainLayout from '@/layouts/MainLayout.vue';
-// 冰柱图页面 - 使用懒加载
-const IcicleChartView = () => import('@/views/IcicleChartView.vue');
 
 // 路由配置
 const routes: RouteRecordRaw[] = [
@@ -89,15 +87,7 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/GraphView.vue'),
         meta: { title: '总图显示' }
       },
-      {
-        path: '/icicle-chart',
-        name: 'IcicleChart',
-        component: IcicleChartView,
-        meta: {
-          title: '冰柱图',
-          requiresAuth: false
-        }
-      }
+
     ]
   },
   // 独立页面（不使用 MainLayout）

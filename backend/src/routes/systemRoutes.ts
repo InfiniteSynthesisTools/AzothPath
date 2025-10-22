@@ -239,8 +239,14 @@ router.get('/cache/status', async (req: Request, res: Response) => {
       data: {
         ...cacheStatus,
         ttl: recipeService['CACHE_TTL'] / 1000, // 转换为秒
-        lastUpdatedFormatted: cacheStatus.lastUpdated ? new Date(cacheStatus.lastUpdated).toISOString() : null,
-        ageFormatted: cacheStatus.age ? formatDuration(cacheStatus.age) : null
+        // 图缓存格式化信息
+        graphLastUpdatedFormatted: cacheStatus.hasGraphCache && cacheStatus.graphCacheAge ? 
+          new Date(Date.now() - cacheStatus.graphCacheAge).toISOString() : null,
+        graphAgeFormatted: cacheStatus.graphCacheAge ? formatDuration(cacheStatus.graphCacheAge) : null,
+        // 冰柱图缓存格式化信息
+        icicleLastUpdatedFormatted: cacheStatus.hasIcicleCache && cacheStatus.icicleCacheAge ? 
+          new Date(Date.now() - cacheStatus.icicleCacheAge).toISOString() : null,
+        icicleAgeFormatted: cacheStatus.icicleCacheAge ? formatDuration(cacheStatus.icicleCacheAge) : null
       }
     });
   } catch (error: any) {

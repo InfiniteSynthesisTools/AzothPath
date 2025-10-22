@@ -99,11 +99,20 @@ export class RecipeService {
     baseItemNames: string[];
     allItemNames: string[];
     itemEmojiMap: Record<string, string>;
+    reachableItems: Set<string>;           // ✅ 新增：可达物品集合
+    unreachableItems: Set<string>;         // ✅ 新增：不可达物品集合
+    lastUpdated: number;
+  } | null = null;
+  
+  // 冰柱图缓存（新增）
+  private icicleCache: {
+    data: IcicleChartData;
     lastUpdated: number;
   } | null = null;
   
   // 缓存有效期（5分钟）
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟
+  private readonly ICICLE_CACHE_TTL = 10 * 60 * 1000; // 冰柱图缓存10分钟
 
   /**
    * 获取或更新图缓存
@@ -117,6 +126,8 @@ export class RecipeService {
     baseItemNames: string[];
     allItemNames: string[];
     itemEmojiMap: Record<string, string>;
+    reachableItems: Set<string>;           // ✅ 新增：可达物品集合
+    unreachableItems: Set<string>;         // ✅ 新增：不可达物品集合
   }> {
     const now = Date.now();
     
@@ -134,6 +145,9 @@ export class RecipeService {
 
       // 构建依赖图
       const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
+      
+      // 🚀 性能优化：进行可达性分析
+      const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
       
       // 构建emoji映射
       const itemEmojiMap: Record<string, string> = {};
@@ -153,13 +167,15 @@ export class RecipeService {
         baseItemNames,
         allItemNames,
         itemEmojiMap,
+        reachableItems,           // ✅ 新增：可达物品集合
+        unreachableItems,         // ✅ 新增：不可达物品集合
         lastUpdated: now
       };
       
       logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品`);
     }
     
-    return this.graphCache;
+    return this.graphCache!;
   }
 
   /**
@@ -167,8 +183,17 @@ export class RecipeService {
    */
   async refreshGraphCache(): Promise<void> {
     this.graphCache = null;
+    this.icicleCache = null; // 🚀 同时刷新冰柱图缓存
     await this.getGraphCache();
     logger.info('图缓存已强制刷新');
+  }
+
+  /**
+   * 强制刷新冰柱图缓存
+   */
+  async refreshIcicleCache(): Promise<void> {
+    this.icicleCache = null;
+    logger.info('冰柱图缓存已强制刷新');
   }
 
   /**
@@ -264,7 +289,9 @@ export class RecipeService {
       recipesWithStats = await Promise.all(
         recipes.map(async (recipe) => {
           try {
-            const pathStats = await this.calculateRecipePathStats(recipe);
+            // 使用缓存获取图数据来计算统计信息
+            const cache = await this.getGraphCache();
+            const pathStats = this.calculateRecipeStats(recipe, cache.baseItemNames, cache.itemToRecipes);
             return {
               ...recipe,
               depth: pathStats.depth,
@@ -900,23 +927,36 @@ export class RecipeService {
   /**
    * 获取缓存状态信息
    */
-  getCacheStatus(): { hasCache: boolean; lastUpdated?: number; age?: number } {
-    if (!this.graphCache) {
-      return { hasCache: false };
-    }
-    
+  getCacheStatus(): { 
+    hasGraphCache: boolean; 
+    graphCacheAge?: number;
+    hasIcicleCache: boolean;
+    icicleCacheAge?: number;
+  } {
     const now = Date.now();
-    const age = now - this.graphCache.lastUpdated;
+    
+    const graphStatus = this.graphCache ? {
+      hasGraphCache: true,
+      graphCacheAge: now - this.graphCache.lastUpdated
+    } : {
+      hasGraphCache: false
+    };
+    
+    const icicleStatus = this.icicleCache ? {
+      hasIcicleCache: true,
+      icicleCacheAge: now - this.icicleCache.lastUpdated
+    } : {
+      hasIcicleCache: false
+    };
     
     return {
-      hasCache: true,
-      lastUpdated: this.graphCache.lastUpdated,
-      age: age
+      ...graphStatus,
+      ...icicleStatus
     };
   }
 
   /**
-   * 构建依赖图
+   * 构建依赖图（包含最简路径排序）
    */
   private buildDependencyGraph(recipes: Recipe[], allItemNames: string[]): {
     itemToRecipes: Record<string, Recipe[]>;
@@ -944,6 +984,35 @@ export class RecipeService {
       }
       recipeGraph[recipe.result].push(recipe.item_a);
       recipeGraph[recipe.result].push(recipe.item_b);
+    }
+
+    // 🚀 性能优化：对每个物品的所有配方进行最简路径排序
+    // 排序规则：深度最小 → 宽度最小 → 广度最大 → 字典序
+    for (const itemName of allItemNames) {
+      const recipesForItem = itemToRecipes[itemName];
+      if (recipesForItem && recipesForItem.length > 1) {
+        // 创建基础材料集合（用于统计计算）
+        const baseItems = ['金', '木', '水', '火', '土'];
+        
+        // 计算每个配方的统计信息并排序
+        const memo: Record<string, { depth: number; width: number; breadth: number }> = {};
+        
+        recipesForItem.sort((a, b) => {
+          const statsA = this.calculateRecipeStats(a, baseItems, itemToRecipes, memo);
+          const statsB = this.calculateRecipeStats(b, baseItems, itemToRecipes, memo);
+          
+          // 深度最小优先
+          if (statsA.depth !== statsB.depth) return statsA.depth - statsB.depth;
+          // 宽度最小优先
+          if (statsA.width !== statsB.width) return statsA.width - statsB.width;
+          // 广度最大优先
+          if (statsA.breadth !== statsB.breadth) return statsB.breadth - statsA.breadth;
+          // 字典序
+          return a.item_a.localeCompare(b.item_a) || a.item_b.localeCompare(b.item_b);
+        });
+        
+        logger.debug(`物品 ${itemName} 的 ${recipesForItem.length} 个配方已按最简路径排序`);
+      }
     }
 
     return { itemToRecipes, recipeGraph };
@@ -1442,283 +1511,28 @@ export class RecipeService {
   }
 
   /**
-   * 计算物品的统计信息
-   */
-  private async calculateItemStats(itemName: string, baseItems: string[], itemToRecipes: Record<string, Recipe[]>): Promise<{ depth: number; width: number; breadth: number }> {
-    // 广度计算：能够合成这个物品的配方数的总和
-    const breadth = (itemToRecipes[itemName] || []).length;
-
-    // 如果是基础材料，深度为0，宽度为0
-    if (baseItems.includes(itemName)) {
-      return {
-        depth: 0,
-        width: 0,
-        breadth: breadth
-      };
-    }
-
-    // 对于合成材料，构建合成树并计算深度和宽度
-    const tree = this.buildCraftingTree(itemName, baseItems, itemToRecipes, {});
-    if (!tree) {
-      return { depth: 0, width: 0, breadth: breadth };
-    }
-
-    const stats = this.calculateTreeStats(tree, itemToRecipes);
-    return {
-      depth: stats.depth,
-      width: stats.width,
-      breadth: breadth
-    };
-  }
-
-  /**
-   * 计算配方素材的统计信息
-   * 深度：配方中两个输入素材的最大深度
-   * 宽度：配方中两个输入素材的宽度总和
-   * 广度：配方中两个输入素材的广度总和
-   */
-  private async calculateRecipePathStats(recipe: Recipe): Promise<{ depth: number; width: number; breadth: number }> {
-    // 使用缓存获取图数据
-    const cache = await this.getGraphCache();
-
-    // 计算 item_a 的统计信息
-    const statsA = await this.calculateItemStats(recipe.item_a, cache.baseItemNames, cache.itemToRecipes);
-    // 计算 item_b 的统计信息
-    const statsB = await this.calculateItemStats(recipe.item_b, cache.baseItemNames, cache.itemToRecipes);
-
-    // 深度：取两个素材的最大深度
-    const depth = Math.max(statsA.depth, statsB.depth);
-    // 宽度：两个素材的宽度总和
-    const width = statsA.width + statsB.width;
-    // 广度：两个素材的广度总和
-    const breadth = statsA.breadth + statsB.breadth;
-
-    return { depth, width, breadth };
-  }
-
-  /**
-   * 构建配方路径树
-   */
-  private buildRecipePathTree(
-    recipe: Recipe,
-    baseItems: string[],
-    itemToRecipes: Record<string, Recipe[]>,
-    memo: Record<string, CraftingTreeNode | null> = {}
-  ): CraftingTreeNode | null {
-    // 检查缓存
-    const cacheKey = `${recipe.item_a}_${recipe.item_b}_${recipe.result}`;
-    if (cacheKey in memo) {
-      return memo[cacheKey];
-    }
-
-    // 递归构建左子树（item_a）
-    let leftChild: CraftingTreeNode | null = null;
-    if (baseItems.includes(recipe.item_a)) {
-      leftChild = { item: recipe.item_a, is_base: true };
-    } else {
-      const recipesForA = itemToRecipes[recipe.item_a];
-      if (recipesForA && recipesForA.length > 0) {
-        const childRecipe = recipesForA[0]; // 选择第一个配方
-        leftChild = this.buildRecipePathTree(childRecipe, baseItems, itemToRecipes, memo);
-      }
-    }
-
-    // 递归构建右子树（item_b）
-    let rightChild: CraftingTreeNode | null = null;
-    if (baseItems.includes(recipe.item_b)) {
-      rightChild = { item: recipe.item_b, is_base: true };
-    } else {
-      const recipesForB = itemToRecipes[recipe.item_b];
-      if (recipesForB && recipesForB.length > 0) {
-        const childRecipe = recipesForB[0]; // 选择第一个配方
-        rightChild = this.buildRecipePathTree(childRecipe, baseItems, itemToRecipes, memo);
-      }
-    }
-
-    // 如果任一子树构建失败，则整个路径失败
-    if (!leftChild || !rightChild) {
-      memo[cacheKey] = null;
-      return null;
-    }
-
-    // 构建根节点
-    const root: CraftingTreeNode = {
-      item: recipe.result,
-      is_base: false,
-      recipe: [recipe.item_a, recipe.item_b],
-      children: [leftChild, rightChild]
-    };
-
-    memo[cacheKey] = root;
-    return root;
-  }
-
-  /**
-   * 计算路径统计信息
-   */
-  private calculatePathStats(tree: CraftingTreeNode, itemToRecipes: Record<string, Recipe[]>): { depth: number; width: number; breadth: number } {
-    let maxDepth = 0;
-    let totalSteps = 0;
-    let totalBreadth = 0;
-
-    const traverse = (node: CraftingTreeNode, currentDepth: number): void => {
-      // 更新最大深度
-      maxDepth = Math.max(maxDepth, currentDepth);
-
-      // 计算该节点的广度（能匹配到的配方数量）
-      const recipes = itemToRecipes[node.item] || [];
-      totalBreadth += recipes.length;
-
-      // 如果是基础材料，没有子节点，步骤数为0
-      if (node.is_base) {
-        return;
-      }
-
-      // 合成材料，步骤数+1
-      totalSteps += 1;
-
-      // 递归遍历子节点（确保子节点不为null）
-      if (node.children) {
-        const [leftChild, rightChild] = node.children;
-        if (leftChild) {
-          traverse(leftChild, currentDepth + 1);
-        }
-        if (rightChild) {
-          traverse(rightChild, currentDepth + 1);
-        }
-      }
-    };
-
-    traverse(tree, 0);
-
-    return {
-      depth: maxDepth,
-      width: totalSteps,
-      breadth: totalBreadth
-    };
-  }
-
-  /**
-   * 获取物品列表
-   */
-  async getItemsList(params: {
-    page: number;
-    limit: number;
-    search?: string;
-    type?: string;
-    sortBy?: string;
-    sortOrder?: string;
-    includePrivate?: boolean;
-    exact?: boolean;  // 精确匹配物品名称
-  }) {
-    const { page, limit, search = '', type = '', sortBy = 'name', sortOrder = 'asc', includePrivate = false, exact = false } = params;
-    const offset = (page - 1) * limit;
-
-    // 构建查询条件
-    let whereConditions = [];
-    let queryParams: any[] = [];
-
-    // 搜索条件
-    if (search) {
-      if (exact) {
-        // 精确匹配物品名称
-        whereConditions.push('name = ?');
-        queryParams.push(search);
-      } else {
-        // 模糊匹配
-        whereConditions.push('(name LIKE ? OR emoji LIKE ?)');
-        queryParams.push(`%${search}%`, `%${search}%`);
-      }
-    }
-
-    // 类型条件
-    if (type === 'base') {
-      whereConditions.push('is_base = 1');
-    } else if (type === 'synthetic') {
-      whereConditions.push('is_base = 0');
-    }
-
-    if (!includePrivate) {
-      whereConditions.push('is_public = 1');
-    }
-    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
-
-    // 排序条件
-    let orderClause = '';
-    switch (sortBy) {
-      case 'name':
-        // 强制逻辑：没有emoji的元素排在最后
-        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, name ${sortOrder.toUpperCase()}`;
-        break;
-      case 'id':
-        // 强制逻辑：没有emoji的元素排在最后
-        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, id ${sortOrder.toUpperCase()}`;
-        break;
-      case 'usage_count':
-        // 强制逻辑：没有emoji的元素排在最后
-        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, usage_count ${sortOrder.toUpperCase()}`;
-        break;
-      default:
-        // 强制逻辑：没有emoji的元素排在最后
-        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, id ASC`;
-    }
-
-    // 查询物品列表（优化：使用 LEFT JOIN 预聚合替代每行子查询）
-    const items = await database.all<Item & { usage_count: number; recipe_count: number }>(
-      `SELECT 
-         i.*,
-         COALESCE(usage_stats.usage_count, 0) as usage_count,
-         COALESCE(result_stats.recipe_count, 0) as recipe_count
-       FROM items i
-       LEFT JOIN (
-         -- 计算每个物品作为材料被使用的次数（item_a 和 item_b 合并统计）
-         SELECT item_name, SUM(cnt) as usage_count
-         FROM (
-           SELECT item_a as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_a
-           UNION ALL
-           SELECT item_b as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_b
-         )
-         GROUP BY item_name
-       ) as usage_stats ON usage_stats.item_name = i.name
-       LEFT JOIN (
-         -- 计算每个物品作为结果出现的次数
-         SELECT result as item_name, COUNT(*) as recipe_count
-         FROM recipes
-         GROUP BY result
-       ) as result_stats ON result_stats.item_name = i.name
-       ${whereClause}
-       ${orderClause}
-       LIMIT ? OFFSET ?`,
-      [...queryParams, limit, offset]
-    );
-
-    // 获取总数
-    const totalResult = await database.get<{ count: number }>(
-      `SELECT COUNT(*) as count FROM items ${whereClause}`,
-      queryParams
-    );
-
-    return {
-      items,
-      total: totalResult?.count || 0,
-      page,
-      limit
-    };
-  }
-
-  /**
-   * 生成冰柱图数据
+   * 生成冰柱图数据（带缓存优化）
    */
   async generateIcicleChart(): Promise<IcicleChartData> {
+    const now = Date.now();
+    
+    // 🚀 性能优化：检查冰柱图缓存
+    if (this.icicleCache && now - this.icicleCache.lastUpdated < this.ICICLE_CACHE_TTL) {
+      logger.info('冰柱图缓存命中，直接返回缓存数据');
+      return this.icicleCache.data;
+    }
+    
+    logger.info('冰柱图缓存未命中或已过期，重新生成...');
+    
     // 使用缓存获取图数据
     const cache = await this.getGraphCache();
     
-    const allItems = cache.allItemNames;
+    const reachableItems = Array.from(cache.reachableItems);
     const baseItems = cache.baseItemNames;
     const itemToRecipes = cache.itemToRecipes;
     const itemEmojiMap = cache.itemEmojiMap;
     
-    logger.info(`冰柱图生成开始：共 ${allItems.length} 个物品需要处理`);
+    logger.info(`冰柱图生成开始：共 ${reachableItems.length} 个可达物品需要处理（总物品数：${cache.allItemNames.length}）`);
     
     const nodesWithStats: Array<{ node: IcicleNode; stats: PathStats }> = [];
     let maxDepth = 0;
@@ -1726,11 +1540,11 @@ export class RecipeService {
     // 🚀 性能优化：使用全局记忆化缓存，避免重复计算相同物品的树
     const globalTreeMemo = new Map<string, IcicleNode | null>();
     
-    // 为每个元素构建冰柱树并计算统计信息
+    // 🚀 性能优化：只为可达物品构建冰柱树
     let processedCount = 0;
-    const totalItems = allItems.length;
+    const totalItems = reachableItems.length;
     
-    for (const itemName of allItems) {
+    for (const itemName of reachableItems) {
       const tree = this.buildIcicleTreeCached(itemName, baseItems, itemToRecipes, itemEmojiMap, globalTreeMemo);
       
       if (tree) {
@@ -1766,11 +1580,21 @@ export class RecipeService {
     
     logger.info(`冰柱图生成完成：返回 ${nodes.length} 个节点`);
     
-    return {
+    const result = {
       nodes,
-      totalElements: allItems.length,
+      totalElements: reachableItems.length,
       maxDepth
     };
+    
+    // 🚀 性能优化：缓存冰柱图数据
+    this.icicleCache = {
+      data: result,
+      lastUpdated: now
+    };
+    
+    logger.info('冰柱图数据已缓存');
+    
+    return result;
   }
 
   /**
@@ -1949,6 +1773,203 @@ export class RecipeService {
       total_materials: totalMaterials,
       breadth: breadthSum,
       materials
+    };
+  }
+
+  /**
+   * 计算配方的路径统计信息（用于排序）
+   */
+  private calculateRecipeStats(
+    recipe: Recipe,
+    baseItems: string[],
+    itemToRecipes: Record<string, Recipe[]>,
+    memo: Record<string, { depth: number; width: number; breadth: number }> = {},
+    visited: Set<string> = new Set()
+  ): { depth: number; width: number; breadth: number } {
+    const cacheKey = `${recipe.item_a}_${recipe.item_b}_${recipe.result}`;
+    if (memo[cacheKey]) {
+      return memo[cacheKey];
+    }
+
+    // 计算 item_a 的统计信息
+    const statsA = this.calculateItemStatsForSorting(recipe.item_a, baseItems, itemToRecipes, memo, visited);
+    // 计算 item_b 的统计信息
+    const statsB = this.calculateItemStatsForSorting(recipe.item_b, baseItems, itemToRecipes, memo, visited);
+
+    // 深度：取两个素材的最大深度
+    const depth = Math.max(statsA.depth, statsB.depth);
+    // 宽度：两个素材的宽度总和
+    const width = statsA.width + statsB.width;
+    // 广度：两个素材的广度总和
+    const breadth = statsA.breadth + statsB.breadth;
+
+    const result = { depth, width, breadth };
+    memo[cacheKey] = result;
+    return result;
+  }
+
+  /**
+   * 计算物品的统计信息（用于排序）
+   */
+  private calculateItemStatsForSorting(
+    itemName: string,
+    baseItems: string[],
+    itemToRecipes: Record<string, Recipe[]>,
+    memo: Record<string, { depth: number; width: number; breadth: number }> = {},
+    visited: Set<string> = new Set()
+  ): { depth: number; width: number; breadth: number } {
+    // 防止循环依赖
+    if (visited.has(itemName)) {
+      return { depth: 0, width: 0, breadth: 0 };
+    }
+    
+    if (memo[itemName]) {
+      return memo[itemName];
+    }
+
+    // 广度计算：能够合成这个物品的配方数的总和
+    const breadth = (itemToRecipes[itemName] || []).length;
+
+    // 如果是基础材料，深度为0，宽度为0
+    if (baseItems.includes(itemName)) {
+      const result = { depth: 0, width: 0, breadth };
+      memo[itemName] = result;
+      return result;
+    }
+
+    // 对于合成材料，获取最简配方并计算深度和宽度
+    const recipes = itemToRecipes[itemName];
+    if (!recipes || recipes.length === 0) {
+      const result = { depth: 0, width: 0, breadth };
+      memo[itemName] = result;
+      return result;
+    }
+
+    // 选择第一个配方（这里会在排序后选择最简的）
+    const recipe = recipes[0];
+    
+    // 添加当前物品到已访问集合
+    visited.add(itemName);
+    const stats = this.calculateRecipeStats(recipe, baseItems, itemToRecipes, memo, visited);
+    // 移除当前物品，允许其他路径访问
+    visited.delete(itemName);
+    
+    // 深度需要+1（当前合成步骤）
+    const result = {
+      depth: stats.depth + 1,
+      width: stats.width + 1,
+      breadth
+    };
+    
+    memo[itemName] = result;
+    return result;
+  }
+
+  /**
+   * 获取物品列表
+   */
+  async getItemsList(params: {
+    page: number;
+    limit: number;
+    search?: string;
+    type?: string;
+    sortBy?: string;
+    sortOrder?: string;
+    includePrivate?: boolean;
+    exact?: boolean;  // 精确匹配物品名称
+  }) {
+    const { page, limit, search = '', type = '', sortBy = 'name', sortOrder = 'asc', includePrivate = false, exact = false } = params;
+    const offset = (page - 1) * limit;
+
+    // 构建查询条件
+    let whereConditions = [];
+    let queryParams: any[] = [];
+
+    // 搜索条件
+    if (search) {
+      if (exact) {
+        // 精确匹配物品名称
+        whereConditions.push('name = ?');
+        queryParams.push(search);
+      } else {
+        // 模糊匹配
+        whereConditions.push('(name LIKE ? OR emoji LIKE ?)');
+        queryParams.push(`%${search}%`, `%${search}%`);
+      }
+    }
+
+    // 类型条件
+    if (type === 'base') {
+      whereConditions.push('is_base = 1');
+    } else if (type === 'synthetic') {
+      whereConditions.push('is_base = 0');
+    }
+
+    if (!includePrivate) {
+      whereConditions.push('is_public = 1');
+    }
+    const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+    // 排序条件
+    let orderClause = '';
+    switch (sortBy) {
+      case 'name':
+        // 强制逻辑：没有emoji的元素排在最后
+        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, name ${sortOrder.toUpperCase()}`;
+        break;
+      case 'id':
+        // 强制逻辑：没有emoji的元素排在最后
+        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, id ${sortOrder.toUpperCase()}`;
+        break;
+      case 'usage_count':
+        // 强制逻辑：没有emoji的元素排在最后
+        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, usage_count ${sortOrder.toUpperCase()}`;
+        break;
+      default:
+        // 强制逻辑：没有emoji的元素排在最后
+        orderClause = `ORDER BY CASE WHEN emoji IS NULL OR emoji = '' THEN 1 ELSE 0 END, id ASC`;
+    }
+
+    // 查询物品列表（优化：使用 LEFT JOIN 预聚合替代每行子查询）
+    const items = await database.all<Item & { usage_count: number; recipe_count: number }>(
+      `SELECT 
+         i.*,
+         COALESCE(usage_stats.usage_count, 0) as usage_count,
+         COALESCE(result_stats.recipe_count, 0) as recipe_count
+       FROM items i
+       LEFT JOIN (
+         -- 计算每个物品作为材料被使用的次数（item_a 和 item_b 合并统计）
+         SELECT item_name, SUM(cnt) as usage_count
+         FROM (
+           SELECT item_a as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_a
+           UNION ALL
+           SELECT item_b as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_b
+         )
+         GROUP BY item_name
+       ) as usage_stats ON usage_stats.item_name = i.name
+       LEFT JOIN (
+         -- 计算每个物品作为结果出现的次数
+         SELECT result as item_name, COUNT(*) as recipe_count
+         FROM recipes
+         GROUP BY result
+       ) as result_stats ON result_stats.item_name = i.name
+       ${whereClause}
+       ${orderClause}
+       LIMIT ? OFFSET ?`,
+      [...queryParams, limit, offset]
+    );
+
+    // 获取总数
+    const totalResult = await database.get<{ count: number }>(
+      `SELECT COUNT(*) as count FROM items ${whereClause}`,
+      queryParams
+    );
+
+    return {
+      items,
+      total: totalResult?.count || 0,
+      page,
+      limit
     };
   }
 }

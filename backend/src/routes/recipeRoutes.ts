@@ -380,6 +380,75 @@ router.post('/optimize', authMiddleware, async (req: AuthRequest, res: Response)
   }
 });
 
+/**
+ * POST /api/recipes/refresh-cache
+ * 刷新缓存（管理员功能）
+ */
+router.post('/refresh-cache', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    // 检查管理员权限
+    const user = await userService.getCurrentUser(req.userId!);
+    if (!user || user.auth < 9) {
+      return res.status(403).json({
+        code: 403,
+        message: '权限不足'
+      });
+    }
+
+    const { cacheType = 'all' } = req.body as { cacheType?: 'graph' | 'icicle' | 'all' };
+    
+    if (cacheType === 'graph' || cacheType === 'all') {
+      await recipeService.refreshGraphCache();
+    }
+    
+    if (cacheType === 'icicle' || cacheType === 'all') {
+      await recipeService.refreshIcicleCache();
+    }
+
+    res.json({
+      code: 200,
+      message: `缓存刷新完成: ${cacheType}`
+    });
+  } catch (error: any) {
+    logger.error('刷新缓存失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '刷新缓存失败'
+    });
+  }
+});
+
+/**
+ * GET /api/recipes/cache-status
+ * 获取缓存状态（管理员功能）
+ */
+router.get('/cache-status', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    // 检查管理员权限
+    const user = await userService.getCurrentUser(req.userId!);
+    if (!user || user.auth < 9) {
+      return res.status(403).json({
+        code: 403,
+        message: '权限不足'
+      });
+    }
+
+    const cacheStatus = recipeService.getCacheStatus();
+
+    res.json({
+      code: 200,
+      message: '获取缓存状态成功',
+      data: cacheStatus
+    });
+  } catch (error: any) {
+    logger.error('获取缓存状态失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取缓存状态失败'
+    });
+  }
+});
+
 
 
 

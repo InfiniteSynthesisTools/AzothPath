@@ -373,7 +373,7 @@ const renderIcicleChart = async () => {
       console.log('开始渲染冰柱图，节点数量:', icicleChartData.value.nodes?.length);
       // 渲染真实的冰柱图数据
       container.innerHTML = `
-        <div style="position: relative; min-width: 100%; min-height: 600px; overflow: auto; background: #f8f9fa; border-radius: 8px;">
+        <div style="position: relative; min-width: 100%; min-height: 600px; background: #f8f9fa; border-radius: 8px;">
           ${renderIcicleNodes(icicleChartData.value.nodes)}
         </div>
       `;
@@ -442,17 +442,17 @@ const addIcicleEventListeners = () => {
 
 // 计算每个节点的位置和尺寸
 const calculateNodeLayout = (nodes: any[], startX = 0, startY = 0, level = 0) => {
-  const baseWidth = 40; // 基础元素宽度
-  const nodeHeight = 35; // 节点高度
-  const verticalGap = 10; // 垂直间距
-  const horizontalGap = 2; // 水平间距
+  const baseWidth = 60; // 基础元素宽度
+  const nodeHeight = 45; // 节点高度
+  const verticalGap = 15; // 垂直间距
+  const horizontalGap = 3; // 水平间距
   
   const layoutNodes: any[] = [];
   let currentX = startX;
   
   nodes.forEach(node => {
     // 计算节点宽度
-    const nodeWidth = node.isBase ? baseWidth : Math.max(60, node.value * baseWidth);
+    const nodeWidth = node.isBase ? baseWidth : Math.max(80, node.value * baseWidth);
     
     // 计算节点位置
     const layout = {
@@ -519,10 +519,10 @@ const renderIcicleNodes = (nodes: any[]): string => {
         "
         data-node='${JSON.stringify(node).replace(/"/g, '&quot;')}'
       >
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 2px 4px; text-align: center; width: 100%;">
-          <span style="font-size: 14px; line-height: 1;">${nodeEmoji}</span>
-          <span style="font-size: 10px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${node.name}</span>
-          ${!node.isBase ? `<span style="font-size: 8px; opacity: 0.8;">${node.value}</span>` : ''}
+        <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 6px; text-align: center; width: 100%;">
+          <span style="font-size: 16px; line-height: 1;">${nodeEmoji}</span>
+          <span style="font-size: 12px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${node.name}</span>
+          ${!node.isBase ? `<span style="font-size: 10px; opacity: 0.8;">${node.value}</span>` : ''}
         </div>
       </div>
     `;
@@ -782,10 +782,11 @@ onUnmounted(() => {
 }
 
 .chart-container {
-  height: 500px;
+  height: 600px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow: auto;
 }
 
 .placeholder {

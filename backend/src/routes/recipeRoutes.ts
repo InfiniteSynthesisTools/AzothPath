@@ -93,11 +93,11 @@ router.get('/grouped', async (req: Request, res: Response) => {
       logger.debug('Token验证失败，继续执行（无用户上下文）');
     }
 
-    const groupedRecipes = await recipeService.getGroupedRecipes({ 
-      page, 
-      limit, 
-      search, 
-      result, 
+    const groupedRecipes = await recipeService.getGroupedRecipes({
+      page,
+      limit,
+      search,
+      result,
       userId,
       includePrivate
     });
@@ -122,8 +122,11 @@ router.get('/grouped', async (req: Request, res: Response) => {
  */
 router.get('/icicle-chart', async (req: Request, res: Response) => {
   try {
-    const data = await recipeService.generateIcicleChart();
-    
+    // 可选：限制返回节点数量，减少首次渲染压力（默认不限制）
+    const limitParam = req.query.limit as string | undefined;
+    const limit = limitParam ? parseInt(limitParam) : undefined;
+    const data = await recipeService.generateIcicleChart(limit);
+
     res.json({
       code: 200,
       message: '获取冰柱图数据成功',
@@ -426,11 +429,11 @@ router.post('/refresh-cache', authMiddleware, async (req: AuthRequest, res: Resp
     }
 
     const { cacheType = 'all' } = req.body as { cacheType?: 'graph' | 'icicle' | 'all' };
-    
+
     if (cacheType === 'graph' || cacheType === 'all') {
       await recipeService.refreshGraphCache();
     }
-    
+
     if (cacheType === 'icicle' || cacheType === 'all') {
       await recipeService.refreshIcicleCache();
     }

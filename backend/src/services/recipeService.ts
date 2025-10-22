@@ -104,12 +104,14 @@ export class RecipeService {
     shortestPathTrees: Map<string, IcicleNode>; // 🚀 新增：最短路径树缓存
     lastUpdated: number;
   } | null = null;
-  
+
   // 冰柱图缓存（新增）
   private icicleCache: {
     data: IcicleChartData;
     lastUpdated: number;
   } | null = null;
+  // 冰柱图构建中的并发保护 Promise
+  private icicleCachePromise: Promise<IcicleChartData> | null = null;
   // 并发保护：当缓存正在构建时，保存构建的 Promise，避免重复构建
   private graphCachePromise: Promise<{
     recipes: Recipe[];
@@ -124,10 +126,10 @@ export class RecipeService {
     unreachableItems: Set<string>;
     shortestPathTrees: Map<string, IcicleNode>;
   }> | null = null;
-  
-  // 缓存有效期（5分钟）
-  private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟
-  private readonly ICICLE_CACHE_TTL = 10 * 60 * 1000; // 冰柱图缓存10分钟
+
+  // 缓存有效期（默认更长，显著降低重建频率）
+  private readonly CACHE_TTL = 60 * 60 * 1000; // 图缓存 60 分钟
+  private readonly ICICLE_CACHE_TTL = 6 * 60 * 60 * 1000; // 冰柱图缓存 6 小时
 
   /**
    * 获取或更新图缓存
@@ -202,7 +204,7 @@ export class RecipeService {
 
           // 每处理500个物品输出一次进度
           if (precomputedCount % 500 === 0) {
-            logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount/totalReachable*100)}%)`);
+            logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount / totalReachable * 100)}%)`);
           }
         }
 
@@ -278,7 +280,7 @@ export class RecipeService {
     includeStats?: boolean;   // 是否计算每条配方的路径统计（默认关闭，较耗时）
   }) {
     const { page = 1, limit = 20, search, orderBy = 'created_at', userId, result, cursor, includePrivate = false, includeStats = false } = params;
-    
+
     // 使用JOIN替代子查询，大幅提升性能
     let sql = `
       SELECT r.*, 
@@ -294,7 +296,7 @@ export class RecipeService {
       LEFT JOIN items ir ON ir.name = r.result
       ${userId ? 'LEFT JOIN recipe_likes rl ON rl.recipe_id = r.id AND rl.user_id = ?' : ''}
     `;
-    
+
     const sqlParams: any[] = [];
     if (userId) {
       sqlParams.push(userId);
@@ -333,7 +335,7 @@ export class RecipeService {
     // 优化排序
     const validOrderBy = ['created_at', 'likes', 'id'].includes(orderBy) ? orderBy : 'created_at';
     sql += ` ORDER BY r.${validOrderBy} DESC, r.id DESC`;
-    
+
     if (cursor) {
       sql += ` LIMIT ?`;
       sqlParams.push(limit);
@@ -363,7 +365,7 @@ export class RecipeService {
           } catch (error) {
             logger.error(`计算配方 ${recipe.id} 的统计信息失败:`, error);
           }
-          
+
           // 如果计算失败，返回默认值
           return {
             ...recipe,
@@ -379,28 +381,28 @@ export class RecipeService {
     // 构建计数查询的参数（排除分页参数）
     const countParams = [];
     let paramIndex = 0;
-    
+
     // 跳过userId参数（计数查询不需要）
     if (userId) {
       paramIndex++;
     }
-    
+
     // search参数（6个）
     if (search) {
       countParams.push(...sqlParams.slice(paramIndex, paramIndex + 6));
       paramIndex += 6;
     }
-    
+
     // result参数
     if (result) {
       countParams.push(sqlParams[paramIndex++]);
     }
-    
+
     // cursor参数
     if (cursor) {
       countParams.push(sqlParams[paramIndex++]);
     }
-    
+
     const totalPromise = this.getCountAsync(countParams, conditions);
 
     return {
@@ -439,7 +441,7 @@ export class RecipeService {
     if (conditions.length > 0) {
       countSql += ` WHERE ${conditions.join(' AND ')}`;
     }
-    
+
     try {
       const totalResult = await database.get<{ count: number }>(countSql, baseParams);
       return totalResult?.count || 0;
@@ -517,7 +519,7 @@ export class RecipeService {
         WHERE r.result = ? AND ${includePrivate ? '1=1' : 'r.is_public = 1'}
         ORDER BY r.likes DESC, r.created_at DESC
       `;
-      
+
       const recipeParams = userId ? [userId, resultItem.result] : [resultItem.result];
       const recipes = await database.all(recipeSql, recipeParams);
 
@@ -533,18 +535,18 @@ export class RecipeService {
     // 构建计数查询的参数（排除分页参数）
     const countParams = [];
     let paramIndex = 0;
-    
+
     // search参数（6个）
     if (search) {
       countParams.push(...resultParams.slice(paramIndex, paramIndex + 6));
       paramIndex += 6;
     }
-    
+
     // result参数
     if (result) {
       countParams.push(resultParams[paramIndex++]);
     }
-    
+
     const totalPromise = this.getGroupedCountAsync(countParams, conditions);
 
     return {
@@ -563,7 +565,7 @@ export class RecipeService {
     if (conditions.length > 0) {
       countSql += ` WHERE ${conditions.join(' AND ')}`;
     }
-    
+
     try {
       const totalResult = await database.get<{ count: number }>(countSql, baseParams);
       return totalResult?.count || 0;
@@ -691,7 +693,7 @@ export class RecipeService {
       await database.run('DELETE FROM recipe_likes WHERE recipe_id = ? AND user_id = ?', [recipeId, userId]);
       // 更新 recipes 表的 likes 字段
       await database.run('UPDATE recipes SET likes = likes - 1 WHERE id = ?', [recipeId]);
-      
+
       const recipe = await database.get<{ likes: number }>('SELECT likes FROM recipes WHERE id = ?', [recipeId]);
       return { liked: false, likes: recipe?.likes || 0 };
     } else {
@@ -699,7 +701,7 @@ export class RecipeService {
       await database.run('INSERT INTO recipe_likes (recipe_id, user_id, created_at) VALUES (?, ?, ?)', [recipeId, userId, getCurrentUTC8TimeForDB()]);
       // 更新 recipes 表的 likes 字段
       await database.run('UPDATE recipes SET likes = likes + 1 WHERE id = ?', [recipeId]);
-      
+
       const recipe = await database.get<{ likes: number }>('SELECT likes FROM recipes WHERE id = ?', [recipeId]);
       return { liked: true, likes: recipe?.likes || 0 };
     }
@@ -743,11 +745,11 @@ export class RecipeService {
   async searchPath(targetItem: string): Promise<{ tree: CraftingTreeNode; stats: PathStats } | null> {
     // 使用缓存获取图数据
     const cache = await this.getGraphCache();
-    
+
     // 构建合成树
     const memo: Record<string, CraftingTreeNode | null> = {};
     const tree = this.buildCraftingTree(targetItem, cache.baseItemNames, cache.itemToRecipes, memo);
-    
+
     if (!tree) {
       return null;
     }
@@ -769,7 +771,7 @@ export class RecipeService {
     // 构建合成树
     const memo: Record<string, CraftingTreeNode | null> = {};
     const tree = this.buildCraftingTree(targetItem, baseItemNames, itemToRecipes, memo);
-    
+
     if (!tree) {
       return null;
     }
@@ -833,17 +835,17 @@ export class RecipeService {
   private calculateTreeStats(tree: CraftingTreeNode, itemToRecipes: Record<string, Recipe[]>): PathStats {
     const materials: Record<string, number> = {};
     let breadthSum = 0;
-    
+
     const traverse = (node: CraftingTreeNode, depth: number, isRoot: boolean = true): { maxDepth: number; steps: number } => {
       // 计算该节点的广度（能匹配到的配方数量）
       // 对于基础材料，广度是使用该材料作为输入材料的配方数量
       // 对于合成材料，广度是能合成该材料的配方数量
       const recipes = itemToRecipes[node.item] || [];
-      
+
       // 如果是基础材料，广度是使用该材料作为输入材料的配方数量
       if (node.is_base) {
         // 查找所有使用该基础材料作为输入材料的配方
-        const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe => 
+        const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe =>
           recipe.item_a === node.item || recipe.item_b === node.item
         );
         breadthSum += inputRecipes.length;
@@ -859,7 +861,7 @@ export class RecipeService {
       // 确保子节点不为null才进行递归遍历
       let resultA = { maxDepth: depth, steps: 0 };
       let resultB = { maxDepth: depth, steps: 0 };
-      
+
       if (node.children) {
         const [childA, childB] = node.children;
         if (childA) {
@@ -898,7 +900,7 @@ export class RecipeService {
     userId?: number;
   }) {
     const { batchSize = 1000, lastId = 0, search, userId } = params;
-    
+
     let sql = `
       SELECT r.*, 
              u.name as creator_name,
@@ -914,23 +916,23 @@ export class RecipeService {
       ${userId ? 'LEFT JOIN recipe_likes rl ON rl.recipe_id = r.id AND rl.user_id = ?' : ''}
       WHERE r.id > ?
     `;
-    
+
     const sqlParams: any[] = [];
     if (userId) {
       sqlParams.push(userId);
     }
     sqlParams.push(lastId);
-    
+
     if (search) {
       sql += ` AND (r.item_a LIKE ? OR r.item_b LIKE ? OR r.result LIKE ?)`;
       sqlParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
     }
-    
+
     sql += ` ORDER BY r.id ASC LIMIT ?`;
     sqlParams.push(batchSize);
-    
+
     const recipes = await database.all(sql, sqlParams);
-    
+
     return {
       recipes,
       hasMore: recipes.length === batchSize,
@@ -952,7 +954,7 @@ export class RecipeService {
       'CREATE INDEX IF NOT EXISTS idx_recipes_result_public ON recipes(result, is_public)',
       'CREATE INDEX IF NOT EXISTS idx_recipes_public_created ON recipes(is_public, created_at DESC, id DESC)',
       'CREATE INDEX IF NOT EXISTS idx_recipes_public_likes ON recipes(is_public, likes DESC, id DESC)',
-      
+
       // 覆盖索引优化
       'CREATE INDEX IF NOT EXISTS idx_recipes_cover ON recipes(id, created_at, likes, user_id)',
     ];
@@ -973,13 +975,13 @@ export class RecipeService {
   async analyzeUnreachableGraphs(): Promise<{ unreachableGraphs: UnreachableGraph[]; systemStats: GraphSystemStats }> {
     // 使用缓存获取图数据
     const cache = await this.getGraphCache();
-    
+
     // 分析可达性
     const { reachableItems, unreachableItems } = this.analyzeReachability(cache.baseItemNames, cache.itemToRecipes, cache.allItemNames);
-    
+
     // 构建不可达图
     const unreachableGraphs = this.buildUnreachableGraphs(unreachableItems, cache.recipeGraph);
-    
+
     // 计算系统统计
     const systemStats = await this.calculateSystemStats(reachableItems, unreachableGraphs, cache.recipes, cache.itemToRecipes, cache.baseItemNames);
 
@@ -993,37 +995,37 @@ export class RecipeService {
    */
   async getShortestPathTree(itemName: string): Promise<IcicleNode | null> {
     const cache = await this.getGraphCache();
-    
+
     // 🚀 直接从缓存获取最短路径树
     const tree = cache.shortestPathTrees.get(itemName);
-    
+
     if (tree) {
       logger.debug(`最短路径树缓存命中：${itemName}`);
       return tree;
     }
-    
+
     // 如果缓存中没有，检查是否可达
     if (!cache.reachableItems.has(itemName)) {
       logger.debug(`物品 ${itemName} 不可达，无法构建路径树`);
       return null;
     }
-    
+
     // 缓存中没有但物品可达，重新构建（这种情况应该很少发生）
     logger.info(`最短路径树缓存未命中，重新构建：${itemName}`);
     const globalTreeMemo = new Map<string, IcicleNode | null>();
     const newTree = this.buildIcicleTreeWithCache(
-      itemName, 
-      cache.baseItemNames, 
-      cache.itemToRecipes, 
-      cache.itemEmojiMap, 
+      itemName,
+      cache.baseItemNames,
+      cache.itemToRecipes,
+      cache.itemEmojiMap,
       globalTreeMemo
     );
-    
+
     // 更新缓存
     if (newTree) {
       cache.shortestPathTrees.set(itemName, newTree);
     }
-    
+
     return newTree;
   }
 
@@ -1040,11 +1042,11 @@ export class RecipeService {
     const reachableItems = Array.from(cache.reachableItems);
     const sampleSize = Math.min(100, reachableItems.length);
     const sampleItems = reachableItems.slice(0, sampleSize);
-    
+
     // 测试优化版本（使用缓存的最短路径树）
     const optimizedStart = Date.now();
     let optimizedHitCount = 0;
-    
+
     for (const itemName of sampleItems) {
       const tree = cache.shortestPathTrees.get(itemName);
       if (tree) {
@@ -1054,17 +1056,17 @@ export class RecipeService {
       }
     }
     const optimizedTime = Date.now() - optimizedStart;
-    
+
     // 测试原始版本（重新构建）
     const originalStart = Date.now();
     const globalTreeMemo = new Map<string, IcicleNode | null>();
-    
+
     for (const itemName of sampleItems) {
       const tree = this.buildIcicleTreeWithCache(
-        itemName, 
-        cache.baseItemNames, 
-        cache.itemToRecipes, 
-        cache.itemEmojiMap, 
+        itemName,
+        cache.baseItemNames,
+        cache.itemToRecipes,
+        cache.itemEmojiMap,
         globalTreeMemo
       );
       if (tree) {
@@ -1072,12 +1074,12 @@ export class RecipeService {
       }
     }
     const originalTime = Date.now() - originalStart;
-    
+
     const speedup = originalTime > 0 ? originalTime / optimizedTime : 0;
     const cacheHitRate = sampleSize > 0 ? optimizedHitCount / sampleSize : 0;
-    
+
     logger.info(`性能测试结果：优化版本 ${optimizedTime}ms，原始版本 ${originalTime}ms，加速比 ${speedup.toFixed(2)}x，缓存命中率 ${(cacheHitRate * 100).toFixed(1)}%`);
-    
+
     return {
       optimizedTime,
       originalTime,
@@ -1089,15 +1091,15 @@ export class RecipeService {
   /**
    * 获取缓存状态信息
    */
-  getCacheStatus(): { 
-    hasGraphCache: boolean; 
+  getCacheStatus(): {
+    hasGraphCache: boolean;
     graphCacheAge?: number;
     hasIcicleCache: boolean;
     icicleCacheAge?: number;
     shortestPathTreeCount?: number; // 🚀 新增：最短路径树数量
   } {
     const now = Date.now();
-    
+
     const graphStatus = this.graphCache ? {
       hasGraphCache: true,
       graphCacheAge: now - this.graphCache.lastUpdated,
@@ -1105,14 +1107,14 @@ export class RecipeService {
     } : {
       hasGraphCache: false
     };
-    
+
     const icicleStatus = this.icicleCache ? {
       hasIcicleCache: true,
       icicleCacheAge: now - this.icicleCache.lastUpdated
     } : {
       hasIcicleCache: false
     };
-    
+
     return {
       ...graphStatus,
       ...icicleStatus
@@ -1157,14 +1159,14 @@ export class RecipeService {
       if (recipesForItem && recipesForItem.length > 1) {
         // 创建基础材料集合（用于统计计算）
         const baseItems = ['金', '木', '水', '火', '土'];
-        
+
         // 计算每个配方的统计信息并排序
         const memo: Record<string, { depth: number; width: number; breadth: number }> = {};
-        
+
         recipesForItem.sort((a, b) => {
           const statsA = this.calculateRecipeStats(a, baseItems, itemToRecipes, memo);
           const statsB = this.calculateRecipeStats(b, baseItems, itemToRecipes, memo);
-          
+
           // 深度最小优先
           if (statsA.depth !== statsB.depth) return statsA.depth - statsB.depth;
           // 宽度最小优先
@@ -1174,7 +1176,7 @@ export class RecipeService {
           // 字典序
           return a.item_a.localeCompare(b.item_a) || a.item_b.localeCompare(b.item_b);
         });
-        
+
         logger.debug(`物品 ${itemName} 的 ${recipesForItem.length} 个配方已按最简路径排序`);
       }
     }
@@ -1190,8 +1192,8 @@ export class RecipeService {
    * 优化后复杂度：O(n + e) - n个物品 + e条边（配方数量）
    */
   private analyzeReachability(
-    baseItems: string[], 
-    itemToRecipes: Record<string, Recipe[]>, 
+    baseItems: string[],
+    itemToRecipes: Record<string, Recipe[]>,
     allItemNames: string[]
   ): { reachableItems: Set<string>; unreachableItems: Set<string> } {
     const reachableItems = new Set<string>(baseItems);
@@ -1220,10 +1222,10 @@ export class RecipeService {
 
     while (queue.length > 0) {
       const current = queue.shift()!;
-      
+
       // 🚀 只查找使用当前物品作为材料的配方（不是遍历所有配方）
       const recipesUsingCurrent = materialToRecipes.get(current) || [];
-      
+
       for (const recipe of recipesUsingCurrent) {
         // 只有当两个材料都可达时，结果才可达
         if (reachableItems.has(recipe.item_a) && reachableItems.has(recipe.item_b)) {
@@ -1260,7 +1262,7 @@ export class RecipeService {
 
       // 找到连通分量
       const component = this.findConnectedComponent(item, recipeGraph, unreachableItems, visited);
-      
+
       // 构建图
       const graph = this.buildGraphFromComponent(component, recipeGraph);
       graphs.push(graph);
@@ -1326,7 +1328,7 @@ export class RecipeService {
 
     // 分类图类型
     const type = this.classifyGraphType(nodes, edges);
-    
+
     // 计算统计信息
     const stats = this.calculateUnreachableGraphStats(nodes, edges, recipeGraph);
 
@@ -1344,13 +1346,13 @@ export class RecipeService {
    */
   private classifyGraphType(nodes: string[], edges: Array<{ source: string; target: string }>): UnreachableGraph['type'] {
     if (nodes.length === 1) return 'isolated';
-    
+
     // 检查循环依赖
     if (this.hasCycle(nodes, edges)) return 'circular';
-    
+
     // 检查线性结构
     if (this.isLinear(nodes, edges)) return 'linear';
-    
+
     return 'boundary';
   }
 
@@ -1360,29 +1362,29 @@ export class RecipeService {
   private hasCycle(nodes: string[], edges: Array<{ source: string; target: string }>): boolean {
     const visited = new Set<string>();
     const recursionStack = new Set<string>();
-    
+
     const dfs = (node: string): boolean => {
       if (recursionStack.has(node)) return true;
       if (visited.has(node)) return false;
-      
+
       visited.add(node);
       recursionStack.add(node);
-      
+
       const neighbors = edges.filter(e => e.source === node).map(e => e.target);
       for (const neighbor of neighbors) {
         if (dfs(neighbor)) return true;
       }
-      
+
       recursionStack.delete(node);
       return false;
     };
-    
+
     for (const node of nodes) {
       if (!visited.has(node)) {
         if (dfs(node)) return true;
       }
     }
-    
+
     return false;
   }
 
@@ -1392,22 +1394,22 @@ export class RecipeService {
   private isLinear(nodes: string[], edges: Array<{ source: string; target: string }>): boolean {
     // 线性图应该有 n-1 条边，且每个节点最多有两个邻居
     if (edges.length !== nodes.length - 1) return false;
-    
+
     const degree: Record<string, number> = {};
     for (const node of nodes) {
       degree[node] = 0;
     }
-    
+
     for (const edge of edges) {
       degree[edge.source]++;
       degree[edge.target]++;
     }
-    
+
     // 线性图应该有两个端节点（度数为1）和其他节点（度数为2）
     const degreeCounts = Object.values(degree);
     const ones = degreeCounts.filter(d => d === 1).length;
     const twos = degreeCounts.filter(d => d === 2).length;
-    
+
     return ones === 2 && twos === nodes.length - 2;
   }
 
@@ -1415,32 +1417,32 @@ export class RecipeService {
    * 计算不可及图统计信息
    */
   private calculateUnreachableGraphStats(
-    nodes: string[], 
+    nodes: string[],
     edges: Array<{ source: string; target: string }>,
     recipeGraph: Record<string, string[]>
   ): UnreachableGraphStats {
     // 计算有向图统计指标
-    
+
     // 计算入度和出度
     let totalInDegree = 0;
     let totalOutDegree = 0;
-    
+
     for (const node of nodes) {
       // 出度：该节点依赖的其他节点数量
       const outDegree = edges.filter(e => e.source === node).length;
       totalOutDegree += outDegree;
-      
+
       // 入度：依赖该节点的其他节点数量
       const inDegree = edges.filter(e => e.target === node).length;
       totalInDegree += inDegree;
     }
-    
+
     // 平均度数
     const avgDegree = nodes.length > 0 ? (totalInDegree + totalOutDegree) / nodes.length : 0;
-    
+
     // 图密度（有向图密度 = 边数 / (节点数 * (节点数 - 1))）
     const density = nodes.length > 1 ? edges.length / (nodes.length * (nodes.length - 1)) : 0;
-    
+
     // 聚类系数（简化计算：平均邻居连接数）
     let clusteringSum = 0;
     for (const node of nodes) {
@@ -1449,7 +1451,7 @@ export class RecipeService {
       edges.filter(e => e.source === node).forEach(e => neighbors.add(e.target));
       // 添加入边邻居
       edges.filter(e => e.target === node).forEach(e => neighbors.add(e.source));
-      
+
       const neighborCount = neighbors.size;
       if (neighborCount > 1) {
         // 计算邻居之间的实际连接数
@@ -1457,11 +1459,11 @@ export class RecipeService {
         const neighborArray = Array.from(neighbors);
         for (let i = 0; i < neighborArray.length; i++) {
           for (let j = i + 1; j < neighborArray.length; j++) {
-            const hasEdge1 = edges.some(e => 
+            const hasEdge1 = edges.some(e =>
               (e.source === neighborArray[i] && e.target === neighborArray[j]) ||
               (e.source === neighborArray[j] && e.target === neighborArray[i])
             );
-            const hasEdge2 = edges.some(e => 
+            const hasEdge2 = edges.some(e =>
               (e.source === neighborArray[j] && e.target === neighborArray[i]) ||
               (e.source === neighborArray[i] && e.target === neighborArray[j])
             );
@@ -1475,12 +1477,12 @@ export class RecipeService {
       }
     }
     const clustering = nodes.length > 0 ? clusteringSum / nodes.length : 0;
-    
+
     // 边界节点数（连接到合法图的节点）
     let boundaryNodes = 0;
     for (const node of nodes) {
       // 检查该节点是否连接到合法图（有出边指向合法图）
-      const hasBoundaryConnection = edges.some(e => 
+      const hasBoundaryConnection = edges.some(e =>
         e.source === node && !nodes.includes(e.target)
       );
       if (hasBoundaryConnection) {
@@ -1505,21 +1507,21 @@ export class RecipeService {
   private calculateGraphDepth(nodes: string[], edges: Array<{ source: string; target: string }>): number {
     if (nodes.length === 0) return 0;
     if (nodes.length === 1) return 1;
-    
+
     let maxDepth = 1;
-    
+
     // 对每个节点作为起点进行BFS
     for (const startNode of nodes) {
       const visited = new Set<string>();
       const queue: Array<[string, number]> = [[startNode, 1]];
-      
+
       while (queue.length > 0) {
         const [current, depth] = queue.shift()!;
         if (visited.has(current)) continue;
-        
+
         visited.add(current);
         maxDepth = Math.max(maxDepth, depth);
-        
+
         // 添加邻居
         const neighbors = edges.filter(e => e.source === current).map(e => e.target);
         for (const neighbor of neighbors) {
@@ -1529,7 +1531,7 @@ export class RecipeService {
         }
       }
     }
-    
+
     return maxDepth;
   }
 
@@ -1538,23 +1540,23 @@ export class RecipeService {
    */
   private calculateGraphBreadth(nodes: string[], recipeGraph: Record<string, string[]>): number {
     let breadth = 0;
-    
+
     // 🚀 性能优化：预计算所有节点的入度，避免重复遍历
     const inDegreeCache = new Map<string, number>();
-    
+
     // 首先构建所有节点的入度缓存
     for (const [item, deps] of Object.entries(recipeGraph)) {
       for (const dep of deps) {
         inDegreeCache.set(dep, (inDegreeCache.get(dep) || 0) + 1);
       }
     }
-    
+
     for (const node of nodes) {
       // 🚀 直接从缓存获取入度
       const inDegree = inDegreeCache.get(node) || 0;
       breadth += inDegree;
     }
-    
+
     return breadth;
   }
 
@@ -1571,7 +1573,7 @@ export class RecipeService {
     const totalValidItems = reachableItems.size;
     const totalUnreachableItems = unreachableGraphs.reduce((sum, graph) => sum + graph.nodes.length, 0);
     const unreachableGraphCount = unreachableGraphs.length;
-    
+
     // 统计图类型
     const graphTypes: Record<string, number> = {};
     for (const graph of unreachableGraphs) {
@@ -1609,13 +1611,13 @@ export class RecipeService {
 
     // 🚀 性能优化：使用缓存避免重复搜索相同物品的路径
     const pathStatsCache = new Map<string, PathStats>();
-    
+
     // 对每个可达物品计算路径统计
     for (const item of reachableItems) {
       try {
         // 🚀 性能优化：检查缓存
         let stats = pathStatsCache.get(item);
-        
+
         if (!stats) {
           const result = await this.searchPathInternal(item, baseItemNames, itemToRecipes);
           if (result) {
@@ -1623,7 +1625,7 @@ export class RecipeService {
             pathStatsCache.set(item, stats);
           }
         }
-        
+
         if (stats) {
           maxDepth = Math.max(maxDepth, stats.depth);
           totalDepth += stats.depth;
@@ -1694,100 +1696,96 @@ export class RecipeService {
   /**
    * 生成冰柱图数据（带缓存优化）
    */
-  async generateIcicleChart(): Promise<IcicleChartData> {
+  async generateIcicleChart(limit?: number): Promise<IcicleChartData> {
     const now = Date.now();
-    
+
     // 🚀 性能优化：检查冰柱图缓存
     if (this.icicleCache && now - this.icicleCache.lastUpdated < this.ICICLE_CACHE_TTL) {
       logger.info('冰柱图缓存命中，直接返回缓存数据');
       return this.icicleCache.data;
     }
-    
-    logger.info('冰柱图缓存未命中或已过期，重新生成...');
-    
-    // 使用缓存获取图数据
-    const cache = await this.getGraphCache();
-    
-    const reachableItems = Array.from(cache.reachableItems);
-    const itemToRecipes = cache.itemToRecipes;
-    
-    logger.info(`冰柱图生成开始：共 ${reachableItems.length} 个可达物品需要处理（总物品数：${cache.allItemNames.length}）`);
-    
-    const nodesWithStats: Array<{ node: IcicleNode; stats: PathStats }> = [];
-    let maxDepth = 0;
-    
-    // 🚀 性能优化：直接从缓存的最短路径树获取数据，避免重复计算
-    let processedCount = 0;
-    const totalItems = reachableItems.length;
-    
-    // 🚀 性能优化：添加统计信息缓存，避免重复计算相同树的统计信息
-    const statsCache = new Map<string, PathStats>();
-    const depthCache = new Map<string, number>();
-    
-    for (const itemName of reachableItems) {
-      // 🚀 直接从缓存获取最短路径树
-      const tree = cache.shortestPathTrees.get(itemName);
-      
-      if (tree) {
-        // 🚀 性能优化：使用缓存避免重复计算相同树的统计信息
-        let stats = statsCache.get(itemName);
-        let treeDepth = depthCache.get(itemName);
-        
-        if (!stats) {
-          stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
-          statsCache.set(itemName, stats);
-        }
-        
-        if (!treeDepth) {
-          treeDepth = this.calculateIcicleTreeDepth(tree);
-          depthCache.set(itemName, treeDepth);
-        }
-        
-        nodesWithStats.push({ node: tree, stats });
-        maxDepth = Math.max(maxDepth, treeDepth);
-      }
-      
-      processedCount++;
-      
-      // 每处理1000个物品输出一次进度
-      if (processedCount % 1000 === 0) {
-        logger.info(`冰柱图生成进度：${processedCount}/${totalItems} (${Math.round(processedCount/totalItems*100)}%)`);
-      }
+
+    // 如已有构建任务在进行，直接复用该任务以避免并发重复计算
+    if (this.icicleCachePromise) {
+      logger.info('冰柱图正在生成中，等待现有任务完成...');
+      return this.icicleCachePromise;
     }
-    
-    logger.info(`冰柱图树构建完成：生成了 ${nodesWithStats.length} 个有效节点，最大深度 ${maxDepth}`);
-    
-    // 按照最简路径算法对根节点进行排序
-    // 排序规则：深度最小 → 宽度最小 → 广度最大 → 字典序
-    nodesWithStats.sort((a, b) => {
-      if (a.stats.depth !== b.stats.depth) return a.stats.depth - b.stats.depth;
-      if (a.stats.width !== b.stats.width) return a.stats.width - b.stats.width;
-      if (a.stats.breadth !== b.stats.breadth) return b.stats.breadth - a.stats.breadth;
-      return a.node.name.localeCompare(b.node.name);
-    });
-    
-    logger.info('冰柱图排序完成');
-    
-    // 提取排序后的节点
-    const nodes = nodesWithStats.map(item => item.node);
-    
-    logger.info(`冰柱图生成完成：返回 ${nodes.length} 个节点`);
-    
-    const result = {
-      nodes,
-      totalElements: reachableItems.length,
-      maxDepth
-    };
-    
-    // 🚀 性能优化：缓存冰柱图数据
-    this.icicleCache = {
-      data: result,
-      lastUpdated: now
-    };
-    
-    logger.info('冰柱图数据已缓存');
-    
-    return result;
+
+    // 启动一次受保护的生成任务
+    this.icicleCachePromise = (async (): Promise<IcicleChartData> => {
+      logger.info('冰柱图缓存未命中或已过期，重新生成...');
+      // 使用缓存获取图数据
+      const cache = await this.getGraphCache();
+      const reachableItems = Array.from(cache.reachableItems);
+      const itemToRecipes = cache.itemToRecipes;
+
+      logger.info(`冰柱图生成开始：共 ${reachableItems.length} 个可达物品需要处理（总物品数：${cache.allItemNames.length}）`);
+
+      const nodesWithStats: Array<{ node: IcicleNode; stats: PathStats }> = [];
+      let maxDepth = 0;
+
+      // 🚀 性能优化：直接从缓存的最短路径树获取数据，避免重复计算
+      let processedCount = 0;
+      const totalItems = reachableItems.length;
+      const statsCache = new Map<string, PathStats>();
+      const depthCache = new Map<string, number>();
+
+      for (const itemName of reachableItems) {
+        const tree = cache.shortestPathTrees.get(itemName);
+        if (tree) {
+          let stats = statsCache.get(itemName);
+          let treeDepth = depthCache.get(itemName);
+          if (!stats) {
+            stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
+            statsCache.set(itemName, stats);
+          }
+          if (!treeDepth) {
+            treeDepth = this.calculateIcicleTreeDepth(tree);
+            depthCache.set(itemName, treeDepth);
+          }
+          nodesWithStats.push({ node: tree, stats });
+          maxDepth = Math.max(maxDepth, treeDepth);
+        }
+
+        processedCount++;
+        if (processedCount % 1000 === 0) {
+          logger.info(`冰柱图生成进度：${processedCount}/${totalItems} (${Math.round(processedCount / totalItems * 100)}%)`);
+        }
+      }
+
+      logger.info(`冰柱图树构建完成：生成了 ${nodesWithStats.length} 个有效节点，最大深度 ${maxDepth}`);
+
+      // 排序：深度最小 → 宽度最小 → 广度最大 → 字典序
+      nodesWithStats.sort((a, b) => {
+        if (a.stats.depth !== b.stats.depth) return a.stats.depth - b.stats.depth;
+        if (a.stats.width !== b.stats.width) return a.stats.width - b.stats.width;
+        if (a.stats.breadth !== b.stats.breadth) return b.stats.breadth - a.stats.breadth;
+        return a.node.name.localeCompare(b.node.name);
+      });
+
+      // 提取排序后的节点并按需裁剪
+      const nodes = nodesWithStats.map(item => item.node);
+      const limitedNodes = limit && limit > 0 ? nodes.slice(0, limit) : nodes;
+      logger.info(`冰柱图生成完成：返回 ${limitedNodes.length}/${nodes.length} 个节点`);
+
+      const result: IcicleChartData = {
+        nodes: limitedNodes,
+        totalElements: reachableItems.length,
+        maxDepth
+      };
+
+      // 缓存结果
+      this.icicleCache = { data: result, lastUpdated: Date.now() };
+      logger.info('冰柱图数据已缓存');
+      return result;
+    })();
+
+    try {
+      return await this.icicleCachePromise;
+    } finally {
+      // 重置并发保护，允许下一次触发
+      this.icicleCachePromise = null;
+    }
   }
 
   /**
@@ -1809,13 +1807,13 @@ export class RecipeService {
     if (globalMemo.has(itemName)) {
       return globalMemo.get(itemName)!;
     }
-    
+
     // 🚀 构建树（在递归内部使用缓存，不需要visited）
     const tree = this.buildIcicleTreeWithCache(itemName, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
-    
+
     // 🚀 缓存结果
     globalMemo.set(itemName, tree);
-    
+
     return tree;
   }
 
@@ -1836,12 +1834,12 @@ export class RecipeService {
     if (globalMemo.has(itemName)) {
       return globalMemo.get(itemName)!;
     }
-    
+
     // 🚀 标记为正在处理（防止循环依赖）
     globalMemo.set(itemName, null);
-    
+
     const isBase = baseItems.includes(itemName);
-    
+
     // 基础元素：固定宽度为1
     if (isBase) {
       const node: IcicleNode = {
@@ -1854,29 +1852,29 @@ export class RecipeService {
       globalMemo.set(itemName, node);
       return node;
     }
-    
+
     // 合成元素：获取最简配方
     const recipes = itemToRecipes[itemName];
     if (!recipes || recipes.length === 0) {
       // 保持null，表示无法构建
       return null;
     }
-    
+
     // 选择第一个配方作为最简配方
     const recipe = recipes[0];
-    
+
     // 🚀 递归构建子节点（使用缓存，不克隆Set）
     const childA = this.buildIcicleTreeWithCache(recipe.item_a, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
     const childB = this.buildIcicleTreeWithCache(recipe.item_b, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
-    
+
     if (!childA || !childB) {
       // 保持null，表示依赖项无法构建
       return null;
     }
-    
+
     // 合成元素的宽度是子节点宽度之和
     const value = childA.value + childB.value;
-    
+
     const node: IcicleNode = {
       id: `synthetic_${itemName}`,
       name: itemName,
@@ -1889,7 +1887,7 @@ export class RecipeService {
         item_b: recipe.item_b
       }
     };
-    
+
     globalMemo.set(itemName, node);
     return node;
   }
@@ -1901,12 +1899,12 @@ export class RecipeService {
     if (!node.children || node.children.length === 0) {
       return 1;
     }
-    
+
     let maxChildDepth = 0;
     for (const child of node.children) {
       maxChildDepth = Math.max(maxChildDepth, this.calculateIcicleTreeDepth(child));
     }
-    
+
     return maxChildDepth + 1;
   }
 
@@ -1916,21 +1914,21 @@ export class RecipeService {
   private calculateIcicleTreeStats(node: IcicleNode, itemToRecipes: Record<string, Recipe[]>): PathStats {
     const materials: Record<string, number> = {};
     let breadthSum = 0;
-    
+
     // 🚀 性能优化：添加广度计算缓存，避免重复计算相同物品的广度
     const breadthCache = new Map<string, number>();
-    
+
     const traverse = (currentNode: IcicleNode, depth: number, isRoot: boolean = true): { maxDepth: number; steps: number } => {
       // 计算该节点的广度
       const recipes = itemToRecipes[currentNode.name] || [];
-      
+
       // 基础材料：广度是使用该材料作为输入材料的配方数量
       if (currentNode.isBase) {
         // 🚀 性能优化：使用缓存避免重复计算基础材料的广度
         let inputRecipesCount = breadthCache.get(currentNode.name);
         if (inputRecipesCount === undefined) {
           // 查找所有使用该基础材料作为输入材料的配方
-          const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe => 
+          const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe =>
             recipe.item_a === currentNode.name || recipe.item_b === currentNode.name
           );
           inputRecipesCount = inputRecipes.length;
@@ -1949,7 +1947,7 @@ export class RecipeService {
       // 递归遍历子节点
       let resultA = { maxDepth: depth, steps: 0 };
       let resultB = { maxDepth: depth, steps: 0 };
-      
+
       if (currentNode.children) {
         const [childA, childB] = currentNode.children;
         if (childA) {
@@ -2024,7 +2022,7 @@ export class RecipeService {
     if (visited.has(itemName)) {
       return { depth: 0, width: 0, breadth: 0 };
     }
-    
+
     if (memo[itemName]) {
       return memo[itemName];
     }
@@ -2049,20 +2047,20 @@ export class RecipeService {
 
     // 选择第一个配方（这里会在排序后选择最简的）
     const recipe = recipes[0];
-    
+
     // 添加当前物品到已访问集合
     visited.add(itemName);
     const stats = this.calculateRecipeStats(recipe, baseItems, itemToRecipes, memo, visited);
     // 移除当前物品，允许其他路径访问
     visited.delete(itemName);
-    
+
     // 深度需要+1（当前合成步骤）
     const result = {
       depth: stats.depth + 1,
       width: stats.width + 1,
       breadth
     };
-    
+
     memo[itemName] = result;
     return result;
   }

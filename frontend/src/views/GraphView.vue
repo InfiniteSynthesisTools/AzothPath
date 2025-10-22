@@ -142,11 +142,57 @@
                     <el-icon size="48" color="#909399"><Search /></el-icon>
                     <p>未找到符合条件的元素</p>
                   </div>
+                  <div v-else class="icicle-chart-content" :style="chartTransform">
+                    <div 
+                      v-for="node in layoutNodes" 
+                      :key="node.id || node.name"
+                      class="icicle-node"
+                      :style="{
+                        left: node.x + 'px',
+                        top: node.y + 'px',
+                        width: node.width + 'px',
+                        height: node.height + 'px',
+                        backgroundColor: nodeColor(node),
+                        zIndex: 10 - node.level
+                      }"
+                      @mouseover="showIcicleTooltip($event, node)"
+                      @mouseout="hideIcicleTooltip"
+                      @click="handleIcicleNodeClick(node)"
+                    >
+                      <div class="node-content">
+                        <span class="node-emoji">{{ nodeEmoji(node) }}</span>
+                        <span class="node-name">{{ node.name }}</span>
+                        <span v-if="!node.isBase" class="node-value">{{ node.value }}</span>
+                      </div>
+                    </div>
+                  </div>
                 </div>
                 <el-button class="fullscreen-btn" @click="toggleFullscreen('icicle-container')">
                   <el-icon><FullScreen /></el-icon>
                   全屏
                 </el-button>
+              </div>
+              
+              <!-- 工具提示 -->
+              <div 
+                v-if="tooltipVisible && tooltipData" 
+                class="icicle-tooltip"
+                :style="{
+                  left: tooltipPosition.x + 'px',
+                  top: tooltipPosition.y + 'px'
+                }"
+              >
+                <div class="tooltip-header">
+                  <span class="tooltip-emoji">{{ nodeEmoji(tooltipData) }}</span>
+                  <span class="tooltip-name">{{ tooltipData.name }}</span>
+                </div>
+                <div class="tooltip-content">
+                  <div>{{ tooltipData.isBase ? '基础元素' : '合成元素' }}</div>
+                  <div v-if="tooltipData.recipe" class="tooltip-recipe">
+                    配方: {{ tooltipData.recipe.item_a }} + {{ tooltipData.recipe.item_b }}
+                  </div>
+                  <div>宽度: {{ tooltipData.value }}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -233,6 +279,17 @@
                     <el-icon size="48" color="#909399"><Connection /></el-icon>
                     <p>请在上方输入框中输入元素名称进行搜索</p>
                   </div>
+                  <div v-else-if="loadingDAG" class="placeholder">
+                    <el-icon size="48" color="#909399"><Connection /></el-icon>
+                    <p>正在加载有向图数据...</p>
+                  </div>
+                  <div v-else class="dag-chart-content">
+                    <div class="dag-placeholder">
+                      <el-icon size="64" color="#909399"><Connection /></el-icon>
+                      <p style="margin-top: 16px; font-size: 16px;">有向图功能开发中</p>
+                      <p style="margin-top: 8px; font-size: 14px;">当前搜索: "{{ dagSearch }}"</p>
+                    </div>
+                  </div>
                 </div>
                 <el-button class="fullscreen-btn" @click="toggleFullscreen('dag-container')">
                   <el-icon><FullScreen /></el-icon>
@@ -248,7 +305,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
+import { ref, reactive, onMounted, onUnmounted, nextTick, computed } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
   Box,
@@ -287,6 +344,10 @@ const maxDepthFilter = ref(20);
 const minWidthFilter = ref(0);
 const maxWidthFilter = ref(10000);
 const icicleChartData = ref<any>(null);
+const layoutNodes = ref<any[]>([]);
+const tooltipVisible = ref(false);
+const tooltipData = ref<any>(null);
+const tooltipPosition = ref({ x: 0, y: 0 });
 
 // 有向图相关数据
 const dagSearch = ref('');
@@ -368,76 +429,22 @@ const renderIcicleChart = async () => {
     
     console.log('冰柱图数据:', icicleChartData.value);
     
-    const container = document.getElementById('icicle-container');
-    if (container && icicleChartData.value) {
-      console.log('开始渲染冰柱图，节点数量:', icicleChartData.value.nodes?.length);
-      // 渲染真实的冰柱图数据
-      container.innerHTML = `
-        <div style="position: relative; min-width: 100%; min-height: 600px; background: #f8f9fa; border-radius: 8px;">
-          ${renderIcicleNodes(icicleChartData.value.nodes)}
-        </div>
-      `;
+    if (icicleChartData.value && icicleChartData.value.nodes) {
+      console.log('开始渲染冰柱图，节点数量:', icicleChartData.value.nodes.length);
+      // 计算布局节点
+      layoutNodes.value = calculateNodeLayout(icicleChartData.value.nodes);
       
       // 应用视图变换
       applyViewTransform();
-      
-      // 添加事件监听器
-      addIcicleEventListeners();
     } else {
-      console.log('容器或数据为空:', { container: !!container, data: !!icicleChartData.value });
+      console.log('冰柱图数据为空');
     }
   } catch (error) {
     console.error('获取冰柱图数据失败:', error);
-    const container = document.getElementById('icicle-container');
-    if (container) {
-      container.innerHTML = `
-        <div style="padding: 40px; text-align: center; color: #909399;">
-          <el-icon size="64" color="#909399"><MapLocation /></el-icon>
-          <p style="margin-top: 16px; font-size: 16px;">获取冰柱图数据失败</p>
-          <p style="margin-top: 8px; font-size: 14px;">请检查后端服务是否正常运行</p>
-        </div>
-      `;
-    }
+    ElMessage.error('获取冰柱图数据失败，请检查后端服务是否正常运行');
   } finally {
     loadingIcicle.value = false;
   }
-};
-
-// 添加冰柱图事件监听器
-const addIcicleEventListeners = () => {
-  const container = document.getElementById('icicle-container');
-  if (!container) return;
-  
-  // 鼠标悬停显示工具提示
-  container.addEventListener('mouseover', (event) => {
-    const target = event.target as HTMLElement;
-    const nodeElement = target.closest('.icicle-node');
-    if (nodeElement) {
-      const nodeData = nodeElement.getAttribute('data-node');
-      if (nodeData) {
-        const node = JSON.parse(nodeData);
-        showIcicleTooltip(event, node);
-      }
-    }
-  });
-  
-  // 鼠标离开隐藏工具提示
-  container.addEventListener('mouseout', () => {
-    hideIcicleTooltip();
-  });
-  
-  // 点击节点
-  container.addEventListener('click', (event) => {
-    const target = event.target as HTMLElement;
-    const nodeElement = target.closest('.icicle-node');
-    if (nodeElement) {
-      const nodeData = nodeElement.getAttribute('data-node');
-      if (nodeData) {
-        const node = JSON.parse(nodeData);
-        handleIcicleNodeClick(node);
-      }
-    }
-  });
 };
 
 // 计算每个节点的位置和尺寸
@@ -478,99 +485,19 @@ const calculateNodeLayout = (nodes: any[], startX = 0, startY = 0, level = 0) =>
   return layoutNodes;
 };
 
-// 渲染冰柱图
-const renderIcicleNodes = (nodes: any[]): string => {
-  if (!nodes || nodes.length === 0) return '';
-  
-  // 计算所有节点的布局
-  const layoutNodes = calculateNodeLayout(nodes);
-  
-  // 计算画布大小（用于调试）
-  // const maxX = Math.max(...layoutNodes.map(node => node.x + node.width));
-  // const maxY = Math.max(...layoutNodes.map(node => node.y + node.height));
-  
-  // 渲染所有节点
-  return layoutNodes.map(node => {
-    const nodeColor = node.isBase ? '#e74c3c' : `hsl(${(node.value * 137.5) % 360}, 70%, 60%)`;
-    const nodeEmoji = node.emoji || (node.isBase ? '🔘' : '⚗️');
-    
-    return `
-      <div 
-        class="icicle-node"
-        style="
-          position: absolute;
-          left: ${node.x}px;
-          top: ${node.y}px;
-          width: ${node.width}px;
-          height: ${node.height}px;
-          background-color: ${nodeColor};
-          border-radius: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          color: white;
-          font-weight: 500;
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          cursor: pointer;
-          transition: all 0.3s ease;
-          box-sizing: border-box;
-          overflow: hidden;
-          z-index: ${10 - node.level};
-        "
-        data-node='${JSON.stringify(node).replace(/"/g, '&quot;')}'
-      >
-        <div style="display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 6px; text-align: center; width: 100%;">
-          <span style="font-size: 16px; line-height: 1;">${nodeEmoji}</span>
-          <span style="font-size: 12px; font-weight: 600; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;">${node.name}</span>
-          ${!node.isBase ? `<span style="font-size: 10px; opacity: 0.8;">${node.value}</span>` : ''}
-        </div>
-      </div>
-    `;
-  }).join('');
-};
-
 // 工具提示函数
-const showIcicleTooltip = (event: any, node: any) => {
-  const tooltip = document.createElement('div');
-  tooltip.id = 'icicle-tooltip';
-  tooltip.style.cssText = `
-    position: fixed;
-    left: ${event.clientX + 10}px;
-    top: ${event.clientY + 10}px;
-    background: rgba(0, 0, 0, 0.9);
-    color: white;
-    padding: 12px;
-    border-radius: 6px;
-    font-size: 12px;
-    z-index: 1000;
-    pointer-events: none;
-    max-width: 200px;
-    backdrop-filter: blur(4px);
-  `;
-  
-  const emoji = node.emoji || (node.isBase ? '🔘' : '⚗️');
-  tooltip.innerHTML = `
-    <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 6px; font-weight: 600;">
-      <span style="font-size: 16px;">${emoji}</span>
-      <span style="font-size: 14px;">${node.name}</span>
-    </div>
-    <div style="font-size: 12px; opacity: 0.9; line-height: 1.4;">
-      ${node.isBase ? '基础元素' : `
-        <div>合成元素</div>
-        ${node.recipe ? `<div style="margin-top: 4px; padding-top: 4px; border-top: 1px solid rgba(255, 255, 255, 0.3);">配方: ${node.recipe.item_a} + ${node.recipe.item_b}</div>` : ''}
-        <div>宽度: ${node.value}</div>
-      `}
-    </div>
-  `;
-  
-  document.body.appendChild(tooltip);
+const showIcicleTooltip = (event: MouseEvent, node: any) => {
+  tooltipData.value = node;
+  tooltipPosition.value = {
+    x: event.clientX + 10,
+    y: event.clientY + 10
+  };
+  tooltipVisible.value = true;
 };
 
 const hideIcicleTooltip = () => {
-  const tooltip = document.getElementById('icicle-tooltip');
-  if (tooltip) {
-    tooltip.remove();
-  }
+  tooltipVisible.value = false;
+  tooltipData.value = null;
 };
 
 const handleIcicleNodeClick = (node: any) => {
@@ -587,16 +514,6 @@ const renderDAGChart = () => {
   // 这里应该调用API获取有向图数据
   // 暂时使用模拟数据
   setTimeout(() => {
-    const container = document.getElementById('dag-container');
-    if (container) {
-      container.innerHTML = `
-        <div style="padding: 40px; text-align: center; color: #909399;">
-          <el-icon size="64" color="#909399"><Connection /></el-icon>
-          <p style="margin-top: 16px; font-size: 16px;">有向图功能开发中</p>
-          <p style="margin-top: 8px; font-size: 14px;">当前搜索: "${dagSearch.value}"</p>
-        </div>
-      `;
-    }
     loadingDAG.value = false;
   }, 1000);
 };
@@ -625,15 +542,24 @@ const resetView = () => {
   applyViewTransform();
 };
 
+// 计算属性
+const chartTransform = computed(() => {
+  return {
+    transform: `scale(${zoomLevel.value}) translate(${viewOffset.value.x}px, ${viewOffset.value.y}px)`,
+    transformOrigin: 'top left'
+  };
+});
+
+const nodeColor = (node: any) => {
+  return node.isBase ? '#e74c3c' : `hsl(${(node.value * 137.5) % 360}, 70%, 60%)`;
+};
+
+const nodeEmoji = (node: any) => {
+  return node.emoji || (node.isBase ? '🔘' : '⚗️');
+};
+
 const applyViewTransform = () => {
-  const container = document.getElementById('icicle-container');
-  if (container) {
-    const content = container.querySelector('div');
-    if (content) {
-      content.style.transform = `scale(${zoomLevel.value}) translate(${viewOffset.value.x}px, ${viewOffset.value.y}px)`;
-      content.style.transformOrigin = 'top left';
-    }
-  }
+  // 现在通过计算属性自动应用变换
 };
 
 // 全屏切换
@@ -812,6 +738,122 @@ onUnmounted(() => {
 .fullscreen-btn:hover {
   background: #409eff;
   color: white;
+}
+
+/* 冰柱图节点样式 */
+.icicle-chart-content {
+  position: relative;
+  min-width: 100%;
+  min-height: 600px;
+  background: #f8f9fa;
+  border-radius: 8px;
+}
+
+.icicle-node {
+  position: absolute;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  font-weight: 500;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+
+.icicle-node:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 100 !important;
+}
+
+.node-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 6px;
+  text-align: center;
+  width: 100%;
+}
+
+.node-emoji {
+  font-size: 16px;
+  line-height: 1;
+}
+
+.node-name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.node-value {
+  font-size: 10px;
+  opacity: 0.8;
+}
+
+/* 有向图样式 */
+.dag-chart-content {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dag-placeholder {
+  text-align: center;
+  color: #909399;
+}
+
+/* 工具提示样式 */
+.icicle-tooltip {
+  position: fixed;
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  z-index: 1000;
+  pointer-events: none;
+  max-width: 200px;
+  backdrop-filter: blur(4px);
+}
+
+.tooltip-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+  font-weight: 600;
+}
+
+.tooltip-emoji {
+  font-size: 16px;
+}
+
+.tooltip-name {
+  font-size: 14px;
+}
+
+.tooltip-content {
+  font-size: 12px;
+  opacity: 0.9;
+  line-height: 1.4;
+}
+
+.tooltip-recipe {
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 /* 响应式设计 */

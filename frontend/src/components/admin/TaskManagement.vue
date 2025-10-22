@@ -193,24 +193,24 @@
           </el-table-column>
           <el-table-column label="操作" width="200" fixed="right">
             <template #default="{ row }">
-              <el-button size="small" @click="viewSystemTaskDetail">
+              <el-button size="small" @click="viewSystemTaskDetail(row)">
                 详情
               </el-button>
               <el-button 
                 v-if="row.status === 'active'"
                 size="small" 
-                type="warning"
-                @click="pauseTask"
+                type="primary"
+                @click="editTaskPrize(row)"
               >
-                暂停
+                编辑悬赏
               </el-button>
               <el-button 
-                v-if="row.status === 'paused'"
+                v-if="row.status === 'active'"
                 size="small" 
-                type="success"
-                @click="resumeTask"
+                type="danger"
+                @click="deleteTaskBoard(row)"
               >
-                恢复
+                删除
               </el-button>
             </template>
           </el-table-column>
@@ -377,27 +377,56 @@ const deleteTask = async () => {
   }
 };
 
-const viewSystemTaskDetail = () => {
-  ElMessage.info('查看系统任务详情功能待实现');
+const viewSystemTaskDetail = (row: any) => {
+  ElMessage.info(`查看任务详情: ${row.item_name}`);
+  // TODO: 实现任务详情弹窗
 };
 
-const pauseTask = async () => {
+const editTaskPrize = async (row: any) => {
   try {
-    // 这里需要实现暂停任务的API
-    ElMessage.success('任务已暂停');
+    const { value } = await ElMessageBox.prompt(
+      `当前悬赏: ${row.prize} 分<br/>请输入新的悬赏值（0-200）`,
+      '编辑任务悬赏',
+      {
+        confirmButtonText: '确定',
+        cancelButtonText: '取消',
+        inputPattern: /^([0-9]|[1-9][0-9]|1[0-9][0-9]|200)$/,
+        inputErrorMessage: '请输入 0-200 之间的整数',
+        inputValue: row.prize.toString(),
+        dangerouslyUseHTMLString: true
+      }
+    );
+
+    const newPrize = parseInt(value);
+    await taskApi.updateTask(row.id, { prize: newPrize });
+    ElMessage.success('悬赏更新成功');
     loadBoardTasks();
-  } catch (error) {
-    ElMessage.error('暂停失败');
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '更新失败');
+    }
   }
 };
 
-const resumeTask = async () => {
+const deleteTaskBoard = async (row: any) => {
   try {
-    // 这里需要实现恢复任务的API
-    ElMessage.success('任务已恢复');
+    await ElMessageBox.confirm(
+      `确定要删除任务"${row.item_name}"吗？此操作不可恢复！`,
+      '确认删除',
+      {
+        confirmButtonText: '确定删除',
+        cancelButtonText: '取消',
+        type: 'error',
+      }
+    );
+    
+    await taskApi.deleteTask(row.id);
+    ElMessage.success('任务删除成功');
     loadBoardTasks();
-  } catch (error) {
-    ElMessage.error('恢复失败');
+  } catch (error: any) {
+    if (error !== 'cancel') {
+      ElMessage.error(error.message || '删除失败');
+    }
   }
 };
 

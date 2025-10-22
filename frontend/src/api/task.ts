@@ -71,6 +71,11 @@ export const taskApi = {
     return api.post<{ taskId: number; prize: number; newContribution: number }>(`/tasks/${taskId}/complete`, { recipeId });
   },
 
+  // 更新任务悬赏（管理员）
+  updateTask(id: number, data: { prize: number }): Promise<void> {
+    return api.patch<void>(`/tasks/${id}`, data);
+  },
+
   // 删除任务（管理员）
   deleteTask(id: number): Promise<void> {
     return api.delete<void>(`/tasks/${id}`);

@@ -70,6 +70,9 @@ import { databaseBackupService } from './services/databaseBackupService';
 // 导入启动初始化服务
 import { startupService } from './services/startupService';
 
+// 导入缓存预热服务
+import { cacheWarmupService } from './services/cacheWarmupService';
+
 // API 路由
 app.get('/api', (req, res) => {
   res.json({
@@ -132,6 +135,16 @@ try {
       await startupService.initialize();
     } catch (error) {
       logger.error('启动初始化失败，但服务器继续运行', error);
+    }
+    
+    // 启动缓存预热（异步执行，不阻塞服务器启动）
+    try {
+      cacheWarmupService.warmup().catch(error => {
+        logger.error('缓存预热失败，但服务器继续运行', error);
+      });
+      logger.info('缓存预热已启动（异步执行）');
+    } catch (error) {
+      logger.error('缓存预热启动失败，但服务器继续运行', error);
     }
     
     // 启动导入任务队列

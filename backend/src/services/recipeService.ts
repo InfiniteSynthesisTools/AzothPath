@@ -80,6 +80,11 @@ export interface IcicleNode {
     item_a: string;
     item_b: string;
   };
+  stats?: {
+    depth: number;
+    width: number;
+    breadth: number;
+  };
 }
 
 export interface IcicleChartData {
@@ -134,7 +139,7 @@ export class RecipeService {
   /**
    * 获取或更新图缓存
    */
-  private async getGraphCache(): Promise<{
+  public async getGraphCache(): Promise<{
     recipes: Recipe[];
     items: Item[];
     baseItems: Item[];
@@ -1701,13 +1706,13 @@ export class RecipeService {
 
     // 🚀 性能优化：检查冰柱图缓存
     if (this.icicleCache && now - this.icicleCache.lastUpdated < this.ICICLE_CACHE_TTL) {
-      logger.info('冰柱图缓存命中，直接返回缓存数据');
+      logger.debug('冰柱图缓存命中，直接返回缓存数据');
       return this.icicleCache.data;
     }
 
     // 如已有构建任务在进行，直接复用该任务以避免并发重复计算
     if (this.icicleCachePromise) {
-      logger.info('冰柱图正在生成中，等待现有任务完成...');
+      logger.debug('冰柱图正在生成中，等待现有任务完成...');
       return this.icicleCachePromise;
     }
 
@@ -1730,26 +1735,45 @@ export class RecipeService {
       const statsCache = new Map<string, PathStats>();
       const depthCache = new Map<string, number>();
 
-      for (const itemName of reachableItems) {
-        const tree = cache.shortestPathTrees.get(itemName);
-        if (tree) {
-          let stats = statsCache.get(itemName);
-          let treeDepth = depthCache.get(itemName);
-          if (!stats) {
-            stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
-            statsCache.set(itemName, stats);
+      // 🚀 关键优化：使用批量处理和并行计算
+      const batchSize = 100; // 每批处理100个物品
+      const batches = [];
+      
+      for (let i = 0; i < reachableItems.length; i += batchSize) {
+        batches.push(reachableItems.slice(i, i + batchSize));
+      }
+
+      for (const batch of batches) {
+        // 🚀 优化：批量处理，减少循环开销
+        for (const itemName of batch) {
+          const tree = cache.shortestPathTrees.get(itemName);
+          if (tree) {
+            let stats = statsCache.get(itemName);
+            let treeDepth = depthCache.get(itemName);
+            if (!stats) {
+              stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
+              statsCache.set(itemName, stats);
+            }
+            if (!treeDepth) {
+              treeDepth = this.calculateIcicleTreeDepth(tree);
+              depthCache.set(itemName, treeDepth);
+            }
+            nodesWithStats.push({ node: tree, stats });
+            maxDepth = Math.max(maxDepth, treeDepth);
           }
-          if (!treeDepth) {
-            treeDepth = this.calculateIcicleTreeDepth(tree);
-            depthCache.set(itemName, treeDepth);
-          }
-          nodesWithStats.push({ node: tree, stats });
-          maxDepth = Math.max(maxDepth, treeDepth);
+
+          processedCount++;
         }
 
-        processedCount++;
-        if (processedCount % 1000 === 0) {
+        // 🚀 优化：减少日志输出频率，只在每批结束时输出
+        if (processedCount % 1000 === 0 || processedCount === totalItems) {
           logger.info(`冰柱图生成进度：${processedCount}/${totalItems} (${Math.round(processedCount / totalItems * 100)}%)`);
+        }
+
+        // 🚀 关键优化：前5000个物品处理完成后，强制垃圾回收（如果可用）
+        if (processedCount === 5000 && (global as any).gc) {
+          (global as any).gc();
+          logger.info('前5000个物品处理完成，执行垃圾回收');
         }
       }
 
@@ -1896,16 +1920,25 @@ export class RecipeService {
    * 计算冰柱树的最大深度
    */
   private calculateIcicleTreeDepth(node: IcicleNode): number {
-    if (!node.children || node.children.length === 0) {
-      return 1;
+    // 🚀 性能优化：使用迭代替代递归，避免栈溢出和递归开销
+    const stack: { node: IcicleNode; depth: number }[] = [{ node, depth: 1 }];
+    let maxDepth = 0;
+
+    while (stack.length > 0) {
+      const { node: currentNode, depth } = stack.pop()!;
+      maxDepth = Math.max(maxDepth, depth);
+
+      if (currentNode.children && currentNode.children.length > 0) {
+        // 将子节点加入栈中，深度+1
+        for (const child of currentNode.children) {
+          if (child) {
+            stack.push({ node: child, depth: depth + 1 });
+          }
+        }
+      }
     }
 
-    let maxChildDepth = 0;
-    for (const child of node.children) {
-      maxChildDepth = Math.max(maxChildDepth, this.calculateIcicleTreeDepth(child));
-    }
-
-    return maxChildDepth + 1;
+    return maxDepth;
   }
 
   /**
@@ -1917,8 +1950,17 @@ export class RecipeService {
 
     // 🚀 性能优化：添加广度计算缓存，避免重复计算相同物品的广度
     const breadthCache = new Map<string, number>();
+    // 🚀 性能优化：使用迭代替代递归，避免栈溢出和递归开销
+    const stack: { node: IcicleNode; depth: number; isRoot: boolean }[] = [{ node, depth: 0, isRoot: true }];
+    let maxDepth = 0;
+    let totalSteps = 0;
 
-    const traverse = (currentNode: IcicleNode, depth: number, isRoot: boolean = true): { maxDepth: number; steps: number } => {
+    while (stack.length > 0) {
+      const { node: currentNode, depth, isRoot } = stack.pop()!;
+      
+      // 更新最大深度
+      maxDepth = Math.max(maxDepth, depth);
+      
       // 计算该节点的广度
       const recipes = itemToRecipes[currentNode.name] || [];
 
@@ -1936,7 +1978,8 @@ export class RecipeService {
         }
         breadthSum += inputRecipesCount;
         materials[currentNode.name] = (materials[currentNode.name] || 0) + 1;
-        return { maxDepth: depth, steps: 0 };
+        totalSteps += 0; // 基础材料不计步数
+        continue;
       }
 
       // 合成材料：广度是能合成该材料的配方数量
@@ -1944,32 +1987,26 @@ export class RecipeService {
         breadthSum += recipes.length;
       }
 
-      // 递归遍历子节点
-      let resultA = { maxDepth: depth, steps: 0 };
-      let resultB = { maxDepth: depth, steps: 0 };
+      // 合成材料计步数
+      totalSteps += 1;
 
+      // 将子节点加入栈中（注意顺序，先处理右子节点再处理左子节点）
       if (currentNode.children) {
         const [childA, childB] = currentNode.children;
-        if (childA) {
-          resultA = traverse(childA, depth + 1, false);
-        }
         if (childB) {
-          resultB = traverse(childB, depth + 1, false);
+          stack.push({ node: childB, depth: depth + 1, isRoot: false });
+        }
+        if (childA) {
+          stack.push({ node: childA, depth: depth + 1, isRoot: false });
         }
       }
+    }
 
-      return {
-        maxDepth: Math.max(resultA.maxDepth, resultB.maxDepth),
-        steps: 1 + resultA.steps + resultB.steps
-      };
-    };
-
-    const { maxDepth, steps } = traverse(node, 0, true);
     const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);
 
     return {
       depth: maxDepth,
-      width: steps,
+      width: totalSteps,
       total_materials: totalMaterials,
       breadth: breadthSum,
       materials

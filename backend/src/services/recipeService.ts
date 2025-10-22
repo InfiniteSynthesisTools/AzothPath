@@ -110,6 +110,20 @@ export class RecipeService {
     data: IcicleChartData;
     lastUpdated: number;
   } | null = null;
+  // 并发保护：当缓存正在构建时，保存构建的 Promise，避免重复构建
+  private graphCachePromise: Promise<{
+    recipes: Recipe[];
+    items: Item[];
+    baseItems: Item[];
+    itemToRecipes: Record<string, Recipe[]>;
+    recipeGraph: Record<string, string[]>;
+    baseItemNames: string[];
+    allItemNames: string[];
+    itemEmojiMap: Record<string, string>;
+    reachableItems: Set<string>;
+    unreachableItems: Set<string>;
+    shortestPathTrees: Map<string, IcicleNode>;
+  }> | null = null;
   
   // 缓存有效期（5分钟）
   private readonly CACHE_TTL = 5 * 60 * 1000; // 5分钟
@@ -132,77 +146,98 @@ export class RecipeService {
     shortestPathTrees: Map<string, IcicleNode>; // 🚀 新增：最短路径树缓存
   }> {
     const now = Date.now();
-    
-    // 如果缓存不存在或已过期，重新构建
-    if (!this.graphCache || now - this.graphCache.lastUpdated > this.CACHE_TTL) {
-      logger.info('图缓存已过期或不存在，重新构建...');
-      
-      // 获取所有公开配方和物品
-      const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
-      const items = await database.all<Item>('SELECT name, emoji FROM items');
-      const baseItems = await database.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1');
-      
-      const baseItemNames = baseItems.map(item => item.name);
-      const allItemNames = items.map(item => item.name);
 
-      // 构建依赖图
-      const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
-      
-      // 🚀 性能优化：进行可达性分析
-      const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
-      
-      // 构建emoji映射
-      const itemEmojiMap: Record<string, string> = {};
-      for (const item of items) {
-        if (item.emoji) {
-          itemEmojiMap[item.name] = item.emoji;
-        }
-      }
-      
-      // 🚀 性能优化：预计算所有可达物品的最短路径树
-      const shortestPathTrees = new Map<string, IcicleNode>();
-      logger.info('开始预计算最短路径树...');
-      
-      // 使用全局记忆化缓存构建所有可达物品的最短路径树
-      const globalTreeMemo = new Map<string, IcicleNode | null>();
-      let precomputedCount = 0;
-      const totalReachable = reachableItems.size;
-      
-      for (const itemName of reachableItems) {
-        const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
-        if (tree) {
-          shortestPathTrees.set(itemName, tree);
-        }
-        precomputedCount++;
-        
-        // 每处理500个物品输出一次进度
-        if (precomputedCount % 500 === 0) {
-          logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount/totalReachable*100)}%)`);
-        }
-      }
-      
-      logger.info(`最短路径树预计算完成：共 ${shortestPathTrees.size} 个物品的最短路径树已缓存`);
-      
-      // 更新缓存
-      this.graphCache = {
-        recipes,
-        items,
-        baseItems,
-        itemToRecipes,
-        recipeGraph,
-        baseItemNames,
-        allItemNames,
-        itemEmojiMap,
-        reachableItems,           // ✅ 新增：可达物品集合
-        unreachableItems,         // ✅ 新增：不可达物品集合
-        shortestPathTrees,        // 🚀 新增：最短路径树缓存
-        lastUpdated: now
-      };
-      
-      logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品`);
+    // 如果缓存存在且未过期，直接返回
+    if (this.graphCache && now - this.graphCache.lastUpdated <= this.CACHE_TTL) {
+      return this.graphCache;
     }
-    
-    return this.graphCache!;
+
+    // 如果已经有并发的构建在进行，直接返回该 Promise，避免重复构建
+    if (this.graphCachePromise) {
+      return this.graphCachePromise;
+    }
+
+    // 开始构建并记录 Promise，以便重入时共享
+    this.graphCachePromise = (async () => {
+      try {
+        logger.info('图缓存已过期或不存在，重新构建...');
+
+        // 获取所有公开配方和物品
+        const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
+        const items = await database.all<Item>('SELECT name, emoji FROM items');
+        const baseItems = await database.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1');
+
+        const baseItemNames = baseItems.map(item => item.name);
+        const allItemNames = items.map(item => item.name);
+
+        // 构建依赖图
+        const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
+
+        // 🚀 性能优化：进行可达性分析
+        const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
+
+        // 构建emoji映射
+        const itemEmojiMap: Record<string, string> = {};
+        for (const item of items) {
+          if (item.emoji) {
+            itemEmojiMap[item.name] = item.emoji;
+          }
+        }
+
+        // 🚀 性能优化：预计算所有可达物品的最短路径树
+        const shortestPathTrees = new Map<string, IcicleNode>();
+        logger.info('开始预计算最短路径树...');
+
+        // 使用全局记忆化缓存构建所有可达物品的最短路径树
+        const globalTreeMemo = new Map<string, IcicleNode | null>();
+        let precomputedCount = 0;
+        const totalReachable = reachableItems.size;
+
+        for (const itemName of reachableItems) {
+          const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
+          if (tree) {
+            shortestPathTrees.set(itemName, tree);
+          }
+          precomputedCount++;
+
+          // 每处理500个物品输出一次进度
+          if (precomputedCount % 500 === 0) {
+            logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount/totalReachable*100)}%)`);
+          }
+        }
+
+        logger.info(`最短路径树预计算完成：共 ${shortestPathTrees.size} 个物品的最短路径树已缓存`);
+
+        // 更新缓存
+        this.graphCache = {
+          recipes,
+          items,
+          baseItems,
+          itemToRecipes,
+          recipeGraph,
+          baseItemNames,
+          allItemNames,
+          itemEmojiMap,
+          reachableItems,           // ✅ 新增：可达物品集合
+          unreachableItems,         // ✅ 新增：不可达物品集合
+          shortestPathTrees,        // 🚀 新增：最短路径树缓存
+          lastUpdated: Date.now()
+        };
+
+        logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品`);
+
+        return this.graphCache;
+      } catch (err) {
+        // 构建失败时清理 Promise，以便下次尝试
+        this.graphCachePromise = null;
+        throw err;
+      } finally {
+        // 构建成功后清理 Promise（缓存已存在）
+        this.graphCachePromise = null;
+      }
+    })();
+
+    return this.graphCachePromise;
   }
 
   /**

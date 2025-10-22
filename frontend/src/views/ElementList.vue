@@ -89,7 +89,12 @@
               {{ element.emoji || '🔘' }}
             </div>
             <div class="element-info">
-              <h3 class="element-name">{{ element.name }}</h3>
+              <h3 class="element-name">
+                {{ element.name }}
+                <el-button type="text" icon size="small" @click.stop="copyName(element.name)">
+                  <CopyIcon />
+                </el-button>
+              </h3>
               <div class="element-meta">
                 <span class="element-type" :class="element.is_base ? 'base' : 'synthetic'">
                   {{ element.is_base ? '基础元素' : '合成元素' }}
@@ -133,6 +138,8 @@ import { ref, onMounted, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
+import CopyIcon from '@/components/icons/CopyIcon.vue';
+import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
 
 interface Element {
@@ -216,16 +223,14 @@ const handlePageSizeChange = (size: number) => {
   fetchElements();
 };
 
-// 查看元素配方
-const viewElementRecipes = (element: Element) => {
-  // 这里可以跳转到配方列表页面，按元素筛选
-  ElMessage.info(`查看 ${element.name} 的配方`);
-};
+// (注) viewElementRecipes / viewElementPath 功能可在需要时复用或实现。
 
-// 查看元素合成路径
-const viewElementPath = (element: Element) => {
-  // 这里可以跳转到合成路径页面
-  ElMessage.info(`查看 ${element.name} 的合成路径`);
+// 复制到剪贴板
+const copyName = async (name: string) => {
+  if (!name) return;
+  const ok = await copyToClipboard(name);
+  if (ok) ElMessage.success(`已复制: ${name}`);
+  else ElMessage.error('复制失败');
 };
 
 // 查看元素详情

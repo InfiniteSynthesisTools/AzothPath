@@ -6,7 +6,8 @@ import type {
   RecipeListResponse,
   CraftingPath,
   SubmitRecipeResponse,
-  IcicleChartData
+  IcicleChartData,
+  IcicleNode
 } from '@/types';
 
 export const recipeApi = {

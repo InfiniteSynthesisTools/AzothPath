@@ -119,9 +119,6 @@
           >
             <div class="recipe-header">
               <div class="recipe-left">
-                <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="toggling[recipe.id] === true">
-                  <span class="heart">❤</span> {{ recipe.likes || 0 }}
-                </button>
               </div>
               <div class="recipe-formula">
                 <div class="ingredient-cards">
@@ -139,6 +136,12 @@
                     <span class="result-emoji">{{ element.emoji || '🔘' }}</span>
                     <span class="result-name">{{ element.name }}</span>
                   </div>
+                  <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="toggling[recipe.id] === true">
+                    <span class="heart">❤</span> {{ recipe.likes || 0 }}
+                  </button>
+                  <button class="copy-btn" @click.stop="copyRecipe(recipe)" title="复制配方">
+                    <CopyIcon />
+                  </button>
                 </div>
               </div>
               <el-tag 
@@ -192,6 +195,8 @@ import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft } from '@element-plus/icons-vue';
+import CopyIcon from '@/components/icons/CopyIcon.vue';
+import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
 
 interface Element {
@@ -431,6 +436,15 @@ const goToElementDetail = async (elementName: string) => {
 // 返回上一页
 const goBack = () => {
   router.back();
+};
+
+// 复制整条配方文本
+const copyRecipe = async (recipe: RecipeDetail) => {
+  if (!recipe) return;
+  const text = `${recipe.item_a} + ${recipe.item_b} = ${recipe.result}`;
+  const ok = await copyToClipboard(text);
+  if (ok) ElMessage.success(`已复制配方: ${text}`);
+  else ElMessage.error('复制失败');
 };
 
 // 点赞交互
@@ -792,26 +806,69 @@ onMounted(() => {
   background: #ffffff;
   color: #f85149;
   border-radius: 12px;
-  padding: 2px 8px;
+  padding: 3px 8px;
   line-height: 1;
   font-size: 12px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 4px;
+  transition: all 0.3s ease;
+  min-width: 40px;
+  height: 28px;
 }
 .like-btn:hover:not(:disabled) {
   background: #fff5f5;
+  border-color: #f85149;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(248, 81, 73, 0.15);
 }
 .like-btn.liked {
   background: #ffe4e4;
   border-color: #ffc2c2;
+  color: #f85149;
+}
+.like-btn.liked:hover:not(:disabled) {
+  background: #ffd4d0;
+  border-color: #f85149;
+  box-shadow: 0 2px 8px rgba(248, 81, 73, 0.2);
 }
 .like-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
+.like-btn:active {
+  transform: translateY(0);
+}
 
+.copy-btn {
+  border: 1px solid #e0e3e7;
+  background: #ffffff;
+  color: #606266;
+  border-radius: 12px;
+  padding: 4px 8px;
+  line-height: 1;
+  font-size: 12px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+  width: 28px;
+  height: 28px;
+}
+.copy-btn:hover {
+  background: #f0f9ff;
+  border-color: #409eff;
+  color: #409eff;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+}
+.copy-btn:active {
+  transform: translateY(0);
+}
 
 .recipe-footer {
   margin-top: 12px;

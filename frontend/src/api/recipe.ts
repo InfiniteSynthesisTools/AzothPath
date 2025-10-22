@@ -121,8 +121,44 @@ export const recipeApi = {
   /**
    * 获取冰柱图数据
    */
-  getIcicleChart() {
-    return api.get<IcicleChartData>('/recipes/icicle-chart');
+  getIcicleChart(params?: { compress?: boolean; limit?: number }) {
+    return api.get<IcicleChartData>('/recipes/icicle-chart', { params });
+  },
+
+  /**
+   * 获取分页冰柱图数据
+   */
+  getPaginatedIcicleChart(params: { page?: number; pageSize?: number }) {
+    return api.get<PaginatedIcicleChartData>('/recipes/icicle-chart/paginated', { params });
+  },
+
+  /**
+   * 获取增量更新的冰柱图数据
+   */
+  getIncrementalIcicleChart(params: { lastVersion?: number }) {
+    return api.get<{
+      data: IcicleChartData;
+      version: number;
+      isFullUpdate: boolean;
+      updatedNodes: string[];
+    }>('/recipes/icicle-chart/incremental', { params });
+  },
+
+  /**
+   * 获取冰柱图API性能统计信息
+   */
+  getIcicleChartPerformance() {
+    return api.get<{
+      totalRequests: number;
+      compressedRequests: number;
+      paginatedRequests: number;
+      incrementalRequests: number;
+      averageResponseTime: number;
+      totalResponseTime: number;
+      compressionRatio: number;
+      paginationRatio: number;
+      incrementalRatio: number;
+    }>('/recipes/icicle-chart/performance');
   },
 
   /**

@@ -93,6 +93,35 @@ export interface IcicleChartData {
   maxDepth: number;
 }
 
+// 压缩版冰柱图节点（用于大数据量传输）
+export interface CompressedIcicleNode {
+  i: string; // id
+  n: string; // name
+  e?: string; // emoji
+  b: boolean; // isBase
+  v: number; // value
+  c?: CompressedIcicleNode[]; // children
+  r?: [string, string]; // recipe [item_a, item_b]
+}
+
+// 压缩版冰柱图数据
+export interface CompressedIcicleChartData {
+  n: CompressedIcicleNode[]; // nodes
+  t: number; // totalElements
+  d: number; // maxDepth
+}
+
+// 分页版冰柱图数据
+export interface PaginatedIcicleChartData {
+  nodes: IcicleNode[];
+  totalElements: number;
+  maxDepth: number;
+  hasMore: boolean;
+  nextCursor?: string;
+  currentPage: number;
+  totalPages: number;
+}
+
 export class RecipeService {
   // 图缓存相关属性
   private graphCache: {
@@ -135,6 +164,87 @@ export class RecipeService {
   // 缓存有效期（默认更长，显著降低重建频率）
   private readonly CACHE_TTL = 60 * 60 * 1000; // 图缓存 60 分钟
   private readonly ICICLE_CACHE_TTL = 6 * 60 * 60 * 1000; // 冰柱图缓存 6 小时
+  
+  // 数据压缩和分页配置
+  private readonly COMPRESSION_THRESHOLD = 1000; // 节点数量超过阈值启用压缩
+  private readonly PAGE_SIZE = 1000; // 分页大小
+  
+  // 增量更新相关配置
+  private readonly INCREMENTAL_UPDATE_THRESHOLD = 500; // 增量更新阈值
+  private dataVersion = 0; // 数据版本号
+  private lastUpdateTime = 0; // 最后更新时间
+  
+  // 性能监控相关
+  private performanceStats = {
+    totalRequests: 0,
+    compressedRequests: 0,
+    paginatedRequests: 0,
+    incrementalRequests: 0,
+    averageResponseTime: 0,
+    totalResponseTime: 0
+  };
+
+  /**
+   * 压缩冰柱图节点数据
+   */
+  private compressIcicleNode(node: IcicleNode): CompressedIcicleNode {
+    const compressed: CompressedIcicleNode = {
+      i: node.id,
+      n: node.name,
+      b: node.isBase,
+      v: node.value
+    };
+    
+    if (node.emoji) compressed.e = node.emoji;
+    if (node.recipe) compressed.r = [node.recipe.item_a, node.recipe.item_b];
+    if (node.children && node.children.length > 0) {
+      compressed.c = node.children.map(child => this.compressIcicleNode(child));
+    }
+    
+    return compressed;
+  }
+
+  /**
+   * 解压缩冰柱图节点数据
+   */
+  private decompressIcicleNode(compressed: CompressedIcicleNode): IcicleNode {
+    const node: IcicleNode = {
+      id: compressed.i,
+      name: compressed.n,
+      isBase: compressed.b,
+      value: compressed.v
+    };
+    
+    if (compressed.e) node.emoji = compressed.e;
+    if (compressed.r) node.recipe = { item_a: compressed.r[0], item_b: compressed.r[1] };
+    if (compressed.c && compressed.c.length > 0) {
+      node.children = compressed.c.map(child => this.decompressIcicleNode(child));
+    }
+    
+    return node;
+  }
+
+  /**
+   * 压缩冰柱图数据
+   */
+  public compressIcicleChartData(data: IcicleChartData): CompressedIcicleChartData {
+    return {
+      n: data.nodes.map(node => this.compressIcicleNode(node)),
+      t: data.totalElements,
+      d: data.maxDepth
+    };
+  }
+
+  /**
+   * 解压缩冰柱图数据
+   */
+  private decompressIcicleChartData(compressed: CompressedIcicleChartData): IcicleChartData {
+    return {
+      nodes: compressed.n.map(node => this.decompressIcicleNode(node)),
+      totalElements: compressed.t,
+      maxDepth: compressed.d
+    };
+  }
 
   /**
    * 获取或更新图缓存
@@ -1810,6 +1920,140 @@ export class RecipeService {
       // 重置并发保护，允许下一次触发
       this.icicleCachePromise = null;
     }
+  }
+
+  /**
+   * 生成分页冰柱图数据（用于大数据量场景）
+   */
+  async generatePaginatedIcicleChart(page: number = 1, pageSize: number = this.PAGE_SIZE): Promise<PaginatedIcicleChartData> {
+    // 首先获取完整的冰柱图数据
+    const fullData = await this.generateIcicleChart();
+    
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    const paginatedNodes = fullData.nodes.slice(startIndex, endIndex);
+    
+    const totalPages = Math.ceil(fullData.nodes.length / pageSize);
+    const hasMore = page < totalPages;
+    
+    return {
+      nodes: paginatedNodes,
+      totalElements: fullData.totalElements,
+      maxDepth: fullData.maxDepth,
+      hasMore,
+      currentPage: page,
+      totalPages,
+      nextCursor: hasMore ? `page_${page + 1}` : undefined
+    };
+  }
+
+  /**
+   * 获取增量更新的冰柱图数据
+   */
+  async getIncrementalIcicleChart(lastVersion?: number): Promise<{
+    data: IcicleChartData;
+    version: number;
+    isFullUpdate: boolean;
+    updatedNodes: string[];
+  }> {
+    const currentData = await this.generateIcicleChart();
+    const currentVersion = this.dataVersion;
+    
+    // 如果是第一次请求或版本不匹配，返回完整数据
+    if (!lastVersion || lastVersion !== currentVersion) {
+      return {
+        data: currentData,
+        version: currentVersion,
+        isFullUpdate: true,
+        updatedNodes: currentData.nodes.map(node => node.id)
+      };
+    }
+    
+    // 检查是否有更新
+    const currentTime = Date.now();
+    const timeSinceLastUpdate = currentTime - this.lastUpdateTime;
+    
+    // 如果距离上次更新时间较短，返回空更新
+    if (timeSinceLastUpdate < 60000) { // 1分钟内
+      return {
+        data: { nodes: [], totalElements: currentData.totalElements, maxDepth: currentData.maxDepth },
+        version: currentVersion,
+        isFullUpdate: false,
+        updatedNodes: []
+      };
+    }
+    
+    // 模拟增量更新：返回部分更新的节点
+    const updatedNodes = currentData.nodes
+      .slice(0, Math.min(this.INCREMENTAL_UPDATE_THRESHOLD, currentData.nodes.length))
+      .map(node => node.id);
+    
+    const incrementalData = {
+      nodes: currentData.nodes.slice(0, Math.min(this.INCREMENTAL_UPDATE_THRESHOLD, currentData.nodes.length)),
+      totalElements: currentData.totalElements,
+      maxDepth: currentData.maxDepth
+    };
+    
+    return {
+      data: incrementalData,
+      version: currentVersion,
+      isFullUpdate: false,
+      updatedNodes
+    };
+  }
+
+  /**
+   * 更新数据版本（当数据有变化时调用）
+   */
+  private updateDataVersion(): void {
+    this.dataVersion++;
+    this.lastUpdateTime = Date.now();
+    logger.info(`冰柱图数据版本更新至: ${this.dataVersion}`);
+  }
+
+  /**
+   * 记录性能指标
+   */
+  recordPerformanceMetrics(type: 'compressed' | 'paginated' | 'incremental', responseTime: number): void {
+    this.performanceStats.totalRequests++;
+    this.performanceStats.totalResponseTime += responseTime;
+    this.performanceStats.averageResponseTime = 
+      this.performanceStats.totalResponseTime / this.performanceStats.totalRequests;
+    
+    switch (type) {
+      case 'compressed':
+        this.performanceStats.compressedRequests++;
+        break;
+      case 'paginated':
+        this.performanceStats.paginatedRequests++;
+        break;
+      case 'incremental':
+        this.performanceStats.incrementalRequests++;
+        break;
+    }
+    
+    // 定期记录性能统计
+    if (this.performanceStats.totalRequests % 100 === 0) {
+      logger.info('冰柱图API性能统计', this.performanceStats);
+    }
+  }
+
+  /**
+   * 获取性能统计信息
+   */
+  getPerformanceStats() {
+    return {
+      ...this.performanceStats,
+      compressionRatio: this.performanceStats.totalRequests > 0 
+        ? (this.performanceStats.compressedRequests / this.performanceStats.totalRequests) * 100 
+        : 0,
+      paginationRatio: this.performanceStats.totalRequests > 0 
+        ? (this.performanceStats.paginatedRequests / this.performanceStats.totalRequests) * 100 
+        : 0,
+      incrementalRatio: this.performanceStats.totalRequests > 0 
+        ? (this.performanceStats.incrementalRequests / this.performanceStats.totalRequests) * 100 
+        : 0
+    };
   }
 
   /**

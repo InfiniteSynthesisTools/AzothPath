@@ -117,26 +117,160 @@ router.get('/grouped', async (req: Request, res: Response) => {
 });
 
 /**
+ * GET /api/recipes/icicle-chart/performance
+ * 获取冰柱图API性能统计信息
+ */
+router.get('/icicle-chart/performance', async (req: Request, res: Response) => {
+  try {
+    const stats = recipeService.getPerformanceStats();
+    
+    res.json({
+      code: 200,
+      message: '获取性能统计成功',
+      data: stats
+    });
+  } catch (error: any) {
+    logger.error('获取性能统计失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取性能统计失败'
+    });
+  }
+});
+
+/**
+ * GET /api/recipes/icicle-chart/incremental
+ * 获取增量更新的冰柱图数据
+ */
+router.get('/icicle-chart/incremental', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const lastVersionParam = req.query.lastVersion as string | undefined;
+    const lastVersion = lastVersionParam ? parseInt(lastVersionParam) : undefined;
+    
+    const result = await recipeService.getIncrementalIcicleChart(lastVersion);
+    
+    const responseTime = Date.now() - startTime;
+    
+    // 记录性能指标
+    recipeService.recordPerformanceMetrics('incremental', responseTime);
+    
+    res.json({
+      code: 200,
+      message: '获取增量冰柱图数据成功',
+      data: result,
+      responseTime
+    });
+  } catch (error: any) {
+    const responseTime = Date.now() - startTime;
+    logger.error('获取增量冰柱图数据失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取增量冰柱图数据失败',
+      responseTime
+    });
+  }
+});
+
+/**
+ * GET /api/recipes/icicle-chart/paginated
+ * 获取分页冰柱图数据（用于大数据量场景）
+ */
+router.get('/icicle-chart/paginated', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const pageParam = req.query.page as string | undefined;
+    const page = pageParam ? Math.max(1, parseInt(pageParam)) : 1;
+    
+    const pageSizeParam = req.query.pageSize as string | undefined;
+    const pageSize = pageSizeParam ? Math.min(1000, Math.max(10, parseInt(pageSizeParam))) : 1000;
+    
+    const data = await recipeService.generatePaginatedIcicleChart(page, pageSize);
+    
+    const responseTime = Date.now() - startTime;
+    
+    // 记录性能指标
+    recipeService.recordPerformanceMetrics('paginated', responseTime);
+    
+    res.json({
+      code: 200,
+      message: '获取分页冰柱图数据成功',
+      data,
+      responseTime
+    });
+  } catch (error: any) {
+    const responseTime = Date.now() - startTime;
+    logger.error('获取分页冰柱图数据失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取分页冰柱图数据失败',
+      responseTime
+    });
+  }
+});
+
+/**
  * GET /api/recipes/icicle-chart
- * 获取冰柱图数据
+ * 获取冰柱图数据（支持压缩和分页）
  */
 router.get('/icicle-chart', async (req: Request, res: Response) => {
+  const startTime = Date.now();
   try {
     // 可选：限制返回节点数量，减少首次渲染压力（默认不限制）
     const limitParam = req.query.limit as string | undefined;
     const limit = limitParam ? parseInt(limitParam) : undefined;
+    
+    // 压缩选项：是否启用数据压缩
+    const compressParam = req.query.compress as string | undefined;
+    const enableCompression = compressParam === 'true' || compressParam === '1';
+    
     const data = await recipeService.generateIcicleChart(limit);
-
+    
+    let responseData: any = data;
+    let compressed = false;
+    let originalSize = JSON.stringify(data).length;
+    let compressedSize = originalSize;
+    
+    // 如果启用压缩且数据量较大，返回压缩版数据
+    if (enableCompression && data.nodes.length > 1000) {
+      const compressedData = recipeService.compressIcicleChartData(data);
+      responseData = compressedData;
+      compressed = true;
+      compressedSize = JSON.stringify(compressedData).length;
+    }
+    
+    // 如果指定了限制，则裁剪数据
+    if (limit && limit < data.nodes.length) {
+      responseData = {
+        ...responseData,
+        nodes: responseData.nodes.slice(0, limit)
+      };
+    }
+    
+    const responseTime = Date.now() - startTime;
+    
+    // 记录性能指标
+    if (enableCompression) {
+      recipeService.recordPerformanceMetrics('compressed', responseTime);
+    }
+    
     res.json({
       code: 200,
-      message: '获取冰柱图数据成功',
-      data
+      message: compressed ? '获取冰柱图数据成功（压缩版）' : '获取冰柱图数据成功',
+      data: responseData,
+      compressed,
+      originalSize,
+      compressedSize,
+      compressionRatio: compressed ? ((originalSize - compressedSize) / originalSize * 100).toFixed(2) : 0,
+      responseTime
     });
   } catch (error: any) {
+    const responseTime = Date.now() - startTime;
     logger.error('获取冰柱图数据失败', error);
     res.status(500).json({
       code: 500,
-      message: error.message || '获取冰柱图数据失败'
+      message: error.message || '获取冰柱图数据失败',
+      responseTime
     });
   }
 });

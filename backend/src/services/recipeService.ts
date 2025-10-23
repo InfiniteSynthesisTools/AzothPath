@@ -1355,6 +1355,19 @@ export class RecipeService {
         const memo: Record<string, { depth: number; width: number; breadth: number }> = {};
 
         recipesForItem.sort((a, b) => {
+          // 自合成配方检测：a+a=a 或 a+b=a
+          const isSelfCraftA = this.isSelfCraftRecipe(a);
+          const isSelfCraftB = this.isSelfCraftRecipe(b);
+          
+          // 自合成配方永远排在最后
+          if (isSelfCraftA && !isSelfCraftB) return 1;
+          if (!isSelfCraftA && isSelfCraftB) return -1;
+          if (isSelfCraftA && isSelfCraftB) {
+            // 如果都是自合成配方，按ID排序
+            return a.id - b.id;
+          }
+          
+          // 非自合成配方按原排序规则
           const statsA = this.calculateRecipeStats(a, baseItems, itemToRecipes, memo);
           const statsB = this.calculateRecipeStats(b, baseItems, itemToRecipes, memo);
 
@@ -2478,6 +2491,22 @@ export class RecipeService {
     const result = { depth, width, breadth };
     memo[cacheKey] = result;
     return result;
+  }
+
+  /**
+   * 检测是否为自合成配方
+   * 自合成配方定义：a+a=a 或 a+b=a
+   */
+  private isSelfCraftRecipe(recipe: Recipe): boolean {
+    // a+a=a 类型：两个材料相同且等于结果
+    if (recipe.item_a === recipe.result && recipe.item_b === recipe.result) {
+      return true;
+    }
+    // a+b=a 类型：其中一个材料等于结果
+    if (recipe.item_a === recipe.result || recipe.item_b === recipe.result) {
+      return true;
+    }
+    return false;
   }
 
   /**

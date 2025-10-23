@@ -146,9 +146,9 @@
               </div>
               <el-tag 
                 size="small" 
-                type="success"
+                :type="isSelfCraftRecipe(recipe) ? 'warning' : 'success'"
               >
-                合成配方
+                {{ isSelfCraftRecipe(recipe) ? '自合成配方' : '合成配方' }}
               </el-tag>
             </div>
             
@@ -352,9 +352,34 @@ const fetchElementDetail = async () => {
   }
 };
 
-// 最简排序算法：深度最小 → 宽度最小 → 广度最大 → 字典序排序
+// 检测是否为自合成配方
+const isSelfCraftRecipe = (recipe: RecipeDetail): boolean => {
+  // a+a=a 类型：两个材料相同且等于结果
+  if (recipe.item_a === recipe.result && recipe.item_b === recipe.result) {
+    return true;
+  }
+  // a+b=a 类型：其中一个材料等于结果
+  if (recipe.item_a === recipe.result || recipe.item_b === recipe.result) {
+    return true;
+  }
+  return false;
+};
+
+// 最简排序算法：深度最小 → 宽度最小 → 广度最大 → 字典序排序，自合成配方排在最后
 const sortRecipesBySimplestPath = (recipes: RecipeDetail[]): RecipeDetail[] => {
   return [...recipes].sort((a, b) => {
+    // 自合成配方检测
+    const isSelfCraftA = isSelfCraftRecipe(a);
+    const isSelfCraftB = isSelfCraftRecipe(b);
+    
+    // 自合成配方永远排在最后
+    if (isSelfCraftA && !isSelfCraftB) return 1;
+    if (!isSelfCraftA && isSelfCraftB) return -1;
+    if (isSelfCraftA && isSelfCraftB) {
+      // 如果都是自合成配方，按ID排序
+      return a.id - b.id;
+    }
+    
     // 1. 深度最小优先
     if (a.depth !== b.depth) {
       return (a.depth || 0) - (b.depth || 0);

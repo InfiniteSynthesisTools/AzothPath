@@ -1,4 +1,4 @@
-import { database } from '../database/connection';
+import { databaseAdapter } from '../database/databaseAdapter';
 import { logger } from '../utils/logger';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 
@@ -313,9 +313,9 @@ export class RecipeService {
       logger.info('图缓存已过期或不存在，重新构建...');
 
       // 获取所有公开配方和物品
-      const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
-      const items = await database.all<Item>('SELECT name, emoji FROM items');
-      const baseItems = await database.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1');
+      const recipes = await databaseAdapter.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
+      const items = await databaseAdapter.all<Item>('SELECT name, emoji FROM items');
+      const baseItems = await databaseAdapter.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1');
 
       const baseItemNames = baseItems.map(item => item.name);
       const allItemNames = items.map(item => item.name);
@@ -343,16 +343,33 @@ export class RecipeService {
       let precomputedCount = 0;
       const totalReachable = reachableItems.size;
 
-      for (const itemName of reachableItems) {
-        const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
-        if (tree) {
-          shortestPathTrees.set(itemName, tree);
-        }
-        precomputedCount++;
+      // 将同步循环改为异步分批处理，避免阻塞事件循环
+      const reachableItemsArray = Array.from(reachableItems);
+      const BATCH_SIZE = 5; // 减小批次大小到5个物品，进一步减少阻塞
+      
+      for (let i = 0; i < reachableItemsArray.length; i += BATCH_SIZE) {
+        const batch = reachableItemsArray.slice(i, i + BATCH_SIZE);
+        
+        // 同步处理当前批次
+        for (const itemName of batch) {
+          const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
+          if (tree) {
+            shortestPathTrees.set(itemName, tree);
+          }
+          precomputedCount++;
 
-        // 每处理500个物品输出一次进度
-        if (precomputedCount % 500 === 0) {
-          logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount / totalReachable * 100)}%)`);
+          // 每处理100个物品输出一次进度，更频繁地更新进度
+          if (precomputedCount % 100 === 0) {
+            logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount / totalReachable * 100)}%)`);
+            
+            // 每100个物品也让出事件循环一次
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
+        }
+        
+        // 每处理完一批后让出事件循环，允许其他请求处理
+        if (i + BATCH_SIZE < reachableItemsArray.length) {
+          await new Promise(resolve => setTimeout(resolve, 0));
         }
       }
 
@@ -488,7 +505,7 @@ export class RecipeService {
       sqlParams.push(limit, (page - 1) * limit);
     }
 
-    const recipes = await database.all(sql, sqlParams);
+    const recipes = await databaseAdapter.all(sql, sqlParams);
 
     // 默认不计算统计信息（昂贵）。如需统计，通过 includeStats 显式开启
     let recipesWithStats = recipes as any[];
@@ -560,8 +577,8 @@ export class RecipeService {
 
   /** 更新物品公开状态 */
   async updateItemPublic(id: number, isPublic: number) {
-    await database.init();
-    const res = await database.run('UPDATE items SET is_public = ? WHERE id = ?', [isPublic, id]);
+    await databaseAdapter.init();
+    const res = await databaseAdapter.run('UPDATE items SET is_public = ? WHERE id = ?', [isPublic, id]);
     if (res.changes === 0) {
       throw new Error('物品不存在');
     }
@@ -569,8 +586,8 @@ export class RecipeService {
 
   /** 更新配方公开状态 */
   async updateRecipePublic(id: number, isPublic: number) {
-    await database.init();
-    const res = await database.run('UPDATE recipes SET is_public = ? WHERE id = ?', [isPublic, id]);
+    await databaseAdapter.init();
+    const res = await databaseAdapter.run('UPDATE recipes SET is_public = ? WHERE id = ?', [isPublic, id]);
     if (res.changes === 0) {
       throw new Error('配方不存在');
     }
@@ -586,7 +603,7 @@ export class RecipeService {
     }
 
     try {
-      const totalResult = await database.get<{ count: number }>(countSql, baseParams);
+      const totalResult = await databaseAdapter.get<{ count: number }>(countSql, baseParams);
       return totalResult?.count || 0;
     } catch (error) {
       logger.error('获取总数失败:', error);
@@ -642,7 +659,7 @@ export class RecipeService {
     resultSql += ` GROUP BY r.result ORDER BY recipe_count DESC, r.result LIMIT ? OFFSET ?`;
     resultParams.push(limit, offset);
 
-    const results = await database.all(resultSql, resultParams);
+    const results = await databaseAdapter.all(resultSql, resultParams);
 
     // 为每个结果物品获取所有配方（优化：使用JOIN替代子查询）
     const groupedRecipes = [];
@@ -664,7 +681,7 @@ export class RecipeService {
       `;
 
       const recipeParams = userId ? [userId, resultItem.result] : [resultItem.result];
-      const recipes = await database.all(recipeSql, recipeParams);
+      const recipes = await databaseAdapter.all(recipeSql, recipeParams);
 
       groupedRecipes.push({
         result: resultItem.result,
@@ -710,7 +727,7 @@ export class RecipeService {
     }
 
     try {
-      const totalResult = await database.get<{ count: number }>(countSql, baseParams);
+      const totalResult = await databaseAdapter.get<{ count: number }>(countSql, baseParams);
       return totalResult?.count || 0;
     } catch (error) {
       logger.error('获取分组总数失败:', error);
@@ -724,7 +741,7 @@ export class RecipeService {
    * 获取配方详情（优化版本）
    */
   async getRecipeById(id: number) {
-    const recipe = await database.get(
+    const recipe = await databaseAdapter.get(
       `SELECT r.*, u.name as creator_name,
               ia.emoji as item_a_emoji,
               ib.emoji as item_b_emoji,
@@ -750,7 +767,7 @@ export class RecipeService {
    */
   async submitRecipe(itemA: string, itemB: string, result: string, creatorId: number) {
     // 使用事务确保数据一致性
-    return await database.transaction(async (tx) => {
+    return await databaseAdapter.transaction(async (tx) => {
       // 规范化：确保 itemA < itemB
       if (itemA > itemB) {
         [itemA, itemB] = [itemB, itemA];
@@ -826,26 +843,26 @@ export class RecipeService {
    */
   async toggleLike(recipeId: number, userId: number): Promise<{ liked: boolean; likes: number }> {
     // 检查是否已点赞
-    const existing = await database.get(
-      'SELECT * FROM recipe_likes WHERE recipe_id = ? AND user_id = ?',
-      [recipeId, userId]
-    );
+    const existing = await databaseAdapter.get(
+        'SELECT * FROM recipe_likes WHERE recipe_id = ? AND user_id = ?',
+        [recipeId, userId]
+      );
 
     if (existing) {
       // 取消点赞
-      await database.run('DELETE FROM recipe_likes WHERE recipe_id = ? AND user_id = ?', [recipeId, userId]);
+      await databaseAdapter.run('DELETE FROM recipe_likes WHERE recipe_id = ? AND user_id = ?', [recipeId, userId]);
       // 更新 recipes 表的 likes 字段
-      await database.run('UPDATE recipes SET likes = likes - 1 WHERE id = ?', [recipeId]);
+      await databaseAdapter.run('UPDATE recipes SET likes = likes - 1 WHERE id = ?', [recipeId]);
 
-      const recipe = await database.get<{ likes: number }>('SELECT likes FROM recipes WHERE id = ?', [recipeId]);
+      const recipe = await databaseAdapter.get<{ likes: number }>('SELECT likes FROM recipes WHERE id = ?', [recipeId]);
       return { liked: false, likes: recipe?.likes || 0 };
     } else {
       // 点赞
-      await database.run('INSERT INTO recipe_likes (recipe_id, user_id, created_at) VALUES (?, ?, ?)', [recipeId, userId, getCurrentUTC8TimeForDB()]);
+      await databaseAdapter.run('INSERT INTO recipe_likes (recipe_id, user_id, created_at) VALUES (?, ?, ?)', [recipeId, userId, getCurrentUTC8TimeForDB()]);
       // 更新 recipes 表的 likes 字段
-      await database.run('UPDATE recipes SET likes = likes + 1 WHERE id = ?', [recipeId]);
+      await databaseAdapter.run('UPDATE recipes SET likes = likes + 1 WHERE id = ?', [recipeId]);
 
-      const recipe = await database.get<{ likes: number }>('SELECT likes FROM recipes WHERE id = ?', [recipeId]);
+      const recipe = await databaseAdapter.get<{ likes: number }>('SELECT likes FROM recipes WHERE id = ?', [recipeId]);
       return { liked: true, likes: recipe?.likes || 0 };
     }
   }
@@ -864,7 +881,7 @@ export class RecipeService {
     }
 
     // 优化查询：使用单个事务执行所有统计查询
-    const stats = await database.transaction(async (tx) => {
+    const stats = await databaseAdapter.transaction(async (tx) => {
       const [
         recipesCount,
         itemsCount, 
@@ -1105,7 +1122,7 @@ export class RecipeService {
     sql += ` ORDER BY r.id ASC LIMIT ?`;
     sqlParams.push(batchSize);
 
-    const recipes = await database.all(sql, sqlParams);
+    const recipes = await databaseAdapter.all(sql, sqlParams);
 
     return {
       recipes,
@@ -1135,7 +1152,7 @@ export class RecipeService {
 
     for (const indexSql of indexes) {
       try {
-        await database.run(indexSql);
+        await databaseAdapter.run(indexSql);
         logger.info('索引创建成功:', indexSql);
       } catch (error) {
         logger.error('索引创建失败:', error);
@@ -1832,7 +1849,7 @@ export class RecipeService {
    * 获取单个物品详情
    */
   async getItemById(id: number) {
-    const item = await database.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string }>(
+    const item = await databaseAdapter.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string }>(
       `SELECT 
          i.*,
          COALESCE(usage_stats.usage_count, 0) as usage_count,
@@ -1916,7 +1933,7 @@ export class RecipeService {
       const depthCache = new Map<string, number>();
 
       // 🚀 关键优化：使用批量处理和并行计算
-      const batchSize = 100; // 每批处理100个物品
+      const batchSize = 50; // 减小批次大小到50个物品，减少阻塞
       const batches = [];
       
       for (let i = 0; i < reachableItems.length; i += batchSize) {
@@ -1943,10 +1960,15 @@ export class RecipeService {
           }
 
           processedCount++;
+
+          // 每处理100个物品让出事件循环一次
+          if (processedCount % 100 === 0) {
+            await new Promise(resolve => setTimeout(resolve, 0));
+          }
         }
 
         // 🚀 优化：减少日志输出频率，只在每批结束时输出
-        if (processedCount % 1000 === 0 || processedCount === totalItems) {
+        if (processedCount % 500 === 0 || processedCount === totalItems) {
           logger.info(`冰柱图生成进度：${processedCount}/${totalItems} (${Math.round(processedCount / totalItems * 100)}%)`);
         }
 
@@ -1955,6 +1977,9 @@ export class RecipeService {
           (global as any).gc();
           logger.info('前5000个物品处理完成，执行垃圾回收');
         }
+
+        // 每处理完一批后让出事件循环，允许其他请求处理
+        await new Promise(resolve => setTimeout(resolve, 0));
       }
 
       logger.info(`冰柱图树构建完成：生成了 ${nodesWithStats.length} 个有效节点，最大深度 ${maxDepth}`);
@@ -2529,7 +2554,7 @@ export class RecipeService {
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
     // SQLite 使用 RANDOM() 函数获取随机记录
-    const item = await database.get<Item & { usage_count: number; recipe_count: number }>(
+    const item = await databaseAdapter.get<Item & { usage_count: number; recipe_count: number }>(
       `SELECT 
          i.*,
          COALESCE(usage_stats.usage_count, 0) as usage_count,
@@ -2623,7 +2648,7 @@ export class RecipeService {
     }
 
     // 查询物品列表（优化：使用 LEFT JOIN 预聚合替代每行子查询）
-    const items = await database.all<Item & { usage_count: number; recipe_count: number }>(
+    const items = await databaseAdapter.all<Item & { usage_count: number; recipe_count: number }>(
       `SELECT 
          i.*,
          COALESCE(usage_stats.usage_count, 0) as usage_count,
@@ -2652,7 +2677,7 @@ export class RecipeService {
     );
 
     // 获取总数
-    const totalResult = await database.get<{ count: number }>(
+    const totalResult = await databaseAdapter.get<{ count: number }>(
       `SELECT COUNT(*) as count FROM items ${whereClause}`,
       queryParams
     );

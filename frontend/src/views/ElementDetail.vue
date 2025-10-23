@@ -100,7 +100,83 @@
               </div>
             </div>
           </el-col>
+          <!-- 可达性统计卡片 -->
+          <el-col :xs="12" :sm="6">
+            <div class="stat-card">
+              <div class="stat-icon">🔗</div>
+              <div class="stat-content">
+                <div v-if="reachabilityLoading" class="stat-value">
+                  <el-icon class="is-loading"><Loading /></el-icon>
+                  加载中...
+                </div>
+                <div v-else class="stat-value">{{ reachabilityStats.reachable ? '可及' : '不可及' }}</div>
+                <div class="stat-label">可达性</div>
+              </div>
+            </div>
+          </el-col>
         </el-row>
+        
+        <!-- 可达性详细统计（仅在可及时显示） -->
+        <el-row :gutter="20" v-if="reachabilityStats.reachable && !reachabilityLoading" style="margin-top: 20px;">
+          <el-col :xs="12" :sm="4">
+            <div class="stat-card">
+              <div class="stat-icon">📏</div>
+              <div class="stat-content">
+                <div class="stat-value">{{ reachabilityStats.depth || 0 }}</div>
+                <div class="stat-label">深度</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="12" :sm="4">
+            <div class="stat-card">
+              <div class="stat-icon">📐</div>
+              <div class="stat-content">
+                <div class="stat-value">{{ reachabilityStats.width || 0 }}</div>
+                <div class="stat-label">宽度</div>
+              </div>
+            </div>
+          </el-col>
+          <el-col :xs="12" :sm="4">
+            <div class="stat-card">
+              <div class="stat-icon">🌐</div>
+              <div class="stat-content">
+                <div class="stat-value">{{ reachabilityStats.breadth || 0 }}</div>
+                <div class="stat-label">广度</div>
+              </div>
+            </div>
+          </el-col>
+        </el-row>
+      </div>
+
+      <!-- 冰柱图可视化板块 -->
+      <div class="icicle-chart-section" v-if="reachabilityStats.reachable && !reachabilityLoading">
+        <div class="section-header">
+          <h2 class="section-title">最简合成冰柱图</h2>
+          <div class="section-subtitle">以当前元素为根节点的最简合成路径可视化</div>
+        </div>
+        
+        <div class="icicle-chart-container">
+          <div v-if="icicleChartLoading" class="chart-loading">
+            <el-icon class="is-loading"><Loading /></el-icon>
+            <span>冰柱图加载中...</span>
+          </div>
+          <div v-else-if="icicleChartData" class="chart-content">
+            <!-- 这里将放置冰柱图组件 -->
+            <div class="chart-placeholder">
+              <div class="placeholder-icon">📊</div>
+              <div class="placeholder-text">冰柱图可视化区域</div>
+              <div class="placeholder-stats">
+                <div>节点数: {{ icicleChartData?.nodeCount || 0 }}</div>
+                <div>最大深度: {{ icicleChartData?.maxDepth || 0 }}</div>
+                <div>总宽度: {{ icicleChartData?.totalWidth || 0 }}</div>
+              </div>
+            </div>
+          </div>
+          <div v-else class="chart-error">
+            <div class="error-icon">❌</div>
+            <div class="error-text">无法加载冰柱图数据</div>
+          </div>
+        </div>
       </div>
 
       <!-- 配方列表卡片 -->
@@ -194,7 +270,7 @@
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { ArrowLeft } from '@element-plus/icons-vue';
+import { ArrowLeft, Loading } from '@element-plus/icons-vue';
 import CopyIcon from '@/components/icons/CopyIcon.vue';
 import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
@@ -238,6 +314,33 @@ const loading = ref(false);
 const recipesLoading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(5);
+
+// 可达性统计
+interface ReachabilityStats {
+  reachable: boolean;
+  depth?: number;
+  width?: number;
+  breadth?: number;
+}
+
+const reachabilityStats = ref<ReachabilityStats>({
+  reachable: false,
+  depth: 0,
+  width: 0,
+  breadth: 0
+});
+const reachabilityLoading = ref(false);
+
+// 冰柱图数据
+interface IcicleChartData {
+  nodeCount?: number;
+  maxDepth?: number;
+  totalWidth?: number;
+  // 这里可以添加更多冰柱图相关的数据结构
+}
+
+const icicleChartData = ref<IcicleChartData | null>(null);
+const icicleChartLoading = ref(false);
 
 // 导航历史记录
 interface NavigationItem {
@@ -311,6 +414,44 @@ const paginatedRecipes = computed(() => {
   return recipes.value.slice(start, end);
 });
 
+// 获取冰柱图数据
+const fetchIcicleChartData = async (elementName: string) => {
+  icicleChartLoading.value = true;
+  try {
+    const chartData = await recipeApi.getIcicleChartForItem(elementName);
+    icicleChartData.value = {
+      nodeCount: chartData.nodeCount,
+      maxDepth: chartData.maxDepth,
+      totalWidth: chartData.totalWidth
+    };
+  } catch (error: any) {
+    console.error('获取冰柱图数据失败:', error);
+    icicleChartData.value = null;
+  } finally {
+    icicleChartLoading.value = false;
+  }
+};
+
+// 获取可达性统计信息
+const fetchReachabilityStats = async (elementName: string) => {
+  reachabilityLoading.value = true;
+  try {
+    const stats = await recipeApi.getReachabilityStats(elementName);
+    reachabilityStats.value = stats;
+  } catch (error: any) {
+    console.error('获取可达性统计失败:', error);
+    // 如果API调用失败，默认设置为不可及
+    reachabilityStats.value = {
+      reachable: false,
+      depth: 0,
+      width: 0,
+      breadth: 0
+    };
+  } finally {
+    reachabilityLoading.value = false;
+  }
+};
+
 // 获取元素详情
 const fetchElementDetail = async () => {
   loading.value = true;
@@ -337,6 +478,14 @@ const fetchElementDetail = async () => {
       
       // 获取配方列表
       await fetchRecipes();
+      
+      // 获取可达性统计信息
+      await fetchReachabilityStats(elementData.name);
+      
+      // 如果元素可达，获取冰柱图数据
+      if (reachabilityStats.value.reachable) {
+        await fetchIcicleChartData(elementData.name);
+      }
     } else {
       ElMessage.error('获取元素详情失败');
     }
@@ -688,6 +837,85 @@ onMounted(() => {
 .stat-label {
   font-size: 14px;
   color: #909399;
+}
+
+/* 冰柱图可视化板块样式 */
+.icicle-chart-section {
+  margin-top: 40px;
+}
+
+.icicle-chart-container {
+  background: #f8f9fa;
+  border-radius: 12px;
+  padding: 24px;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.chart-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #606266;
+}
+
+.chart-loading .el-icon {
+  font-size: 32px;
+  color: #409eff;
+}
+
+.chart-placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  padding: 40px;
+  background: #fff;
+  border-radius: 8px;
+  border: 2px dashed #dcdfe6;
+}
+
+.placeholder-icon {
+  font-size: 48px;
+}
+
+.placeholder-text {
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.placeholder-stats {
+  display: flex;
+  gap: 24px;
+  font-size: 14px;
+  color: #606266;
+}
+
+.placeholder-stats div {
+  padding: 8px 16px;
+  background: #f5f7fa;
+  border-radius: 6px;
+}
+
+.chart-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  color: #f56c6c;
+}
+
+.error-icon {
+  font-size: 48px;
+}
+
+.error-text {
+  font-size: 16px;
+  font-weight: 500;
 }
 
 /* 配方列表样式 */

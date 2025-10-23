@@ -647,7 +647,63 @@ router.post('/benchmark', authMiddleware, async (req: AuthRequest, res: Response
   }
 });
 
+/**
+ * GET /api/recipes/icicle-chart/item/:item
+ * 获取单个元素的冰柱图数据
+ */
+router.get('/icicle-chart/item/:item', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const item = decodeURIComponent(req.params.item);
+    const data = await recipeService.getIcicleChartForItem(item);
+    
+    const responseTime = Date.now() - startTime;
+    
+    res.json({
+      code: 200,
+      message: '获取元素冰柱图数据成功',
+      data: data,
+      responseTime
+    });
+  } catch (error: any) {
+    const responseTime = Date.now() - startTime;
+    logger.error('获取元素冰柱图数据失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取元素冰柱图数据失败',
+      responseTime
+    });
+  }
+});
 
+/**
+ * GET /api/recipes/reachability/:item
+ * 获取元素的可达性统计信息
+ */
+router.get('/reachability/:item', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+  try {
+    const item = decodeURIComponent(req.params.item);
+    const stats = await recipeService.getReachabilityStats(item);
+    
+    const responseTime = Date.now() - startTime;
+    
+    res.json({
+      code: 200,
+      message: '获取元素可达性统计成功',
+      data: stats,
+      responseTime
+    });
+  } catch (error: any) {
+    const responseTime = Date.now() - startTime;
+    logger.error('获取元素可达性统计失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取元素可达性统计失败',
+      responseTime
+    });
+  }
+});
 
 
 export default router;

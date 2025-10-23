@@ -1243,7 +1243,7 @@ export class RecipeService {
       if (tree) {
         optimizedHitCount++;
         // 模拟使用缓存数据
-        this.calculateIcicleTreeStats(tree, cache.itemToRecipes);
+        this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
       }
     }
     const optimizedTime = Date.now() - optimizedStart;
@@ -1261,7 +1261,7 @@ export class RecipeService {
         globalTreeMemo
       );
       if (tree) {
-        this.calculateIcicleTreeStats(tree, cache.itemToRecipes);
+        this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
       }
     }
     const originalTime = Date.now() - originalStart;
@@ -1961,7 +1961,7 @@ export class RecipeService {
             let stats = statsCache.get(itemName);
             let treeDepth = depthCache.get(itemName);
             if (!stats) {
-              stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
+              stats = this.calculateIcicleTreeStats(tree, itemToRecipes, cache.reachableItems);
               statsCache.set(itemName, stats);
             }
             if (!treeDepth) {
@@ -2069,7 +2069,7 @@ export class RecipeService {
             let stats = statsCache.get(itemName);
             let treeDepth = depthCache.get(itemName);
             if (!stats) {
-              stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
+              stats = this.calculateIcicleTreeStats(tree, itemToRecipes, cache.reachableItems);
               statsCache.set(itemName, stats);
             }
             if (!treeDepth) {
@@ -2392,12 +2392,9 @@ export class RecipeService {
   /**
    * 计算冰柱树的统计信息
    */
-  private calculateIcicleTreeStats(node: IcicleNode, itemToRecipes: Record<string, Recipe[]>): PathStats {
+  private calculateIcicleTreeStats(node: IcicleNode, itemToRecipes: Record<string, Recipe[]>, reachableItems: Set<string>): PathStats {
     const materials: Record<string, number> = {};
-    let breadthSum = 0;
 
-    // 🚀 性能优化：添加广度计算缓存，避免重复计算相同物品的广度
-    const breadthCache = new Map<string, number>();
     // 🚀 性能优化：使用迭代替代递归，避免栈溢出和递归开销
     const stack: { node: IcicleNode; depth: number; isRoot: boolean }[] = [{ node, depth: 0, isRoot: true }];
     let maxDepth = 0;
@@ -2408,31 +2405,12 @@ export class RecipeService {
       
       // 更新最大深度
       maxDepth = Math.max(maxDepth, depth);
-      
-      // 计算该节点的广度
-      const recipes = itemToRecipes[currentNode.name] || [];
 
-      // 基础材料：广度是使用该材料作为输入材料的配方数量
+      // 基础材料：记录材料使用情况
       if (currentNode.isBase) {
-        // 🚀 性能优化：使用缓存避免重复计算基础材料的广度
-        let inputRecipesCount = breadthCache.get(currentNode.name);
-        if (inputRecipesCount === undefined) {
-          // 查找所有使用该基础材料作为输入材料的配方
-          const inputRecipes = Object.values(itemToRecipes).flat().filter(recipe =>
-            recipe.item_a === currentNode.name || recipe.item_b === currentNode.name
-          );
-          inputRecipesCount = inputRecipes.length;
-          breadthCache.set(currentNode.name, inputRecipesCount);
-        }
-        breadthSum += inputRecipesCount;
         materials[currentNode.name] = (materials[currentNode.name] || 0) + 1;
         totalSteps += 0; // 基础材料不计步数
         continue;
-      }
-
-      // 合成材料：广度是能合成该材料的配方数量
-      if (!isRoot) {
-        breadthSum += recipes.length;
       }
 
       // 合成材料计步数
@@ -2451,12 +2429,21 @@ export class RecipeService {
     }
 
     const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);
+    
+    // 广度定义为：能合成当前元素的可达配方数量（不包括不可达配方）
+    // 只计算那些两个材料都可达的配方
+    const allRecipes = itemToRecipes[node.name] || [];
+    const reachableRecipes = allRecipes.filter(recipe => {
+      // 检查配方是否可达：两个材料都必须可达
+      return reachableItems.has(recipe.item_a) && reachableItems.has(recipe.item_b);
+    });
+    const breadth = reachableRecipes.length;
 
     return {
       depth: maxDepth,
       width: totalSteps,
       total_materials: totalMaterials,
-      breadth: breadthSum,
+      breadth: breadth,
       materials
     };
   }
@@ -2716,6 +2703,82 @@ export class RecipeService {
       total: totalResult?.count || 0,
       page,limit
     };
+  }
+
+  /**
+   * 获取单个元素的冰柱图数据
+   */
+  async getIcicleChartForItem(itemName: string): Promise<IcicleChartData | null> {
+    try {
+      const cache = await this.getGraphCache();
+      
+      // 检查物品是否可达
+      if (!cache.reachableItems.has(itemName)) {
+        return null;
+      }
+
+      // 获取该物品的最短路径树
+      const tree = await this.getShortestPathTree(itemName);
+      if (!tree) {
+        return null;
+      }
+
+      // 计算统计信息
+      const stats = this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
+      const depth = this.calculateIcicleTreeDepth(tree);
+
+      // 构建冰柱图数据结构
+      const icicleData: IcicleChartData = {
+        nodes: [tree],
+        totalElements: 1,
+        maxDepth: depth
+      };
+
+      return icicleData;
+    } catch (error) {
+      logger.error(`获取元素 ${itemName} 的冰柱图数据失败:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * 获取元素的可达性统计信息
+   */
+  async getReachabilityStats(itemName: string): Promise<{
+    reachable: boolean;
+    depth?: number;
+    width?: number;
+    breadth?: number;
+  }> {
+    try {
+      const cache = await this.getGraphCache();
+      
+      // 检查可达性
+      const reachable = cache.reachableItems.has(itemName);
+      
+      if (!reachable) {
+        return { reachable: false };
+      }
+
+      // 获取最短路径树
+      const tree = await this.getShortestPathTree(itemName);
+      if (!tree) {
+        return { reachable: true };
+      }
+
+      // 计算统计信息
+      const stats = this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
+      
+      return {
+        reachable: true,
+        depth: stats.depth,
+        width: stats.width,
+        breadth: stats.breadth
+      };
+    } catch (error) {
+      logger.error(`获取元素 ${itemName} 的可达性统计失败:`, error);
+      throw error;
+    }
   }
 }
 

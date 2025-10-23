@@ -199,5 +199,24 @@ export const recipeApi = {
       speedup: number;
       cacheHitRate: number;
     }>('/recipes/benchmark');
+  },
+
+  /**
+   * 获取单个元素的冰柱图数据
+   */
+  getIcicleChartForItem(item: string) {
+    return api.get<IcicleChartData>(`/recipes/icicle-chart/item/${encodeURIComponent(item)}`);
+  },
+
+  /**
+   * 获取元素的可达性统计信息
+   */
+  getReachabilityStats(item: string) {
+    return api.get<{
+      reachable: boolean;
+      depth?: number;
+      width?: number;
+      breadth?: number;
+    }>(`/recipes/reachability/${encodeURIComponent(item)}`);
   }
 };

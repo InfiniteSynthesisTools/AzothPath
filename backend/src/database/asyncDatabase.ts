@@ -60,13 +60,13 @@ export class AsyncDatabase extends EventEmitter {
       this.db.pragma('foreign_keys = ON');
       this.db.pragma('journal_mode = WAL');
       this.db.pragma('synchronous = NORMAL');
-      this.db.pragma('cache_size = -64000'); // 64MB缓存
+      this.db.pragma('cache_size = -16000'); // 16MB缓存
       this.db.pragma('busy_timeout = 30000'); // 30秒
       this.db.pragma('wal_autocheckpoint = 1000');
-      this.db.pragma('journal_size_limit = 67108864'); // 64MB WAL文件限制
+      this.db.pragma('journal_size_limit = 16777216'); // 16MB WAL文件限制
       this.db.pragma('temp_store = memory');
       this.db.pragma('page_size = 4096');
-      this.db.pragma('mmap_size = 268435456'); // 256MB内存映射
+      this.db.pragma('mmap_size = 67108864'); // 64MB内存映射
       this.db.pragma('locking_mode = NORMAL');
       this.db.pragma('optimize');
       

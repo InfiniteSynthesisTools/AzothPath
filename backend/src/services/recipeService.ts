@@ -1982,27 +1982,37 @@ export class RecipeService {
       for (const batch of batches) {
         // 🚀 优化：批量处理，减少循环开销
         for (const itemName of batch) {
-          const tree = cache.shortestPathTrees.get(itemName);
-          if (tree) {
-            let stats = statsCache.get(itemName);
-            let treeDepth = depthCache.get(itemName);
-            if (!stats) {
-              stats = this.calculateIcicleTreeStats(tree, itemToRecipes, cache.reachableItems);
-              statsCache.set(itemName, stats);
+          try {
+            const tree = cache.shortestPathTrees.get(itemName);
+            if (tree) {
+              let stats = statsCache.get(itemName);
+              let treeDepth = depthCache.get(itemName);
+              if (!stats) {
+                // 添加超时保护：如果计算超过5秒，跳过该物品
+                const statsPromise = Promise.resolve(this.calculateIcicleTreeStats(tree, itemToRecipes, cache.reachableItems));
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Stats calculation timeout')), 5000));
+                stats = await Promise.race([statsPromise, timeoutPromise]) as PathStats;
+                statsCache.set(itemName, stats);
+              }
+              if (!treeDepth) {
+                const depthPromise = Promise.resolve(this.calculateIcicleTreeDepth(tree));
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Depth calculation timeout')), 5000));
+                treeDepth = await Promise.race([depthPromise, timeoutPromise]) as number;
+                depthCache.set(itemName, treeDepth);
+              }
+              nodesWithStats.push({ node: tree, stats });
+              maxDepth = Math.max(maxDepth, treeDepth);
             }
-            if (!treeDepth) {
-              treeDepth = this.calculateIcicleTreeDepth(tree);
-              depthCache.set(itemName, treeDepth);
-            }
-            nodesWithStats.push({ node: tree, stats });
-            maxDepth = Math.max(maxDepth, treeDepth);
+          } catch (error: any) {
+            logger.error(`冰柱图生成：处理物品 "${itemName}" 时出错 (${error?.message || error})，已跳过`);
+            // 跳过该物品，继续处理
           }
 
           processedCount++;
 
           // 每处理100个物品让出事件循环一次
           if (processedCount % 100 === 0) {
-            await new Promise(resolve => setTimeout(resolve, 0));
+            await new Promise(resolve => setImmediate(resolve));
           }
         }
 
@@ -2018,7 +2028,7 @@ export class RecipeService {
         }
 
         // 每处理完一批后让出事件循环，允许其他请求处理
-        await new Promise(resolve => setTimeout(resolve, 0));
+        await new Promise(resolve => setImmediate(resolve));
       }
 
       logger.info(`冰柱图树构建完成：生成了 ${nodesWithStats.length} 个有效节点，最大深度 ${maxDepth}`);
@@ -2117,7 +2127,7 @@ export class RecipeService {
         }
 
         // 🚀 优化：减少日志输出频率，只在每批结束时输出
-        if (processedCount % 1000 === 0 || processedCount === totalItems) {
+        if (processedCount % 500 === 0 || processedCount === totalItems) {
           logger.info(`冰柱图生成进度：${processedCount}/${totalItems} (${Math.round(processedCount / totalItems * 100)}%)`);
         }
 
@@ -2126,6 +2136,9 @@ export class RecipeService {
           (global as any).gc();
           logger.info('前5000个物品处理完成，执行垃圾回收');
         }
+
+        // 🚀 关键修复：每处理完一批后让出事件循环，避免阻塞
+        await new Promise(resolve => setImmediate(resolve));
       }
 
       logger.info(`冰柱图树构建完成：生成了 ${nodesWithStats.length} 个有效节点，最大深度 ${maxDepth}`);
@@ -2415,8 +2428,11 @@ export class RecipeService {
     // 🚀 性能优化：使用迭代替代递归，避免栈溢出和递归开销
     const stack: { node: IcicleNode; depth: number }[] = [{ node, depth: 1 }];
     let maxDepth = 0;
+    let iterations = 0;
+    const MAX_ITERATIONS = 10000; // 最多迭代1万次
 
-    while (stack.length > 0) {
+    while (stack.length > 0 && iterations < MAX_ITERATIONS) {
+      iterations++;
       const { node: currentNode, depth } = stack.pop()!;
       maxDepth = Math.max(maxDepth, depth);
 
@@ -2428,6 +2444,10 @@ export class RecipeService {
           }
         }
       }
+    }
+
+    if (iterations >= MAX_ITERATIONS) {
+      logger.warn(`calculateIcicleTreeDepth: 物品 "${node.name}" 迭代次数超限 (${iterations}次)，可能存在复杂树结构`);
     }
 
     return maxDepth;
@@ -2443,8 +2463,11 @@ export class RecipeService {
     const stack: { node: IcicleNode; depth: number; isRoot: boolean }[] = [{ node, depth: 0, isRoot: true }];
     let maxDepth = 0;
     let totalSteps = 0;
+    let iterations = 0;
+    const MAX_ITERATIONS = 10000; // 最多迭代1万次
 
-    while (stack.length > 0) {
+    while (stack.length > 0 && iterations < MAX_ITERATIONS) {
+      iterations++;
       const { node: currentNode, depth, isRoot } = stack.pop()!;
       
       // 更新最大深度
@@ -2470,6 +2493,10 @@ export class RecipeService {
           stack.push({ node: childA, depth: depth + 1, isRoot: false });
         }
       }
+    }
+
+    if (iterations >= MAX_ITERATIONS) {
+      logger.warn(`calculateIcicleTreeStats: 物品 "${node.name}" 迭代次数超限 (${iterations}次)，可能存在复杂树结构`);
     }
 
     const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);

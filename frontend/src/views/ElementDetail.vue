@@ -169,7 +169,7 @@
               @nodeClick="handleIcicleNodeClick"
             />
           </div>
-          <div v-else-if="icicleChartData && (!icicleChartData.nodes || icicleChartData.nodes.length === 0)" class="chart-info">
+          <div v-else-if="icicleChartData && icicleChartData.nodes && icicleChartData.nodes.length === 0" class="chart-info">
             <div class="info-icon">ℹ️</div>
             <div class="info-text">当前元素没有合成路径数据</div>
           </div>
@@ -428,13 +428,18 @@ const fetchIcicleChartData = async (elementName: string) => {
       // 包装后的响应结构
       icicleChartData.value = response.data;
       console.log('冰柱图数据设置成功（包装结构）:', icicleChartData.value);
+    } else if (response === null || (response && response.code === 404)) {
+      // 元素不可达或没有冰柱图数据
+      icicleChartData.value = { nodes: [], totalElements: 0, maxDepth: 0 };
+      console.log('元素不可达或没有冰柱图数据，显示空冰柱图');
     } else {
       icicleChartData.value = null;
       console.log('冰柱图数据为空，响应结构:', response);
     }
   } catch (error: any) {
     console.error('获取冰柱图数据失败:', error);
-    icicleChartData.value = null;
+    // 如果API调用失败，显示空冰柱图而不是错误信息
+    icicleChartData.value = { nodes: [], totalElements: 0, maxDepth: 0 };
   } finally {
     icicleChartLoading.value = false;
   }

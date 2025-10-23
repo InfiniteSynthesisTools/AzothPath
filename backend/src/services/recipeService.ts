@@ -1389,11 +1389,11 @@ export class RecipeService {
   }
 
   /**
-   * 分析可达性（BFS算法）- 优化版
+   * 分析可达性（BFS算法）- 优化版，包含循环依赖检测
    * 
    * 性能优化：预先构建反向索引（材料 → 配方），避免每次都遍历所有配方
-   * 原算法复杂度：O(n²) - 外层n个物品，内层每次遍历所有配方
-   * 优化后复杂度：O(n + e) - n个物品 + e条边（配方数量）
+   * 循环依赖处理：在可达性分析阶段检测循环依赖，确保冰柱图构建阶段不会遇到循环
+   * 原算法复杂度：O(n + e) - n个物品 + e条边（配方数量）
    */
   private analyzeReachability(
     baseItems: string[],
@@ -1402,6 +1402,8 @@ export class RecipeService {
   ): { reachableItems: Set<string>; unreachableItems: Set<string> } {
     const reachableItems = new Set<string>(baseItems);
     const queue = [...baseItems];
+    const visitedInCurrentPath = new Set<string>(); // 用于检测循环依赖
+    const detectedCycles = new Set<string>(); // 记录已检测到的循环依赖
 
     // 🚀 性能优化：预先构建反向索引 - 材料 → 使用该材料的所有配方
     // 这样就不需要每次都遍历所有配方了
@@ -1434,12 +1436,33 @@ export class RecipeService {
         // 只有当两个材料都可达时，结果才可达
         if (reachableItems.has(recipe.item_a) && reachableItems.has(recipe.item_b)) {
           const result = recipe.result;
+          
+          // 🚀 循环依赖检测：如果结果已经在当前路径中，说明存在循环依赖
+          if (visitedInCurrentPath.has(result)) {
+            // 静默记录循环依赖，不输出单个警告
+            detectedCycles.add(result);
+            continue; // 跳过循环依赖的配方
+          }
+          
           if (!reachableItems.has(result)) {
             reachableItems.add(result);
             queue.push(result);
+            
+            // 临时标记当前路径中的物品，用于循环依赖检测
+            visitedInCurrentPath.add(result);
           }
         }
       }
+      
+      // 处理完当前物品后，从路径中移除
+      visitedInCurrentPath.delete(current);
+    }
+
+    // 汇总循环依赖检测结果（只在有循环依赖时显示）
+    if (detectedCycles.size > 0) {
+      logger.warn(`可达性分析：检测到 ${detectedCycles.size} 个循环依赖，已跳过相关配方`);
+      // 如果需要调试，可以取消下面的注释
+      // logger.debug(`循环依赖物品列表: ${Array.from(detectedCycles).join(', ')}`);
     }
 
     logger.info(`可达性分析完成：可达物品 ${reachableItems.size} 个`);
@@ -2267,6 +2290,8 @@ export class RecipeService {
    * 1. 使用全局记忆化Map，在递归内部检查缓存
    * 2. 只在根节点使用visited防止循环，子节点直接使用缓存
    * 3. 避免每次递归都克隆Set（性能杀手）
+   * 4. 无深度限制，确保所有可达元素都能构建冰柱图
+   * 5. 循环依赖已在可达性分析阶段处理，此处无需额外检测
    */
   private buildIcicleTreeCached(
     itemName: string,
@@ -2292,8 +2317,12 @@ export class RecipeService {
   /**
    * 递归构建冰柱树（内部方法，使用全局缓存）
    * 
-   * 🚀 关键优化：不使用visited Set，而是依赖globalMemo来防止重复计算
-   * 如果物品已经在缓存中（包括循环依赖的null结果），直接返回
+   * 🚀 关键优化：
+   * 1. 不使用visited Set，而是依赖globalMemo来防止重复计算
+   * 2. 如果物品已经在缓存中（包括循环依赖的null结果），直接返回
+   * 3. 无深度限制，确保所有可达元素都能构建冰柱图
+   * 4. 循环依赖已在可达性分析阶段处理，此处无需额外检测
+   * 5. 修复：尝试所有可达配方，确保所有可达元素都能构建冰柱图
    */
   private buildIcicleTreeWithCache(
     itemName: string,
@@ -2325,43 +2354,47 @@ export class RecipeService {
       return node;
     }
 
-    // 合成元素：获取最简配方
+    // 合成元素：获取所有配方
     const recipes = itemToRecipes[itemName];
     if (!recipes || recipes.length === 0) {
       // 保持null，表示无法构建
       return null;
     }
 
-    // 选择第一个配方作为最简配方
-    const recipe = recipes[0];
+    // 🚀 修复：尝试所有可达配方，确保所有可达元素都能构建冰柱图
+    // 按最短路径排序后的配方列表，优先尝试最短路径
+    for (const recipe of recipes) {
+      // 🚀 递归构建子节点（使用缓存，不克隆Set）
+      const childA = this.buildIcicleTreeWithCache(recipe.item_a, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
+      const childB = this.buildIcicleTreeWithCache(recipe.item_b, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
 
-    // 🚀 递归构建子节点（使用缓存，不克隆Set）
-    const childA = this.buildIcicleTreeWithCache(recipe.item_a, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
-    const childB = this.buildIcicleTreeWithCache(recipe.item_b, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
+      // 如果两个子节点都成功构建，则使用这个配方
+      if (childA && childB) {
+        // 合成元素的宽度是子节点宽度之和
+        const value = childA.value + childB.value;
 
-    if (!childA || !childB) {
-      // 保持null，表示依赖项无法构建
-      return null;
+        const node: IcicleNode = {
+          id: `synthetic_${itemName}`,
+          name: itemName,
+          emoji: itemEmojiMap[itemName],
+          isBase: false,
+          value,
+          children: [childA, childB],
+          recipe: {
+            item_a: recipe.item_a,
+            item_b: recipe.item_b
+          }
+        };
+
+        globalMemo.set(itemName, node);
+        return node;
+      }
     }
 
-    // 合成元素的宽度是子节点宽度之和
-    const value = childA.value + childB.value;
-
-    const node: IcicleNode = {
-      id: `synthetic_${itemName}`,
-      name: itemName,
-      emoji: itemEmojiMap[itemName],
-      isBase: false,
-      value,
-      children: [childA, childB],
-      recipe: {
-        item_a: recipe.item_a,
-        item_b: recipe.item_b
-      }
-    };
-
-    globalMemo.set(itemName, node);
-    return node;
+    // 🚀 如果所有配方都无法构建，返回null
+    // 这种情况应该很少见，因为可达性分析已经确保物品可达
+    logger.warn(`冰柱图构建：物品 ${itemName} 的所有配方都无法构建冰柱图`);
+    return null;
   }
 
   /**

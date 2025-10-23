@@ -129,13 +129,29 @@ export async function getDatabase(): Promise<any> {
       throw err;
     }
 
-    // 设置PRAGMA
+    // 设置PRAGMA - 优化并发性能和连接池
     try {
       db.pragma('foreign_keys = ON');
       db.pragma('journal_mode = WAL');
       db.pragma('synchronous = NORMAL');
-      db.pragma('cache_size = -2000');
-      db.pragma('busy_timeout = 5000');
+      // 增加缓存大小以提升性能
+      db.pragma('cache_size = -64000'); // 64MB缓存
+      // 设置更长的busy_timeout以处理高并发
+      db.pragma('busy_timeout = 30000'); // 30秒
+      // 优化WAL模式设置
+      db.pragma('wal_autocheckpoint = 1000');
+      db.pragma('journal_size_limit = 67108864'); // 64MB WAL文件限制
+      // 设置临时存储为内存以提高性能
+      db.pragma('temp_store = memory');
+      // 设置页面大小和mmap_size
+      db.pragma('page_size = 4096');
+      db.pragma('mmap_size = 268435456'); // 256MB内存映射
+      // 优化锁模式
+      db.pragma('locking_mode = NORMAL');
+      // 设置查询优化器
+      db.pragma('optimize');
+      
+      logger.database('数据库PRAGMA优化设置完成');
     } catch (err) {
       logger.warn('设置 PRAGMA 出现问题', err);
     }

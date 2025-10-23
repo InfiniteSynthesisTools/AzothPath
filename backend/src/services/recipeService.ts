@@ -247,7 +247,8 @@ export class RecipeService {
   }
 
   /**
-   * 获取或更新图缓存
+   * 获取或更新图缓存（非阻塞版本）
+   * 优化：在缓存构建期间返回旧缓存数据，避免阻塞请求
    */
   public async getGraphCache(): Promise<{
     recipes: Recipe[];
@@ -269,92 +270,119 @@ export class RecipeService {
       return this.graphCache;
     }
 
-    // 如果已经有并发的构建在进行，直接返回该 Promise，避免重复构建
+    // 如果缓存存在但过期，返回旧缓存，并触发异步更新（非阻塞）
+    if (this.graphCache) {
+      // 如果未在构建中，启动异步构建
+      if (!this.graphCachePromise) {
+        this.graphCachePromise = this.buildGraphCacheAsync().finally(() => {
+          this.graphCachePromise = null;
+        });
+      }
+      return this.graphCache;
+    }
+
+    // 如果无缓存，则等待构建（初始情况）
     if (this.graphCachePromise) {
       return this.graphCachePromise;
     }
 
-    // 开始构建并记录 Promise，以便重入时共享
-    this.graphCachePromise = (async () => {
-      try {
-        logger.info('图缓存已过期或不存在，重新构建...');
-
-        // 获取所有公开配方和物品
-        const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
-        const items = await database.all<Item>('SELECT name, emoji FROM items');
-        const baseItems = await database.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1');
-
-        const baseItemNames = baseItems.map(item => item.name);
-        const allItemNames = items.map(item => item.name);
-
-        // 构建依赖图
-        const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
-
-        // 🚀 性能优化：进行可达性分析
-        const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
-
-        // 构建emoji映射
-        const itemEmojiMap: Record<string, string> = {};
-        for (const item of items) {
-          if (item.emoji) {
-            itemEmojiMap[item.name] = item.emoji;
-          }
-        }
-
-        // 🚀 性能优化：预计算所有可达物品的最短路径树
-        const shortestPathTrees = new Map<string, IcicleNode>();
-        logger.info('开始预计算最短路径树...');
-
-        // 使用全局记忆化缓存构建所有可达物品的最短路径树
-        const globalTreeMemo = new Map<string, IcicleNode | null>();
-        let precomputedCount = 0;
-        const totalReachable = reachableItems.size;
-
-        for (const itemName of reachableItems) {
-          const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
-          if (tree) {
-            shortestPathTrees.set(itemName, tree);
-          }
-          precomputedCount++;
-
-          // 每处理500个物品输出一次进度
-          if (precomputedCount % 500 === 0) {
-            logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount / totalReachable * 100)}%)`);
-          }
-        }
-
-        logger.info(`最短路径树预计算完成：共 ${shortestPathTrees.size} 个物品的最短路径树已缓存`);
-
-        // 更新缓存
-        this.graphCache = {
-          recipes,
-          items,
-          baseItems,
-          itemToRecipes,
-          recipeGraph,
-          baseItemNames,
-          allItemNames,
-          itemEmojiMap,
-          reachableItems,           // ✅ 新增：可达物品集合
-          unreachableItems,         // ✅ 新增：不可达物品集合
-          shortestPathTrees,        // 🚀 新增：最短路径树缓存
-          lastUpdated: Date.now()
-        };
-
-        logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品`);
-
-        return this.graphCache;
-      } catch (err) {
-        // 构建失败时清理 Promise，以便下次尝试
-        this.graphCachePromise = null;
-        throw err;
-      } finally {
-        // 构建成功后清理 Promise（缓存已存在）
-        this.graphCachePromise = null;
-      }
-    })();
+    this.graphCachePromise = this.buildGraphCacheAsync().finally(() => {
+      this.graphCachePromise = null;
+    });
 
     return this.graphCachePromise;
+  }
+
+  /**
+   * 异步构建图缓存（内部方法）
+   */
+  private async buildGraphCacheAsync(): Promise<{
+    recipes: Recipe[];
+    items: Item[];
+    baseItems: Item[];
+    itemToRecipes: Record<string, Recipe[]>;
+    recipeGraph: Record<string, string[]>;
+    baseItemNames: string[];
+    allItemNames: string[];
+    itemEmojiMap: Record<string, string>;
+    reachableItems: Set<string>;
+    unreachableItems: Set<string>;
+    shortestPathTrees: Map<string, IcicleNode>;
+  }> {
+    try {
+      logger.info('图缓存已过期或不存在，重新构建...');
+
+      // 获取所有公开配方和物品
+      const recipes = await database.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
+      const items = await database.all<Item>('SELECT name, emoji FROM items');
+      const baseItems = await database.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1');
+
+      const baseItemNames = baseItems.map(item => item.name);
+      const allItemNames = items.map(item => item.name);
+
+      // 构建依赖图
+      const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
+
+      // 🚀 性能优化：进行可达性分析
+      const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
+
+      // 构建emoji映射
+      const itemEmojiMap: Record<string, string> = {};
+      for (const item of items) {
+        if (item.emoji) {
+          itemEmojiMap[item.name] = item.emoji;
+        }
+      }
+
+      // 🚀 性能优化：预计算所有可达物品的最短路径树
+      const shortestPathTrees = new Map<string, IcicleNode>();
+      logger.info('开始预计算最短路径树...');
+
+      // 使用全局记忆化缓存构建所有可达物品的最短路径树
+      const globalTreeMemo = new Map<string, IcicleNode | null>();
+      let precomputedCount = 0;
+      const totalReachable = reachableItems.size;
+
+      for (const itemName of reachableItems) {
+        const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
+        if (tree) {
+          shortestPathTrees.set(itemName, tree);
+        }
+        precomputedCount++;
+
+        // 每处理500个物品输出一次进度
+        if (precomputedCount % 500 === 0) {
+          logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount / totalReachable * 100)}%)`);
+        }
+      }
+
+      logger.info(`最短路径树预计算完成：共 ${shortestPathTrees.size} 个物品的最短路径树已缓存`);
+
+      // 更新缓存
+      const newCache = {
+        recipes,
+        items,
+        baseItems,
+        itemToRecipes,
+        recipeGraph,
+        baseItemNames,
+        allItemNames,
+        itemEmojiMap,
+        reachableItems,           // ✅ 新增：可达物品集合
+        unreachableItems,         // ✅ 新增：不可达物品集合
+        shortestPathTrees,        // 🚀 新增：最短路径树缓存
+        lastUpdated: Date.now()
+      };
+
+      this.graphCache = newCache;
+
+      logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品`);
+
+      return newCache;
+    } catch (err) {
+      logger.error('图缓存构建失败:', err);
+      throw err;
+    }
   }
 
   /**
@@ -822,36 +850,67 @@ export class RecipeService {
     }
   }
 
+  // 统计信息缓存
+  private statsCache: { data: any; timestamp: number } | null = null;
+  private readonly STATS_CACHE_TTL = 30000; // 30秒缓存
+
   /**
-   * 获取图统计信息
+   * 获取图统计信息 - 带缓存优化
    */
   async getGraphStats() {
-    const recipesCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM recipes');
-    const itemsCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM items');
-    const baseItemsCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM items WHERE is_base = 1');
-    const craftableItemsCount = await database.get<{ count: number }>(`
-      SELECT COUNT(DISTINCT result) as count 
-      FROM recipes 
-      WHERE result IN (
-        SELECT name FROM items WHERE is_base = 0
-      )
-    `);
-    const usersCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM user');
-    const tasksCount = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM task WHERE status = ?', ['active']);
+    // 检查缓存是否有效
+    if (this.statsCache && Date.now() - this.statsCache.timestamp < this.STATS_CACHE_TTL) {
+      return this.statsCache.data;
+    }
 
-    return {
-      total_recipes: recipesCount?.count || 0,
-      total_items: itemsCount?.count || 0,
-      base_items: baseItemsCount?.count || 0,
-      reachable_items: craftableItemsCount?.count || 0,
-      unreachable_items: (itemsCount?.count || 0) - (craftableItemsCount?.count || 0) - (baseItemsCount?.count || 0),
-      valid_recipes: recipesCount?.count || 0,
-      invalid_recipes: 0,
-      circular_recipes: 0,
-      circular_items: 0,
-      total_users: usersCount?.count || 0,
-      active_tasks: tasksCount?.count || 0
-    };
+    // 优化查询：使用单个事务执行所有统计查询
+    const stats = await database.transaction(async (tx) => {
+      const [
+        recipesCount,
+        itemsCount, 
+        baseItemsCount,
+        craftableItemsCount,
+        usersCount,
+        tasksCount
+      ] = await Promise.all([
+        tx.get<{ count: number }>('SELECT COUNT(*) as count FROM recipes'),
+        tx.get<{ count: number }>('SELECT COUNT(*) as count FROM items'),
+        tx.get<{ count: number }>('SELECT COUNT(*) as count FROM items WHERE is_base = 1'),
+        tx.get<{ count: number }>(`
+          SELECT COUNT(DISTINCT result) as count 
+          FROM recipes 
+          WHERE result IN (
+            SELECT name FROM items WHERE is_base = 0
+          )
+        `),
+        tx.get<{ count: number }>('SELECT COUNT(*) as count FROM user'),
+        tx.get<{ count: number }>('SELECT COUNT(*) as count FROM task WHERE status = ?', ['active'])
+      ]);
+
+      const result = {
+        total_recipes: recipesCount?.count || 0,
+        total_items: itemsCount?.count || 0,
+        base_items: baseItemsCount?.count || 0,
+        reachable_items: craftableItemsCount?.count || 0,
+        unreachable_items: (itemsCount?.count || 0) - (craftableItemsCount?.count || 0) - (baseItemsCount?.count || 0),
+        valid_recipes: recipesCount?.count || 0,
+        invalid_recipes: 0,
+        circular_recipes: 0,
+        circular_items: 0,
+        total_users: usersCount?.count || 0,
+        active_tasks: tasksCount?.count || 0
+      };
+
+      // 更新缓存
+      this.statsCache = {
+        data: result,
+        timestamp: Date.now()
+      };
+
+      return result;
+    });
+
+    return stats;
   }
 
   /**
@@ -1809,7 +1868,8 @@ export class RecipeService {
   }
 
   /**
-   * 生成冰柱图数据（带缓存优化）
+   * 生成冰柱图数据（非阻塞版本，带缓存优化）
+   * 优化：在缓存构建期间返回旧缓存数据，避免阻塞请求
    */
   async generateIcicleChart(limit?: number): Promise<IcicleChartData> {
     const now = Date.now();
@@ -1820,9 +1880,19 @@ export class RecipeService {
       return this.icicleCache.data;
     }
 
-    // 如已有构建任务在进行，直接复用该任务以避免并发重复计算
+    // 如果缓存存在但过期，返回旧缓存，并触发异步更新（非阻塞）
+    if (this.icicleCache) {
+      // 如果未在构建中，启动异步构建
+      if (!this.icicleCachePromise) {
+        this.icicleCachePromise = this.buildIcicleCacheAsync(limit).finally(() => {
+          this.icicleCachePromise = null;
+        });
+      }
+      return this.icicleCache.data;
+    }
+
+    // 如果无缓存，则等待构建（初始情况）
     if (this.icicleCachePromise) {
-      logger.debug('冰柱图正在生成中，等待现有任务完成...');
       return this.icicleCachePromise;
     }
 
@@ -1919,6 +1989,102 @@ export class RecipeService {
     } finally {
       // 重置并发保护，允许下一次触发
       this.icicleCachePromise = null;
+    }
+  }
+
+  /**
+   * 异步构建冰柱图缓存（非阻塞版本）
+   */
+  private async buildIcicleCacheAsync(limit?: number): Promise<IcicleChartData> {
+    logger.info('冰柱图缓存未命中或已过期，异步重新生成...');
+    
+    try {
+      // 使用缓存获取图数据
+      const cache = await this.getGraphCache();
+      const reachableItems = Array.from(cache.reachableItems);
+      const itemToRecipes = cache.itemToRecipes;
+
+      logger.info(`冰柱图生成开始：共 ${reachableItems.length} 个可达物品需要处理（总物品数：${cache.allItemNames.length}）`);
+
+      const nodesWithStats: Array<{ node: IcicleNode; stats: PathStats }> = [];
+      let maxDepth = 0;
+
+      // 🚀 性能优化：直接从缓存的最短路径树获取数据，避免重复计算
+      let processedCount = 0;
+      const totalItems = reachableItems.length;
+      const statsCache = new Map<string, PathStats>();
+      const depthCache = new Map<string, number>();
+
+      // 🚀 关键优化：使用批量处理和并行计算
+      const batchSize = 100; // 每批处理100个物品
+      const batches = [];
+      
+      for (let i = 0; i < reachableItems.length; i += batchSize) {
+        batches.push(reachableItems.slice(i, i + batchSize));
+      }
+
+      for (const batch of batches) {
+        // 🚀 优化：批量处理，减少循环开销
+        for (const itemName of batch) {
+          const tree = cache.shortestPathTrees.get(itemName);
+          if (tree) {
+            let stats = statsCache.get(itemName);
+            let treeDepth = depthCache.get(itemName);
+            if (!stats) {
+              stats = this.calculateIcicleTreeStats(tree, itemToRecipes);
+              statsCache.set(itemName, stats);
+            }
+            if (!treeDepth) {
+              treeDepth = this.calculateIcicleTreeDepth(tree);
+              depthCache.set(itemName, treeDepth);
+            }
+            nodesWithStats.push({ node: tree, stats });
+            maxDepth = Math.max(maxDepth, treeDepth);
+          }
+
+          processedCount++;
+        }
+
+        // 🚀 优化：减少日志输出频率，只在每批结束时输出
+        if (processedCount % 1000 === 0 || processedCount === totalItems) {
+          logger.info(`冰柱图生成进度：${processedCount}/${totalItems} (${Math.round(processedCount / totalItems * 100)}%)`);
+        }
+
+        // 🚀 关键优化：前5000个物品处理完成后，强制垃圾回收（如果可用）
+        if (processedCount === 5000 && (global as any).gc) {
+          (global as any).gc();
+          logger.info('前5000个物品处理完成，执行垃圾回收');
+        }
+      }
+
+      logger.info(`冰柱图树构建完成：生成了 ${nodesWithStats.length} 个有效节点，最大深度 ${maxDepth}`);
+
+      // 排序：深度最小 → 宽度最小 → 广度最大 → 字典序
+      nodesWithStats.sort((a, b) => {
+        if (a.stats.depth !== b.stats.depth) return a.stats.depth - b.stats.depth;
+        if (a.stats.width !== b.stats.width) return a.stats.width - b.stats.width;
+        if (a.stats.breadth !== b.stats.breadth) return b.stats.breadth - a.stats.breadth;
+        return a.node.name.localeCompare(b.node.name);
+      });
+
+      // 提取排序后的节点并按需裁剪
+      const nodes = nodesWithStats.map(item => item.node);
+      const limitedNodes = limit && limit > 0 ? nodes.slice(0, limit) : nodes;
+      logger.info(`冰柱图生成完成：返回 ${limitedNodes.length}/${nodes.length} 个节点`);
+
+      const result: IcicleChartData = {
+        nodes: limitedNodes,
+        totalElements: reachableItems.length,
+        maxDepth
+      };
+
+      // 缓存结果
+      this.icicleCache = { data: result, lastUpdated: Date.now() };
+      logger.info('冰柱图数据已缓存');
+      return result;
+    } catch (error) {
+      logger.error('异步构建冰柱图缓存失败:', error);
+      throw error;
     }
   }
 
@@ -2494,8 +2660,7 @@ export class RecipeService {
     return {
       items,
       total: totalResult?.count || 0,
-      page,
-      limit
+      page,limit
     };
   }
 }

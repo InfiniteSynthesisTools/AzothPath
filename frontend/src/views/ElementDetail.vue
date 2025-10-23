@@ -414,10 +414,14 @@ const handleCurrentChange = (page: number) => {
 // 跳转到元素详情页面
 const goToElementDetail = async (elementName: string) => {
   try {
-    // 通过搜索API获取元素列表，然后找到匹配的元素
-    const response = await recipeApi.getItems({ search: elementName, limit: 1 });
+    // 通过搜索API获取元素列表，使用精确匹配参数
+    const response = await recipeApi.getItems({ 
+      search: elementName, 
+      limit: 1,
+      exact: true // 使用精确匹配
+    });
     if (response && response.items && response.items.length > 0) {
-      const elementData = response.items.find((item: any) => item.name === elementName);
+      const elementData = response.items[0]; // 精确匹配应该只有一个结果
       if (elementData && elementData.id) {
         // 使用 replace 而不是 push 来确保页面重新加载
         router.replace(`/element/${elementData.id}`);

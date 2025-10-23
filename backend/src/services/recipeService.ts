@@ -1920,6 +1920,9 @@ export class RecipeService {
     return item;
   }
 
+  // 用于收集无法构建冰柱图的物品
+  private unbuildableItems: Set<string> = new Set<string>();
+
   /**
    * 生成冰柱图数据（非阻塞版本，带缓存优化）
    * 优化：在缓存构建期间返回旧缓存数据，避免阻塞请求
@@ -2032,6 +2035,13 @@ export class RecipeService {
       const nodes = nodesWithStats.map(item => item.node);
       const limitedNodes = limit && limit > 0 ? nodes.slice(0, limit) : nodes;
       logger.info(`冰柱图生成完成：返回 ${limitedNodes.length}/${nodes.length} 个节点`);
+
+      // 如果有无法构建的物品，输出汇总警告
+      if (this.unbuildableItems.size > 0) {
+        logger.warn(`冰柱图构建：共有 ${this.unbuildableItems.size} 个物品无法构建冰柱图`);
+        // 清空集合，为下次构建做准备
+        this.unbuildableItems.clear();
+      }
 
       const result: IcicleChartData = {
         nodes: limitedNodes,
@@ -2393,7 +2403,8 @@ export class RecipeService {
 
     // 🚀 如果所有配方都无法构建，返回null
     // 这种情况应该很少见，因为可达性分析已经确保物品可达
-    logger.warn(`冰柱图构建：物品 ${itemName} 的所有配方都无法构建冰柱图`);
+    // 将无法构建的物品添加到集合中，而不是直接输出警告
+    this.unbuildableItems.add(itemName);
     return null;
   }
 

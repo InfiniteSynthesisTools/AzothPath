@@ -17,6 +17,10 @@ export class DistributedIcicleService {
   private readonly MEMORY_CACHE_TTL = 5 * 60 * 1000; // 5分钟
   private readonly REDIS_CACHE_TTL = 60 * 60 * 1000; // 1小时
   
+  // 内存优化配置
+  private readonly MAX_MEMORY_CACHE_SIZE = 100; // 最大内存缓存项数
+  private readonly NODE_POOL_SIZE = 1000; // 节点对象池大小
+  
   constructor(recipeService: RecipeService) {
     this.recipeService = recipeService;
   }
@@ -120,7 +124,11 @@ export class DistributedIcicleService {
     
     const cache = await this.recipeService.getGraphCache();
     
-    for (const itemName of shardItems) {
+    // 预分配数组空间，避免动态扩容
+    nodes.length = shardItems.length;
+    
+    for (let i = 0; i < shardItems.length; i++) {
+      const itemName = shardItems[i];
       const tree = cache.shortestPathTrees.get(itemName);
       if (tree) {
         // 通过公共方法获取统计信息
@@ -131,12 +139,19 @@ export class DistributedIcicleService {
           breadth: this.calculateTreeBreadth(tree, itemToRecipes)
         };
         
-        nodes.push({ ...tree, stats });
+        // 直接赋值而不是push，避免动态扩容开销
+        nodes[i] = { ...tree, stats };
         maxDepth = Math.max(maxDepth, stats.depth);
+      } else {
+        // 对于没有tree的情况，设置为null占位
+        nodes[i] = null as any;
       }
     }
     
-    return { nodes, maxDepth };
+    // 过滤掉null值
+    const filteredNodes = nodes.filter(node => node !== null);
+    
+    return { nodes: filteredNodes, maxDepth };
   }
   
   /**
@@ -238,7 +253,25 @@ export class DistributedIcicleService {
    * 多级缓存：存储结果
    */
   private async cacheToMultiLevel(data: IcicleChartData): Promise<void> {
-    // 内存缓存
+    // 内存缓存 - 使用LRU策略限制缓存大小
+    const currentCache = (global as any).icicleMemoryCache;
+    if (currentCache && Object.keys(currentCache).length >= this.MAX_MEMORY_CACHE_SIZE) {
+      // 简单的LRU淘汰：清除最旧的缓存
+      let oldestKey: string | null = null;
+      let oldestTime = Date.now();
+      
+      for (const [key, cacheItem] of Object.entries(currentCache)) {
+        if ((cacheItem as any).timestamp < oldestTime) {
+          oldestTime = (cacheItem as any).timestamp;
+          oldestKey = key;
+        }
+      }
+      
+      if (oldestKey) {
+        delete currentCache[oldestKey];
+      }
+    }
+    
     (global as any).icicleMemoryCache = {
       data,
       timestamp: Date.now()
@@ -283,6 +316,36 @@ export class DistributedIcicleService {
 }
 
 /**
+ * 对象池管理，减少内存分配和GC压力
+ */
+class ObjectPool<T> {
+  private pool: T[] = [];
+  private createFn: () => T;
+  private resetFn: (obj: T) => void;
+  
+  constructor(createFn: () => T, resetFn: (obj: T) => void) {
+    this.createFn = createFn;
+    this.resetFn = resetFn;
+  }
+  
+  acquire(): T {
+    if (this.pool.length > 0) {
+      return this.pool.pop()!;
+    }
+    return this.createFn();
+  }
+  
+  release(obj: T): void {
+    this.resetFn(obj);
+    this.pool.push(obj);
+  }
+  
+  getPoolSize(): number {
+    return this.pool.length;
+  }
+}
+
+/**
  * 高效的队列实现，支持O(1)入队和出队操作
  */
 class Queue<T> {
@@ -290,8 +353,18 @@ class Queue<T> {
   private tail: QueueNode<T> | null = null;
   private size: number = 0;
   
+  // 使用对象池管理节点
+  private static nodePool = new ObjectPool<QueueNode<any>>(
+    () => new QueueNode(null!),
+    (node) => {
+      node.value = null!;
+      node.next = null;
+    }
+  );
+  
   enqueue(item: T): void {
-    const newNode = new QueueNode(item);
+    const newNode = Queue.nodePool.acquire() as QueueNode<T>;
+    newNode.value = item;
     
     if (this.tail) {
       this.tail.next = newNode;
@@ -309,6 +382,7 @@ class Queue<T> {
     }
     
     const item = this.head.value;
+    const oldHead = this.head;
     this.head = this.head.next;
     
     if (!this.head) {
@@ -316,6 +390,10 @@ class Queue<T> {
     }
     
     this.size--;
+    
+    // 回收节点
+    Queue.nodePool.release(oldHead);
+    
     return item;
   }
   

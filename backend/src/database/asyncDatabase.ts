@@ -3,8 +3,8 @@ import { EventEmitter } from 'events';
 
 // better-sqlite3 使用 CommonJS 导出，使用 require() 保证兼容性
 const BetterSqlite3: any = require('better-sqlite3');
-import path from 'path';
-import fs from 'fs';
+import * as path from 'path';
+import * as fs from 'fs';
 import { logger } from '../utils/logger';
 
 interface QueryJob {

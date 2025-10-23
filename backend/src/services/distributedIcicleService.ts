@@ -283,11 +283,69 @@ export class DistributedIcicleService {
 }
 
 /**
- * 简单的Semaphore实现，用于控制并发
+ * 高效的队列实现，支持O(1)入队和出队操作
+ */
+class Queue<T> {
+  private head: QueueNode<T> | null = null;
+  private tail: QueueNode<T> | null = null;
+  private size: number = 0;
+  
+  enqueue(item: T): void {
+    const newNode = new QueueNode(item);
+    
+    if (this.tail) {
+      this.tail.next = newNode;
+    } else {
+      this.head = newNode;
+    }
+    
+    this.tail = newNode;
+    this.size++;
+  }
+  
+  dequeue(): T | null {
+    if (!this.head) {
+      return null;
+    }
+    
+    const item = this.head.value;
+    this.head = this.head.next;
+    
+    if (!this.head) {
+      this.tail = null;
+    }
+    
+    this.size--;
+    return item;
+  }
+  
+  isEmpty(): boolean {
+    return this.size === 0;
+  }
+  
+  getSize(): number {
+    return this.size;
+  }
+}
+
+/**
+ * 队列节点
+ */
+class QueueNode<T> {
+  value: T;
+  next: QueueNode<T> | null = null;
+  
+  constructor(value: T) {
+    this.value = value;
+  }
+}
+
+/**
+ * 优化的Semaphore实现，使用高效队列
  */
 class Semaphore {
   private permits: number;
-  private queue: Array<() => void> = [];
+  private queue: Queue<() => void> = new Queue();
   
   constructor(permits: number) {
     this.permits = permits;
@@ -299,15 +357,15 @@ class Semaphore {
         this.permits--;
         resolve();
       } else {
-        this.queue.push(resolve);
+        this.queue.enqueue(resolve);
       }
     });
   }
   
   release(): void {
     this.permits++;
-    if (this.queue.length > 0) {
-      const next = this.queue.shift();
+    if (!this.queue.isEmpty()) {
+      const next = this.queue.dequeue();
       if (next) {
         this.permits--;
         next();

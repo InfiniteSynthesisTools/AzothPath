@@ -17,7 +17,8 @@ export interface ApiConfig {
 export function getApiConfig(): ApiConfig {
   return {
     // 外部验证API配置
-    validationApiUrl: process.env.VALIDATION_API_URL || 'https://hc.tsdo.in/api',
+    // 新版API: https://hc.tsdo.in/api/check?itemA={A}&itemB={B}&result={C}
+    validationApiUrl: process.env.VALIDATION_API_URL || 'https://hc.tsdo.in/api/check',
     
     // 请求配置
     timeout: parseInt(process.env.API_TIMEOUT || '5000'),

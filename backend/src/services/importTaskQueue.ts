@@ -264,16 +264,21 @@ class ImportTaskQueue {
 
   /**
    * 调用外部 API 验证配方（通过全局限速器）
+   * 新版API: GET https://hc.tsdo.in/api/check?itemA={A}&itemB={B}&result={C}
+   * - 200: 验证成功，返回 { item: string, emoji: string }
+   * - 404: 配方不匹配
+   * - 400: 参数错误
    */
   private async validateRecipe(task: ImportTaskContent): Promise<{ success: boolean; error?: string; emoji?: string; isRateLimit?: boolean }> {
     // 使用全局限速器包装 HTTP 请求
     return validationLimiter.limitValidation(async () => {
       try {
-        logger.debug(`验证配方: ${task.item_a} + ${task.item_b}`);
+        logger.debug(`验证配方: ${task.item_a} + ${task.item_b} = ${task.result}`);
         const response = await axios.get(apiConfig.validationApiUrl, {
           params: {
             itemA: task.item_a,
-            itemB: task.item_b
+            itemB: task.item_b,
+            result: task.result
           },
           timeout: apiConfig.timeout,
           headers: apiConfig.headers
@@ -284,7 +289,7 @@ class ImportTaskQueue {
         if (response.status === 200) {
           const data = response.data;
           if (data.item && data.item !== '') {
-            // 验证返回的结果是否匹配
+            // 验证返回的结果是否匹配（双重检查）
             if (data.item !== task.result) {
               return {
                 success: false,
@@ -294,8 +299,8 @@ class ImportTaskQueue {
             logger.debug(`验证成功: ${task.item_a} + ${task.item_b} = ${data.item}`);
             return { success: true, emoji: data.emoji };
           } else {
-            logger.debug(`验证失败: 无法合成 ${task.item_a} + ${task.item_b}`);
-            return { success: false, error: '无法合成' };
+            logger.debug(`验证失败: API返回空结果`);
+            return { success: false, error: 'API返回空结果' };
           }
         } else {
           logger.warn(`API错误状态: ${response.status}`);
@@ -309,8 +314,13 @@ class ImportTaskQueue {
           logger.warn(`错误响应: ${status}`, error.response.data);
           
           if (status === 400) {
-            return { success: false, error: '这两个物件不能合成' };
+            // 参数错误（物品名称无效等）
+            return { success: false, error: '参数错误：物品名称无效或格式不正确' };
+          } else if (status === 404) {
+            // 配方不匹配
+            return { success: false, error: '配方验证失败：该配方不存在或结果不匹配' };
           } else if (status === 403) {
+            // 保留旧版兼容性
             return { success: false, error: '包含非法物件（还没出现过的物件）' };
           } else if (status === 429) {
             // 429限流错误，特殊处理，不增加重试次数

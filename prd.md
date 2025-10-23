@@ -43,7 +43,7 @@
 | **异步处理** | 后台任务队列 (`importTaskQueue`) 异步处理明细记录，状态流转：$\text{pending} \rightarrow \text{processing} \rightarrow \text{success/failed/duplicate}$。 | ✅ 已实现 |
 | **队列系统** | 使用 `validationLimiter` 限流，每次处理 10 个并发任务，避免触发外部 API 限流。 | ✅ 已实现 |
 | **重试机制** | 失败任务自动重试，最多 3 次 (`MAX_RETRY_COUNT`)，超过后标记为 $\text{failed}$。 | ✅ 已实现 |
-| **数据有效性校验** | 通过外部 API (`https://hc.tsdo.in/api`) 校验配方，使用 `validationLimiter` 串行化请求。 | ✅ 已实现 |
+| **数据有效性校验** | 通过外部 API (`https://hc.tsdo.in/api/check`) 校验配方，使用 `validationLimiter` 串行化请求。 | ✅ 已实现 |
 | **去重检查** | 在验证前检查 `recipes` 表，重复配方标记为 $\text{duplicate}$，并关联已存在的 `recipe_id`。 | ✅ 已实现 |
 | **新词条收录** | 验证成功后，自动将 `item_a, item_b, result` 添加到 `items` 表（如不存在），并保存结果物品的 emoji。 | ✅ 已实现 |
 | **成功入库** | 验证通过且无重复的配方写入 `recipes` 表，更新 `import_tasks_content` 状态为 $\text{success}$，实时更新 `import_tasks` 统计。 | ✅ 已实现 |
@@ -366,10 +366,13 @@ CREATE INDEX idx_recipe_likes_user_id ON recipe_likes(user_id);
    - 队列机制确保请求按顺序处理
 
 5. **外部 API 验证**
-   - 调用 `https://hc.tsdo.in/api?itemA=xxx&itemB=xxx`
-   - Status 200 + 结果匹配 → 验证成功（保存 emoji）
-   - Status 400 → "这两个物件不能合成" → 标记失败
-   - Status 403 → "包含非法物件" → 标记失败
+   - 调用 `https://hc.tsdo.in/api/check?itemA=xxx&itemB=xxx&result=yyy`
+   - **新版 API 参数**：需要同时传递 `itemA`、`itemB`、`result` 三个参数
+   - **响应状态码**：
+     - Status 200 → 验证成功，返回 `{ item: string, emoji: string }`
+     - Status 404 → 配方不匹配（结果不正确或配方不存在）
+     - Status 400 → 参数错误（物品名称无效或格式不正确）
+     - Status 403 → 包含非法物件（保留兼容性）
    - 网络错误/超时 → 增加 `retry_count`，允许重试（最多 3 次）
 
 6. **数据入库**（验证成功后）
@@ -1428,7 +1431,7 @@ npm run dev
 - ✅ 用户注册登录系统（bcrypt + JWT）
 - ✅ 配方 CRUD 操作（提交、查询、删除）
 - ✅ 批量导入系统（异步队列 + 验证限流）
-- ✅ 外部 API 集成（https://hc.tsdo.in/api）
+- ✅ 外部 API 集成（https://hc.tsdo.in/api/check）
 - ✅ 合成路径搜索（BFS 算法，记忆化优化）
 - ✅ 点赞系统（切换式点赞，冗余字段优化）
 - ✅ 任务悬赏系统（自动创建、自动完成）
@@ -1547,7 +1550,7 @@ PRAGMA busy_timeout = 5000;       -- 5秒繁忙超时
 NODE_ENV=development
 PORT=19198
 JWT_SECRET=your_jwt_secret_here
-GAME_API_ENDPOINT=https://hc.tsdo.in/api
+GAME_API_ENDPOINT=https://hc.tsdo.in/api/check
 DATABASE_PATH=./database/azothpath.db
 ```
 

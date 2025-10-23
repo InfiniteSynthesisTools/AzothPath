@@ -264,25 +264,33 @@ Example:
 ```
 
 ### External API Integration
-- **Validation endpoint**: `https://hc.tsdo.in/api` (GET with itemA, itemB params)
+- **Validation endpoint**: `https://hc.tsdo.in/api/check` (GET with itemA, itemB, result params)
 - **Error handling**: 
-  - Status 400/403 → immediate failure (discard)
+  - Status 200 → Recipe validated successfully (save emoji from response)
+  - Status 404 → Recipe mismatch (result incorrect or recipe doesn't exist)
+  - Status 400 → Parameter error (invalid item names or incorrect format)
+  - Status 403 → Contains illegal items (legacy compatibility)
   - Other errors → log to error_message, allow retry
 - **Auto-discovery**: New items from API automatically added to `items` table with emoji
 
 ### 外部API验证流程
 ```typescript
 // 在 importService.ts 中的验证逻辑
-const response = await axios.get('https://hc.tsdo.in/api', {
-  params: { itemA, itemB }
+const response = await axios.get('https://hc.tsdo.in/api/check', {
+  params: { itemA, itemB, result }
 });
 
 // 验证成功条件
-if (response.data && response.data.result === expectedResult) {
+if (response.status === 200 && response.data && response.data.result === expectedResult) {
   // 配方验证成功
   // 自动收录新物品到 items 表
   // 计算贡献分
 }
+
+// 错误处理
+// 404: 配方不匹配
+// 400: 参数错误
+// 403: 包含非法物件（保留兼容性）
 ```
 
 ### 贡献分计算规则（关键理解）
@@ -881,7 +889,7 @@ export class RecipeService {
 3. Parse & create import_tasks_content entries (status: pending)
 4. Background queue processes each entry:
    - Update status → processing
-   - Call external validation API (https://hc.tsdo.in/api)
+   - Call external validation API (https://hc.tsdo.in/api/check)
    - Check duplicates in recipes table
    - Update status → success/failed/duplicate
    - Update parent task counters in real-time
@@ -896,9 +904,14 @@ export class RecipeService {
 - **Maximum**: 7 points per recipe (1 + 3×2)
 
 ### External API Integration
-- **Validation Endpoint**: `https://hc.tsdo.in/api` (GET with itemA, itemB params)
-- **Error Handling**: Status 400/403 → immediate failure, other errors → retry
-- **Auto-Discovery**: New items automatically added to `items` table
+- **Validation Endpoint**: `https://hc.tsdo.in/api/check` (GET with itemA, itemB, result params)
+- **Error Handling**: 
+  - Status 200 → Recipe validated successfully (save emoji from response)
+  - Status 404 → Recipe mismatch (result incorrect or recipe doesn't exist)
+  - Status 400 → Parameter error (invalid item names or incorrect format)
+  - Status 403 → Contains illegal items (legacy compatibility)
+  - Other errors → log to error_message, allow retry
+- **Auto-Discovery**: New items automatically added to `items` table with emoji
 
 ## 🔍 Key Integration Points
 

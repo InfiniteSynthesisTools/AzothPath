@@ -137,7 +137,7 @@ echo 📝 创建生产环境配置...
 echo NODE_ENV=production
 echo PORT=19198
 echo DB_PATH=database/azothpath.db
-echo VALIDATION_API_URL=https://hc.tsdo.in/api
+echo VALIDATION_API_URL=https://hc.tsdo.in/api/check
 ) > "%BUILD_DIR%\backend\.env.example"
 
 echo ✅ 文件复制完成

@@ -28,8 +28,9 @@ Azoth Path 是一个为"无尽合成"游戏玩家打造的社区工具站，提�
 ### 后端
 - **运行时**: Node.js 18+
 - **框架**: Express + TypeScript
-- **数据库**: SQLite
+- **数据库**: SQLite (异步连接层优化)
 - **认证**: JWT
+- **性能优化**: 异步数据库操作，查询队列管理，并发控制
 
 ## 📂 项目结构
 
@@ -38,9 +39,7 @@ AzothPath/
 ├── frontend/          # Vue 3 前端项目
 ├── backend/           # Node.js 后端项目
 ├── database/          # SQLite 数据库
-├── prd.md             # 产品需求文档
-├── run.sh             # 快速启动脚本 (Linux/macOS)
-└── run.bat            # 快速启动脚本 (Windows)
+└── prd.md             # 产品需求文档
 ```
 
 ## ⚡ 快速开始
@@ -50,27 +49,7 @@ AzothPath/
 - npm >= 9.0.0
 - Python >= 3.8 (可选，用于算法参考)
 
-### 方法一：使用安装脚本（推荐）
-
-#### Windows 系统
-```bash
-# 运行 Windows 安装脚本
-run.bat
-```
-
-#### Linux/macOS 系统
-```bash
-# 运行 Linux/macOS 安装脚本
-chmod +x run.sh
-./run.sh
-```
-
-安装脚本将自动完成以下操作：
-- 安装前端和后端依赖
-- 初始化数据库
-- 启动开发服务器
-
-### 方法二：手动安装
+### 手动安装
 
 #### 1. 克隆项目
 ```bash

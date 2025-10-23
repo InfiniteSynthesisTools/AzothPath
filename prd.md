@@ -609,7 +609,7 @@ interface PathStats {
 | **路由管理** | Vue Router 4 | 前端路由管理 |
 | **构建工具** | Vite | 快速的开发服务器和构建工具 |
 | **后端框架** | Node.js + Express (TypeScript) | 轻量级 API 服务 |
-| **数据库** | SQLite | 轻量级、无需独立服务器、适合中小型应用 |
+| **数据库** | SQLite | 轻量级、无需独立服务器、适合中小型应用，异步连接层优化 |
 | **API 文档** | 详见 API_DOCUMENTATION.md | 完整的 API 端点说明 |
 | **代码规范** | ESLint + Prettier | 统一代码风格 |
 | **包管理器** | npm | 依赖管理 |
@@ -640,11 +640,26 @@ interface PathStats {
 -- 在 init.sql 中配置
 PRAGMA journal_mode = WAL;        -- WAL 模式，提高并发性能
 PRAGMA synchronous = NORMAL;      -- 平衡性能和安全
-PRAGMA cache_size = -2000;        -- 8MB 缓存
-PRAGMA busy_timeout = 5000;       -- 5秒繁忙超时
+PRAGMA cache_size = -16000;       -- 16MB 缓存（优化后）
+PRAGMA busy_timeout = 30000;      -- 30秒繁忙超时
+PRAGMA journal_size_limit = 16777216; -- 16MB WAL文件限制
+PRAGMA mmap_size = 67108864;      -- 64MB内存映射
 ```
 
-##### 4.2.4 数据库表创建 SQL（SQLite 语法）
+##### 4.2.4 异步数据库连接层
+
+**架构改进：**
+- **异步操作**: 所有数据库操作改为异步模式，避免阻塞事件循环
+- **查询队列管理**: 实现查询队列和并发控制，防止数据库连接过载
+- **连接池优化**: 数据库连接复用和自动重连机制
+- **性能监控**: 慢查询记录和性能指标收集
+
+**核心组件：**
+- `asyncDatabase.ts` - 异步数据库包装器，处理查询队列和并发控制
+- `databaseAdapter.ts` - 数据库适配器层，提供统一的异步API接口
+- 向后兼容的同步到异步迁移策略
+
+##### 4.2.5 数据库表创建 SQL（SQLite 语法）
 
 ```sql
 -- recipes 表

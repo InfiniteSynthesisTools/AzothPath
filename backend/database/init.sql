@@ -64,6 +64,7 @@ CREATE TABLE IF NOT EXISTS user (
   auth INTEGER DEFAULT 1,  -- 1=普通用户, 9=管理员
   contribute INTEGER DEFAULT 0,  -- 累积贡献分
   level INTEGER DEFAULT 1,  -- 用户等级
+  emoji TEXT,  -- 用户emoji头像（可为空，启动时或注册时分配）
   created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 );
 

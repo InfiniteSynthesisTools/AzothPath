@@ -19,9 +19,9 @@
 
           <div class="user-info-content" v-if="currentUser">
             <div class="user-avatar">
-              <el-avatar :size="80" :style="{ backgroundColor: '#409eff' }" class="large-avatar-text">
-                {{ currentUser.name.charAt(0).toUpperCase() }}
-              </el-avatar>
+              <div class="user-emoji-avatar-large">
+                {{ currentUser.emoji || '🙂' }}
+              </div>
             </div>
             
             <div class="user-details">
@@ -383,6 +383,19 @@ onMounted(async () => {
 
 .user-avatar {
   flex-shrink: 0;
+}
+
+.user-emoji-avatar-large {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  box-shadow: inset 0 0 0 2px #e4e7ed;
+  font-size: 44px;
+  line-height: 1;
 }
 
 .large-avatar-text {

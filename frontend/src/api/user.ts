@@ -81,6 +81,7 @@ export const userApi = {
     contribute?: number;
     level?: number;
     auth?: number;
+    emoji?: string;
     created_at?: string;
   }) {
     return request.put<{ userId: number; updates: any }>(`/users/admin/${userId}`, updates);

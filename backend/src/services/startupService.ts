@@ -15,6 +15,9 @@ export class StartupService {
     try {
       // 确保数据库已初始化
       await database.init();
+
+      // 0. 在任何重算前，确保 user.emoji 列存在，并为缺少头像的用户随机分配
+      await this.ensureUserEmojiAndAssign();
       
       // 1. 重新计算 items 表的发现者
       await this.recalculateItemDiscoverers();
@@ -29,6 +32,57 @@ export class StartupService {
     } catch (error) {
       logger.error('启动初始化失败', error);
       throw error;
+    }
+  }
+
+  /**
+   * 确保 user 表存在 emoji 列，并为缺失头像的用户进行随机分配
+   */
+  private async ensureUserEmojiAndAssign(): Promise<void> {
+    logger.info('检查并分配用户 Emoji 头像...');
+    // 1) 检查列是否存在
+    const columns = await database.all<{ name: string }>(
+      `PRAGMA table_info(user)`
+    );
+    const hasEmoji = columns.some((c) => c.name === 'emoji');
+
+    if (!hasEmoji) {
+      logger.warn('检测到 user 表缺少 emoji 列，开始添加...');
+      try {
+        await database.run(`ALTER TABLE user ADD COLUMN emoji TEXT`);
+        logger.success('已为 user 表添加 emoji 列');
+      } catch (error) {
+        logger.error('添加 emoji 列失败', error);
+        // 不中断启动流程，但记录错误
+      }
+    }
+
+    // 2) 为缺少头像的用户随机分配
+    try {
+      // 动态导入，避免循环依赖
+      const { randomUserEmoji } = await import('../utils/emoji');
+
+      // 查询需要分配的用户
+      const usersToAssign = await database.all<{ id: number }>(
+        `SELECT id FROM user WHERE emoji IS NULL OR TRIM(emoji) = ''`
+      );
+
+      if (usersToAssign.length === 0) {
+        logger.info('所有用户均已拥有 Emoji 头像');
+        return;
+      }
+
+      logger.info(`为 ${usersToAssign.length} 个用户分配 Emoji 头像...`);
+      await database.transaction(async (tx) => {
+        for (const u of usersToAssign) {
+          const emoji = randomUserEmoji(u.id);
+          await tx.run(`UPDATE user SET emoji = ? WHERE id = ?`, [emoji, u.id]);
+        }
+      });
+
+      logger.success(`已为 ${usersToAssign.length} 个用户分配 Emoji 头像`);
+    } catch (error) {
+      logger.error('分配用户 Emoji 头像失败', error);
     }
   }
 

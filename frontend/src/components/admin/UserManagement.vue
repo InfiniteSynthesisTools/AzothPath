@@ -49,6 +49,14 @@
       >
         <el-table-column prop="id" label="ID" width="80" sortable="custom" align="center" />
         
+        <el-table-column label="头像" width="80" align="center">
+          <template #default="{ row }">
+            <div class="user-emoji-avatar-small">
+              {{ row.emoji || '🙂' }}
+            </div>
+          </template>
+        </el-table-column>
+        
         <el-table-column prop="name" label="用户名" min-width="150" />
         
         <el-table-column prop="auth" label="角色" width="100" align="center">
@@ -134,6 +142,27 @@
             :rules="editRules"
             label-width="100px"
           >
+            <!-- Emoji 头像选择 -->
+            <el-form-item label="头像" prop="emoji">
+              <div class="emoji-selector-wrapper">
+                <div class="current-emoji-display">
+                  <div class="current-emoji">{{ editForm.emoji || '🙂' }}</div>
+                  <span class="emoji-hint">点击下方选择新头像</span>
+                </div>
+                <div class="emoji-grid">
+                  <div 
+                    v-for="emoji in availableEmojis" 
+                    :key="emoji"
+                    class="emoji-option"
+                    :class="{ 'selected': editForm.emoji === emoji }"
+                    @click="selectEmoji(emoji)"
+                  >
+                    {{ emoji }}
+                  </div>
+                </div>
+              </div>
+            </el-form-item>
+
             <el-row :gutter="20">
               <el-col :span="12">
                 <el-form-item label="用户名" prop="name">
@@ -209,8 +238,16 @@ const editFormRef = ref<FormInstance>();
 const editForm = ref({
   name: '',
   auth: 1,
+  emoji: '',
   created_at: ''
 });
+
+// Emoji 头像列表（与后端保持一致）
+const availableEmojis = [
+  '😀','😄','😁','😎','🥳','🤖','🧙','🧠','🐼','🐯','🦊','🐶','🐱',
+  '🐮','🐨','🦄','🐲','🐳','🐬','🐟','🐝','🦋','🍀','🌈','🌟','⚡',
+  '🔥','💎','🎮','🎲','🎯','🏆','🧩','🛡️','⚔️','🗡️','🏹','🚀','🛸','🛰️','🧪','🧬'
+];
 
 // 表单验证规则
 const editRules: FormRules = {
@@ -312,11 +349,16 @@ const viewUserDetail = (user: any) => {
   editForm.value = {
     name: user.name,
     auth: user.auth,
+    emoji: user.emoji || '🙂',
     created_at: user.created_at
   };
   userDialogVisible.value = true;
 };
 
+// 选择 emoji
+const selectEmoji = (emoji: string) => {
+  editForm.value.emoji = emoji;
+};
 
 const deleteUser = async (user: any) => {
   // 检查是否为管理员用户
@@ -399,6 +441,19 @@ onMounted(() => {
   font-weight: 500;
 }
 
+.user-emoji-avatar-small {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  box-shadow: inset 0 0 0 1px #e4e7ed;
+  font-size: 20px;
+  line-height: 1;
+}
+
 .pagination {
   display: flex;
   justify-content: center;
@@ -418,6 +473,77 @@ onMounted(() => {
 
 .edit-form {
   padding: 20px 0;
+}
+
+/* Emoji 选择器样式 */
+.emoji-selector-wrapper {
+  width: 100%;
+}
+
+.current-emoji-display {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 20px;
+  background: #f8f9fa;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.current-emoji {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  box-shadow: inset 0 0 0 2px #e4e7ed;
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.emoji-hint {
+  font-size: 12px;
+  color: #909399;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+  gap: 8px;
+  max-height: 200px;
+  overflow-y: auto;
+  padding: 12px;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e4e7ed;
+}
+
+.emoji-option {
+  width: 46px;
+  height: 46px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  background: white;
+  border: 2px solid transparent;
+}
+
+.emoji-option:hover {
+  background: #f0f2f5;
+  transform: scale(1.1);
+}
+
+.emoji-option.selected {
+  background: #409eff;
+  border-color: #409eff;
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
 }
 
 .dialog-footer {

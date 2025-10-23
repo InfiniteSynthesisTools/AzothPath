@@ -11,6 +11,7 @@ export interface User {
   auth: number;  // 1=普通用户, 9=管理员
   contribute: number;
   level: number;
+  emoji: string | null;
   created_at: string;
 }
 
@@ -21,6 +22,7 @@ export interface UserPublic {
   auth: number;  // 1=普通用户, 9=管理员
   contribute: number;
   level: number;
+  emoji: string | null;
   created_at: string;
 }
 
@@ -39,6 +41,7 @@ function toUserPublic(user: User): UserPublic {
     auth: user.auth,
     contribute: user.contribute,
     level: user.level,
+    emoji: user.emoji ?? null,
     created_at: convertUTCToUTC8ForDB(new Date(user.created_at))
   };
 }
@@ -68,10 +71,15 @@ export class UserService {
     // 加密密码
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // 插入新用户
+    // 随机分配一个emoji头像
+    // 为避免循环依赖，仅在此处动态导入工具
+    const { randomUserEmoji } = await import('../utils/emoji');
+    const emoji = randomUserEmoji();
+
+    // 插入新用户（带 emoji）
     const result = await database.run(
-      'INSERT INTO user (name, psw, auth, contribute, level, created_at) VALUES (?, ?, ?, ?, ?, ?)',
-      [username, hashedPassword, 1, 0, 1, getCurrentUTC8TimeForDB()]  // auth=1 表示普通用户
+      'INSERT INTO user (name, psw, auth, contribute, level, emoji, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [username, hashedPassword, 1, 0, 1, emoji, getCurrentUTC8TimeForDB()]  // auth=1 表示普通用户
     );
 
     // 生成 token
@@ -85,6 +93,7 @@ export class UserService {
         auth: 1,  // 普通用户
         contribute: 0,
         level: 1,
+        emoji,
         created_at: getCurrentUTC8TimeForDB()
       }
     };
@@ -166,6 +175,7 @@ export class UserService {
          u.auth, 
          u.contribute, 
          u.level,
+         u.emoji,
          u.created_at,
          (SELECT COUNT(*) FROM recipes WHERE user_id = u.id) as recipe_count,
          (SELECT COUNT(DISTINCT i.id) 
@@ -324,13 +334,14 @@ export class UserService {
     }
 
     // 查询用户列表
-    const users = await database.all<any>(`
-      SELECT 
+    const users = await database.all<any>(
+      `SELECT 
         u.id, 
         u.name, 
         u.auth, 
         u.contribute, 
         u.level,
+        u.emoji,
         u.created_at,
         (SELECT COUNT(*) FROM recipes WHERE user_id = u.id) as recipe_count,
         (SELECT COUNT(DISTINCT i.id) 
@@ -382,6 +393,7 @@ export class UserService {
     contribute?: number;
     level?: number;
     auth?: number;
+    emoji?: string;
     created_at?: string;
   }): Promise<void> {
     const fields: string[] = [];
@@ -418,6 +430,11 @@ export class UserService {
       }
       fields.push('auth = ?');
       values.push(updates.auth);
+    }
+
+    if (updates.emoji !== undefined) {
+      fields.push('emoji = ?');
+      values.push(updates.emoji);
     }
 
     if (updates.created_at !== undefined) {

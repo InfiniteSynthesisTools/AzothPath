@@ -64,9 +64,11 @@
 
           <!-- 用户信息 -->
           <div class="user-section">
-            <el-avatar :size="50" :style="{ backgroundColor: getAvatarColor() }">
-              {{ user.name.charAt(0).toUpperCase() }}
-            </el-avatar>
+            <div class="user-avatar-wrapper">
+              <div class="user-emoji-avatar">
+                {{ user.emoji || '🙂' }}
+              </div>
+            </div>
             <div class="user-info">
               <h3 class="user-name">{{ user.name }}</h3>
               <p class="join-date">加入于 {{ formatDate(user.created_at) }}</p>
@@ -192,12 +194,6 @@ const getRankClass = (index: number) => {
 const getRankIcon = (index: number) => {
   const icons = ['🥇', '🥈', '🥉'];
   return icons[index] || '';
-};
-
-// 获取头像颜色 - 与个人页面保持一致
-const getAvatarColor = () => {
-  // 默认使用蓝色，与个人页面保持一致
-  return '#409eff';
 };
 
 // 查看用户主页
@@ -337,6 +333,23 @@ onMounted(() => {
   gap: 12px;
   flex: 1;
   min-width: 0;
+}
+
+.user-avatar-wrapper {
+  flex-shrink: 0;
+}
+
+.user-emoji-avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  box-shadow: inset 0 0 0 2px #e4e7ed;
+  font-size: 28px;
+  line-height: 1;
 }
 
 .user-info {

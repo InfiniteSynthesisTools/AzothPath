@@ -37,7 +37,9 @@
           <template v-if="userStore.isLoggedIn">
             <el-dropdown>
               <span class="user-info">
-                <el-icon><User /></el-icon>
+                <span class="user-avatar" :title="userStore.userInfo?.name">
+                  {{ userStore.userInfo?.emoji || '🙂' }}
+                </span>
                 <span class="user-name">{{ userStore.userInfo?.name }}</span>
                 <span class="user-level">Lv.{{ userStore.userInfo?.level }}</span>
               </span>
@@ -297,6 +299,19 @@ const handleLogout = () => {
   font-weight: bold;
 }
 
+.user-avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #f5f7fa;
+  box-shadow: inset 0 0 0 1px #e4e7ed;
+  font-size: 16px;
+  line-height: 1;
+}
+
 .main-content {
   flex: 1;
   background-color: #f5f7fa;
@@ -387,6 +402,12 @@ const handleLogout = () => {
   
   .user-level {
     font-size: 11px;
+  }
+
+  .user-avatar {
+    width: 24px;
+    height: 24px;
+    font-size: 14px;
   }
   
   /* 隐藏移动端的登录按钮 */

@@ -6,6 +6,7 @@ export interface User {
   auth: number;          // 1: 普通用户, 9: 管理员
   contribute: number;    // 累积贡献分
   level: number;         // 用户等级
+  emoji: string | null;  // Emoji 头像
   created_at: string;
 }
 

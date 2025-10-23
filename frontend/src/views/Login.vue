@@ -17,7 +17,8 @@
           <el-input 
             v-model="form.password" 
             type="password" 
-            placeholder="密码" 
+            placeholder="密码"
+            show-password
             @keyup.enter="handleEnterKey"
           />
         </el-form-item>
@@ -79,19 +80,66 @@ const handleLogin = async () => {
 
 <style scoped>
 .login-page {
-  min-height: 100vh;
+  min-height: calc(100vh - 200px);
   display: flex;
-  justify-content: center;
   align-items: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  justify-content: center;
+  background-color: #f5f7fa;
+  padding: 20px;
 }
 
 .login-card {
-  width: 400px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 8px;
+}
+
+.login-card :deep(.el-card__header) {
+  text-align: center;
+  padding: 20px 20px 10px;
+  border-bottom: 1px solid #ebeef5;
+}
+
+.login-card :deep(.el-card__body) {
+  padding: 20px;
+}
+
+h2 {
+  margin: 0;
+  color: #303133;
+  font-size: 24px;
+  font-weight: 600;
 }
 
 .footer {
   text-align: center;
   margin-top: 20px;
+  color: #606266;
+  font-size: 14px;
+}
+
+.footer a {
+  color: #409eff;
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.footer a:hover {
+  text-decoration: underline;
+}
+
+:deep(.el-form-item) {
+  margin-bottom: 20px;
+}
+
+:deep(.el-input__wrapper) {
+  border-radius: 6px;
+}
+
+:deep(.el-button) {
+  border-radius: 6px;
+  font-weight: 500;
+  height: 40px;
 }
 </style>

@@ -24,25 +24,6 @@
         
         <div class="filters-wrapper">
           <el-select
-            v-model="filterType"
-            placeholder="筛选类型"
-            clearable
-            size="large"
-            class="filter-select"
-            @change="handleFilterChange"
-          >
-            <el-option label="全部类型" value="" />
-            <el-option label="基础元素" value="base">
-              <span class="option-emoji">⭐</span>
-              <span>基础元素</span>
-            </el-option>
-            <el-option label="合成元素" value="synthetic">
-              <span class="option-emoji">🔬</span>
-              <span>合成元素</span>
-            </el-option>
-          </el-select>
-          
-          <el-select
             v-model="sortBy"
             placeholder="排序方式"
             size="large"
@@ -199,12 +180,6 @@ const handleSearch = () => {
   fetchElements();
 };
 
-// 筛选处理
-const handleFilterChange = () => {
-  currentPage.value = 1;
-  fetchElements();
-};
-
 // 排序处理
 const handleSortChange = () => {
   currentPage.value = 1;
@@ -314,14 +289,12 @@ onMounted(() => {
   flex-wrap: wrap;
 }
 
-.filter-select,
 .sort-select {
   min-width: 200px;
   flex: 1;
   max-width: 280px;
 }
 
-.filter-select :deep(.el-input__wrapper),
 .sort-select :deep(.el-input__wrapper) {
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
@@ -329,13 +302,11 @@ onMounted(() => {
   background: #ffffff;
 }
 
-.filter-select :deep(.el-input__wrapper:hover),
 .sort-select :deep(.el-input__wrapper:hover) {
   box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
   transform: translateY(-1px);
 }
 
-.filter-select :deep(.el-input__wrapper.is-focus),
 .sort-select :deep(.el-input__wrapper.is-focus) {
   box-shadow: 0 3px 12px rgba(103, 194, 58, 0.15);
 }
@@ -343,15 +314,6 @@ onMounted(() => {
 .option-emoji {
   margin-right: 8px;
   font-size: 16px;
-}
-
-.search-input {
-  width: 300px;
-}
-
-.filter-select,
-.sort-select {
-  width: 140px;
 }
 
 .elements-container {
@@ -520,7 +482,6 @@ onMounted(() => {
     gap: 8px;
   }
   
-  .filter-select,
   .sort-select {
     width: 100%;
     max-width: 100%;

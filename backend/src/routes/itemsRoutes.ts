@@ -7,6 +7,38 @@ import { userService } from '../services/userService';
 const router = Router();
 
 /**
+ * GET /api/items/random
+ * 获取随机物品（默认为合成元素）
+ * 注意：必须放在 /:id 之前，否则 'random' 会被当作 id 处理
+ */
+router.get('/random', async (req: Request, res: Response) => {
+  try {
+    const type = req.query.type as string || 'synthetic';  // 默认合成元素
+    
+    const randomItem = await recipeService.getRandomItem(type);
+
+    if (!randomItem) {
+      return res.status(404).json({
+        code: 404,
+        message: '未找到符合条件的物品'
+      });
+    }
+
+    res.json({
+      code: 200,
+      message: '获取成功',
+      data: randomItem
+    });
+  } catch (error: any) {
+    logger.error('获取随机物品失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取随机物品失败'
+    });
+  }
+});
+
+/**
  * GET /api/items/:id
  * 获取单个物品详情
  */

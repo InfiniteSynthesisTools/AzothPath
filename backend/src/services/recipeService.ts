@@ -2347,6 +2347,51 @@ export class RecipeService {
   }
 
   /**
+   * 获取随机物品
+   */
+  async getRandomItem(type: string = 'synthetic') {
+    // 构建查询条件
+    let whereConditions = ['is_public = 1'];
+    
+    // 类型条件
+    if (type === 'base') {
+      whereConditions.push('is_base = 1');
+    } else if (type === 'synthetic') {
+      whereConditions.push('is_base = 0');
+    }
+    
+    const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
+
+    // SQLite 使用 RANDOM() 函数获取随机记录
+    const item = await database.get<Item & { usage_count: number; recipe_count: number }>(
+      `SELECT 
+         i.*,
+         COALESCE(usage_stats.usage_count, 0) as usage_count,
+         COALESCE(result_stats.recipe_count, 0) as recipe_count
+       FROM items i
+       LEFT JOIN (
+         SELECT item_name, SUM(cnt) as usage_count
+         FROM (
+           SELECT item_a as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_a
+           UNION ALL
+           SELECT item_b as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_b
+         )
+         GROUP BY item_name
+       ) as usage_stats ON usage_stats.item_name = i.name
+       LEFT JOIN (
+         SELECT result as item_name, COUNT(*) as recipe_count
+         FROM recipes
+         GROUP BY result
+       ) as result_stats ON result_stats.item_name = i.name
+       ${whereClause}
+       ORDER BY RANDOM()
+       LIMIT 1`
+    );
+
+    return item || null;
+  }
+
+  /**
    * 获取物品列表
    */
   async getItemsList(params: {

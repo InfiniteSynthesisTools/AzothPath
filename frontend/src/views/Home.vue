@@ -48,6 +48,26 @@
     <!-- 四个卡片区域 -->
     <div class="cards-section">
       <el-row :gutter="20">
+        <!-- 探索元素 - 紧凑版 -->
+        <el-col :xs="24" :sm="24" :md="24" :lg="24">
+          <el-card class="explore-card" shadow="hover">
+            <div class="explore-content">
+              <div class="explore-left">
+                <el-icon size="32" color="#667eea">
+                  <StarFilled />
+                </el-icon>
+                <div class="explore-text">
+                  <h3>🎲 探索元素</h3>
+                  <p>随机发现一个意想不到的合成元素</p>
+                </div>
+              </div>
+              <el-button type="primary" @click="exploreRandomElement" :loading="loadingRandomElement">
+                {{ loadingRandomElement ? '探索中...' : '随机探索' }}
+              </el-button>
+            </div>
+          </el-card>
+        </el-col>
+
         <!-- 最新配方 -->
         <el-col :xs="24" :sm="12" :md="12" :lg="12">
           <el-card class="feature-card" shadow="hover">
@@ -156,29 +176,6 @@
             </div>
           </el-card>
         </el-col>
-
-        <!-- 总图显示 -->
-        <el-col :xs="24" :sm="24" :md="24" :lg="24">
-          <el-card class="feature-card" shadow="hover">
-            <template #header>
-              <div class="card-header">
-                <h3>🗺️ 总图显示</h3>
-              </div>
-            </template>
-            <div class="card-content placeholder">
-              <div class="placeholder-content">
-                <el-icon size="48" color="#909399">
-                  <MapLocation />
-                </el-icon>
-                <p>合成图谱总览</p>
-                <p class="placeholder-desc">查看完整的合成关系图谱</p>
-                <el-button type="primary" size="small" @click="goToGraph">
-                  查看图谱
-                </el-button>
-              </div>
-            </div>
-          </el-card>
-        </el-col>
       </el-row>
     </div>
   </div>
@@ -188,7 +185,7 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Box, CircleCheck, MapLocation } from '@element-plus/icons-vue';
+import { Box, CircleCheck, StarFilled } from '@element-plus/icons-vue';
 import CopyIcon from '@/components/icons/CopyIcon.vue';
 import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
@@ -197,6 +194,7 @@ import { formatDateTime } from '@/utils/format';
 const router = useRouter();
 const loadingLatest = ref(false);
 const loadingPopular = ref(false);
+const loadingRandomElement = ref(false);
 
 // 最新/最热 列表分页状态
 const latestPage = ref(1);
@@ -385,11 +383,6 @@ const loadMorePopular = async () => {
   await loadPopularRecipes(popularPage.value + 1, true);
 };
 
-// 跳转到图谱页面
-const goToGraph = () => {
-  router.push({ name: 'GraphView' });
-};
-
 // 跳转到元素详情页面
 const goToElement = async (elementName: string) => {
   try {
@@ -408,6 +401,29 @@ const goToElement = async (elementName: string) => {
   } catch (error) {
     console.error('查询元素失败:', error);
     ElMessage.error('无法打开元素详情');
+  }
+};
+
+// 随机探索元素
+const exploreRandomElement = async () => {
+  loadingRandomElement.value = true;
+  try {
+    // 调用后端随机接口
+    const randomItem = await recipeApi.getRandomItem('synthetic');
+
+    if (randomItem) {
+      ElMessage.success(`发现元素: ${randomItem.emoji || '🔘'} ${randomItem.name}`);
+      
+      // 跳转到元素详情页
+      router.push(`/element/${randomItem.id}`);
+    } else {
+      ElMessage.warning('暂无可探索的元素');
+    }
+  } catch (error) {
+    console.error('探索元素失败:', error);
+    ElMessage.error('探索失败，请稍后重试');
+  } finally {
+    loadingRandomElement.value = false;
   }
 };
 
@@ -463,6 +479,44 @@ onMounted(() => {
   max-width: 1400px;
   margin: 40px auto 60px;
   padding: 0 20px;
+}
+
+.explore-card {
+  margin-bottom: 20px;
+  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
+  border: 1px solid #e4e7ed;
+}
+
+.explore-card :deep(.el-card__body) {
+  padding: 20px;
+}
+
+.explore-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.explore-left {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex: 1;
+  min-width: 0;
+}
+
+.explore-text h3 {
+  margin: 0 0 4px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
+
+.explore-text p {
+  margin: 0;
+  font-size: 14px;
+  color: #909399;
 }
 
 .feature-card {
@@ -795,6 +849,30 @@ onMounted(() => {
     margin-bottom: 12px;
   }
 
+  /* 探索元素卡片 - 移动端垂直布局 */
+  .explore-card :deep(.el-card__body) {
+    padding: 16px;
+  }
+
+  .explore-content {
+    flex-direction: column;
+    gap: 12px;
+    text-align: center;
+  }
+
+  .explore-left {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .explore-text h3 {
+    font-size: 16px;
+  }
+
+  .explore-text p {
+    font-size: 13px;
+  }
+
   .feature-card {
     height: auto !important;
     min-height: 320px;
@@ -888,6 +966,18 @@ onMounted(() => {
     font-size: 13px;
   }
 
+  .explore-card :deep(.el-card__body) {
+    padding: 12px;
+  }
+
+  .explore-text h3 {
+    font-size: 15px;
+  }
+
+  .explore-text p {
+    font-size: 12px;
+  }
+
   .feature-card {
     min-height: 300px;
   }
@@ -961,6 +1051,18 @@ onMounted(() => {
 
   .hero-section p {
     font-size: 12px;
+  }
+
+  .explore-card :deep(.el-card__body) {
+    padding: 10px;
+  }
+
+  .explore-text h3 {
+    font-size: 14px;
+  }
+
+  .explore-text p {
+    font-size: 11px;
   }
 
   .feature-card {

@@ -118,6 +118,11 @@ export const recipeApi = {
     return api.get<any>(`/items/${id}`);
   },
 
+  // 获取随机物品
+  getRandomItem(type: string = 'synthetic') {
+    return api.get<any>('/items/random', { params: { type } });
+  },
+
   /**
    * 获取冰柱图数据
    */

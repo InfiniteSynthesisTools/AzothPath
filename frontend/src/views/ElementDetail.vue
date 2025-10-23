@@ -160,17 +160,18 @@
             <el-icon class="is-loading"><Loading /></el-icon>
             <span>冰柱图加载中...</span>
           </div>
-          <div v-else-if="icicleChartData" class="chart-content">
-            <!-- 这里将放置冰柱图组件 -->
-            <div class="chart-placeholder">
-              <div class="placeholder-icon">📊</div>
-              <div class="placeholder-text">冰柱图可视化区域</div>
-              <div class="placeholder-stats">
-                <div>节点数: {{ icicleChartData?.nodeCount || 0 }}</div>
-                <div>最大深度: {{ icicleChartData?.maxDepth || 0 }}</div>
-                <div>总宽度: {{ icicleChartData?.totalWidth || 0 }}</div>
-              </div>
-            </div>
+          <div v-else-if="icicleChartData && icicleChartData.nodes && icicleChartData.nodes.length > 0" class="chart-content">
+            <!-- 真正的冰柱图组件 -->
+            <IcicleChart 
+              :data="icicleChartData.nodes"
+              :width="800"
+              :height="500"
+              @nodeClick="handleIcicleNodeClick"
+            />
+          </div>
+          <div v-else-if="icicleChartData && (!icicleChartData.nodes || icicleChartData.nodes.length === 0)" class="chart-info">
+            <div class="info-icon">ℹ️</div>
+            <div class="info-text">当前元素没有合成路径数据</div>
           </div>
           <div v-else class="chart-error">
             <div class="error-icon">❌</div>
@@ -272,6 +273,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft, Loading } from '@element-plus/icons-vue';
 import CopyIcon from '@/components/icons/CopyIcon.vue';
+import IcicleChart from '@/components/IcicleChart.vue';
 import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
 
@@ -332,12 +334,7 @@ const reachabilityStats = ref<ReachabilityStats>({
 const reachabilityLoading = ref(false);
 
 // 冰柱图数据
-interface IcicleChartData {
-  nodeCount?: number;
-  maxDepth?: number;
-  totalWidth?: number;
-  // 这里可以添加更多冰柱图相关的数据结构
-}
+import type { IcicleChartData, IcicleNode } from '@/types'
 
 const icicleChartData = ref<IcicleChartData | null>(null);
 const icicleChartLoading = ref(false);
@@ -418,12 +415,23 @@ const paginatedRecipes = computed(() => {
 const fetchIcicleChartData = async (elementName: string) => {
   icicleChartLoading.value = true;
   try {
-    const chartData = await recipeApi.getIcicleChartForItem(elementName);
-    icicleChartData.value = {
-      nodeCount: chartData.nodeCount,
-      maxDepth: chartData.maxDepth,
-      totalWidth: chartData.totalWidth
-    };
+    console.log('开始获取冰柱图数据，元素名称:', elementName);
+    const response = await recipeApi.getIcicleChartForItem(elementName);
+    console.log('冰柱图API响应:', response);
+    
+    // 检查响应结构：可能是直接的数据对象或包装后的响应
+    if (response && response.nodes && Array.isArray(response.nodes)) {
+      // 直接的数据对象结构
+      icicleChartData.value = response;
+      console.log('冰柱图数据设置成功（直接结构）:', icicleChartData.value);
+    } else if (response && response.code === 200 && response.data && response.data.nodes) {
+      // 包装后的响应结构
+      icicleChartData.value = response.data;
+      console.log('冰柱图数据设置成功（包装结构）:', icicleChartData.value);
+    } else {
+      icicleChartData.value = null;
+      console.log('冰柱图数据为空，响应结构:', response);
+    }
   } catch (error: any) {
     console.error('获取冰柱图数据失败:', error);
     icicleChartData.value = null;
@@ -438,15 +446,18 @@ const fetchReachabilityStats = async (elementName: string) => {
   try {
     const stats = await recipeApi.getReachabilityStats(elementName);
     reachabilityStats.value = stats;
+    return stats; // 返回统计结果
   } catch (error: any) {
     console.error('获取可达性统计失败:', error);
     // 如果API调用失败，默认设置为不可及
-    reachabilityStats.value = {
+    const defaultStats = {
       reachable: false,
       depth: 0,
       width: 0,
       breadth: 0
     };
+    reachabilityStats.value = defaultStats;
+    return defaultStats; // 返回默认统计结果
   } finally {
     reachabilityLoading.value = false;
   }
@@ -480,10 +491,10 @@ const fetchElementDetail = async () => {
       await fetchRecipes();
       
       // 获取可达性统计信息
-      await fetchReachabilityStats(elementData.name);
+      const reachabilityResult = await fetchReachabilityStats(elementData.name);
       
       // 如果元素可达，获取冰柱图数据
-      if (reachabilityStats.value.reachable) {
+      if (reachabilityResult.reachable) {
         await fetchIcicleChartData(elementData.name);
       }
     } else {
@@ -583,6 +594,25 @@ const handleSizeChange = (size: number) => {
 // 当前页改变
 const handleCurrentChange = (page: number) => {
   currentPage.value = page;
+};
+
+// 冰柱图节点点击事件
+const handleIcicleNodeClick = async (node: IcicleNode) => {
+  try {
+    console.log('冰柱图节点点击:', node);
+    
+    // 如果节点有配方信息，可以显示配方详情
+    if (node.recipe) {
+      ElMessage.info(`配方: ${node.recipe.item_a} + ${node.recipe.item_b} = ${node.name}`);
+    }
+    
+    // 如果点击的不是当前元素，尝试跳转到该元素的详情页
+    if (node.name !== element.value?.name) {
+      await goToElementDetail(node.name);
+    }
+  } catch (error) {
+    console.error('处理冰柱图节点点击失败:', error);
+  }
 };
 
 // 跳转到元素详情页面

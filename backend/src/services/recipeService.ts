@@ -93,7 +93,7 @@ export class RecipeService {
 
   // 缓存有效期（默认更长，显著降低重建频率）
   private readonly CACHE_TTL = 60 * 60 * 1000; // 图缓存 60 分钟
-  
+
   /**
    * 获取或更新图缓存（非阻塞版本）
    * 优化：在缓存构建期间返回旧缓存数据，避免阻塞请求
@@ -194,10 +194,10 @@ export class RecipeService {
       // 将同步循环改为异步分批处理，避免阻塞事件循环
       const reachableItemsArray = Array.from(reachableItems);
       const BATCH_SIZE = 5; // 减小批次大小到5个物品，进一步减少阻塞
-      
+
       for (let i = 0; i < reachableItemsArray.length; i += BATCH_SIZE) {
         const batch = reachableItemsArray.slice(i, i + BATCH_SIZE);
-        
+
         // 同步处理当前批次
         for (const itemName of batch) {
           const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
@@ -209,12 +209,12 @@ export class RecipeService {
           // 每处理100个物品输出一次进度，更频繁地更新进度
           if (precomputedCount % 100 === 0) {
             logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount / totalReachable * 100)}%)`);
-            
+
             // 每100个物品也让出事件循环一次
             await new Promise(resolve => setTimeout(resolve, 0));
           }
         }
-        
+
         // 每处理完一批后让出事件循环，允许其他请求处理
         if (i + BATCH_SIZE < reachableItemsArray.length) {
           await new Promise(resolve => setTimeout(resolve, 0));
@@ -683,9 +683,9 @@ export class RecipeService {
   async toggleLike(recipeId: number, userId: number): Promise<{ liked: boolean; likes: number }> {
     // 检查是否已点赞
     const existing = await databaseAdapter.get(
-        'SELECT * FROM recipe_likes WHERE recipe_id = ? AND user_id = ?',
-        [recipeId, userId]
-      );
+      'SELECT * FROM recipe_likes WHERE recipe_id = ? AND user_id = ?',
+      [recipeId, userId]
+    );
 
     if (existing) {
       // 取消点赞
@@ -723,7 +723,7 @@ export class RecipeService {
     const stats = await databaseAdapter.transaction(async (tx) => {
       const [
         recipesCount,
-        itemsCount, 
+        itemsCount,
         baseItemsCount,
         craftableItemsCount,
         usersCount,
@@ -1054,7 +1054,7 @@ export class RecipeService {
           // 自合成配方检测：a+a=a 或 a+b=a
           const isSelfCraftA = this.isSelfCraftRecipe(a);
           const isSelfCraftB = this.isSelfCraftRecipe(b);
-          
+
           // 自合成配方永远排在最后
           if (isSelfCraftA && !isSelfCraftB) return 1;
           if (!isSelfCraftA && isSelfCraftB) return -1;
@@ -1062,7 +1062,7 @@ export class RecipeService {
             // 如果都是自合成配方，按ID排序
             return a.id - b.id;
           }
-          
+
           // 非自合成配方按原排序规则
           const statsA = this.calculateRecipeStats(a, baseItems, itemToRecipes, memo);
           const statsB = this.calculateRecipeStats(b, baseItems, itemToRecipes, memo);
@@ -1132,24 +1132,24 @@ export class RecipeService {
         // 只有当两个材料都可达时，结果才可达
         if (reachableItems.has(recipe.item_a) && reachableItems.has(recipe.item_b)) {
           const result = recipe.result;
-          
+
           // 🚀 循环依赖检测：如果结果已经在当前路径中，说明存在循环依赖
           if (visitedInCurrentPath.has(result)) {
             // 静默记录循环依赖，不输出单个警告
             detectedCycles.add(result);
             continue; // 跳过循环依赖的配方
           }
-          
+
           if (!reachableItems.has(result)) {
             reachableItems.add(result);
             queue.push(result);
-            
+
             // 临时标记当前路径中的物品，用于循环依赖检测
             visitedInCurrentPath.add(result);
           }
         }
       }
-      
+
       // 处理完当前物品后，从路径中移除
       visitedInCurrentPath.delete(current);
     }
@@ -1343,7 +1343,7 @@ export class RecipeService {
     while (stack.length > 0 && iterations < MAX_ITERATIONS) {
       iterations++;
       const { node: currentNode, depth, isRoot } = stack.pop()!;
-      
+
       // 更新最大深度
       maxDepth = Math.max(maxDepth, depth);
 
@@ -1374,7 +1374,7 @@ export class RecipeService {
     }
 
     const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);
-    
+
     // 广度定义为：能合成当前元素的可达配方数量（不包括不可达配方）
     // 只计算那些两个材料都可达的配方
     const allRecipes = itemToRecipes[node.name] || [];
@@ -1504,14 +1504,14 @@ export class RecipeService {
   async getRandomItem(type: string = 'synthetic') {
     // 构建查询条件
     let whereConditions = ['is_public = 1'];
-    
+
     // 类型条件
     if (type === 'base') {
       whereConditions.push('is_base = 1');
     } else if (type === 'synthetic') {
       whereConditions.push('is_base = 0');
     }
-    
+
     const whereClause = `WHERE ${whereConditions.join(' AND ')}`;
 
     // SQLite 使用 RANDOM() 函数获取随机记录
@@ -1646,7 +1646,7 @@ export class RecipeService {
     return {
       items,
       total: totalResult?.count || 0,
-      page,limit
+      page, limit
     };
   }
 
@@ -1661,10 +1661,10 @@ export class RecipeService {
   }> {
     try {
       const cache = await this.getGraphCache();
-      
+
       // 检查可达性
       const reachable = cache.reachableItems.has(itemName);
-      
+
       if (!reachable) {
         return { reachable: false };
       }
@@ -1677,7 +1677,7 @@ export class RecipeService {
 
       // 计算统计信息
       const stats = this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
-      
+
       return {
         reachable: true,
         depth: stats.depth,
@@ -1708,7 +1708,7 @@ export class RecipeService {
   ): Promise<IcicleChartData | null> {
     try {
       const cache = await this.getGraphCache();
-      
+
       // 检查物品是否存在
       if (!cache.allItemNames.includes(itemName)) {
         return null;
@@ -1716,7 +1716,7 @@ export class RecipeService {
 
       // 检查可达性
       const isReachable = cache.reachableItems.has(itemName);
-      
+
       // 从图结构中提取子图并构建树
       const tree = this.extractSubgraphAsTree(
         itemName,
@@ -1733,7 +1733,7 @@ export class RecipeService {
 
       // 计算深度和统计信息
       const depth = this.calculateIcicleTreeDepth(tree);
-      
+
       // 可选：计算详细统计
       if (includeStats && tree.stats) {
         const stats = this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
@@ -1807,7 +1807,7 @@ export class RecipeService {
 
     // 获取该物品的所有配方
     const recipes = itemToRecipes[itemName];
-    
+
     // 如果没有配方，作为叶子节点返回
     if (!recipes || recipes.length === 0) {
       return {

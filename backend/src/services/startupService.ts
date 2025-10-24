@@ -12,7 +12,7 @@ export class StartupService {
    */
   async initialize(): Promise<void> {
     logger.info('=== 开始执行启动初始化 ===');
-    
+
     try {
       // 确保数据库已初始化
       await database.init();
@@ -22,16 +22,16 @@ export class StartupService {
 
       // 1. 在任何重算前，确保 user.emoji 列存在，并为缺少头像的用户随机分配
       await this.ensureUserEmojiAndAssign();
-      
+
       // 2. 重新计算 items 表的发现者
       await this.recalculateItemDiscoverers();
-      
+
       // 3. 重新计算任务完成情况
       await this.recalculateTaskCompletion();
-      
+
       // 4. 重新计算玩家贡献值
       await this.recalculateUserContributions();
-      
+
       logger.success('=== 启动初始化完成 ===');
     } catch (error) {
       logger.error('启动初始化失败', error);
@@ -51,12 +51,12 @@ export class StartupService {
     try {
       // 调用 getGraphCache 方法，如果缓存不存在会自动构建
       const cache = await recipeService.getGraphCache();
-      
+
       const duration = Date.now() - startTime;
       logger.success(
         `图缓存预热完成: ${cache.recipes.length} 个配方, ${cache.allItemNames.length} 个物品, ${cache.reachableItems.size} 个可达物品 (耗时: ${duration}ms)`
       );
-      
+
       // 输出关键统计信息
       logger.info(`图缓存统计: 不可达物品 ${cache.unreachableItems.size} 个, 最短路径树 ${cache.shortestPathTrees.size} 个`);
     } catch (error) {
@@ -150,7 +150,7 @@ export class StartupService {
             'UPDATE items SET user_id = ? WHERE name = ? AND is_base = 0',
             [discovery.user_id, discovery.item_name]
           );
-          
+
           if (result.changes > 0) {
             updatedCount++;
             logger.debug(`物品 "${discovery.item_name}" 发现者: 用户${discovery.user_id}`);
@@ -175,7 +175,7 @@ export class StartupService {
    */
   private async recalculateTaskCompletion(): Promise<void> {
     logger.info('开始重新计算任务完成情况...');
-    
+
     try {
       // 获取所有活跃任务
       const activeTasks = await database.all<{

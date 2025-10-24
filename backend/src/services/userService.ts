@@ -477,20 +477,20 @@ export class UserService {
     await database.transaction(async (db) => {
       // 删除用户相关的点赞记录
       await db.run('DELETE FROM recipe_likes WHERE user_id = ?', [userId]);
-      
+
       // 删除用户提交的配方
       await db.run('DELETE FROM recipes WHERE user_id = ?', [userId]);
-      
+
       // 删除用户相关的任务
       await db.run('DELETE FROM task WHERE created_by_user_id = ?', [userId]);
-      
+
       // 删除用户相关的导入任务
       await db.run('DELETE FROM import_tasks WHERE user_id = ?', [userId]);
-      
+
       // 删除用户相关的通知
       await db.run('DELETE FROM notifications WHERE sender_id = ?', [userId]);
       await db.run('DELETE FROM user_notifications WHERE user_id = ?', [userId]);
-      
+
       // 最后删除用户
       await db.run('DELETE FROM user WHERE id = ?', [userId]);
     });

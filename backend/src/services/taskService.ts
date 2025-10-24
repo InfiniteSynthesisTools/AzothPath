@@ -216,7 +216,7 @@ export class TaskService {
   async completeTask(taskId: number, recipeId: number, userId: number) {
     try {
       logger.info(`开始完成任务${taskId}，配方${recipeId}，用户${userId}`);
-      
+
       const task = await this.getTaskById(taskId);
 
       if (!task) {
@@ -283,7 +283,7 @@ export class TaskService {
   async checkAndCompleteTaskForRecipe(recipeId: number, userId: number) {
     try {
       logger.info(`检查配方${recipeId}是否完成相关任务，用户${userId}`);
-      
+
       // 获取配方的结果物品
       const recipe = await database.get<any>(
         'SELECT result FROM recipes WHERE id = ?',

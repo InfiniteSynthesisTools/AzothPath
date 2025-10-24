@@ -11,7 +11,7 @@ export class CacheWarmupService {
   private isWarmingUp = false;
   private warmupPromise: Promise<void> | null = null;
   private incrementalService: IncrementalProcessingService;
-  
+
   // 预热配置
   private readonly WARMUP_BATCH_SIZE = 500; // 每批预热500个物品
   private readonly TOP_ITEMS_TO_WARMUP = 2000; // 预热前2000个常用物品
@@ -32,7 +32,7 @@ export class CacheWarmupService {
 
     this.isWarmingUp = true;
     this.warmupPromise = this.performWarmup();
-    
+
     return this.warmupPromise;
   }
 
@@ -47,13 +47,13 @@ export class CacheWarmupService {
       // 1. 预热图缓存（包含最短路径树）
       logger.info('正在预热图缓存...');
       await this.warmupGraphCache();
-      
+
       // 🆕 按需生成架构：不再预热冰柱图缓存
       logger.info('新架构：冰柱图采用按需生成模式，跳过预热');
-      
+
       const duration = Date.now() - startTime;
       logger.success(`=== 缓存预热完成 (耗时: ${duration}ms) ===`);
-      
+
     } catch (error) {
       const duration = Date.now() - startTime;
       logger.error(`缓存预热失败 (耗时: ${duration}ms)`, error);
@@ -69,14 +69,14 @@ export class CacheWarmupService {
    */
   private async warmupGraphCache(): Promise<void> {
     const startTime = Date.now();
-    
+
     try {
       // 调用 getGraphCache 方法，如果缓存不存在会自动构建
       const cache = await recipeService['getGraphCache']();
-      
+
       const duration = Date.now() - startTime;
       logger.success(`图缓存预热完成: ${cache.recipes.length} 个配方, ${cache.allItemNames.length} 个物品 (耗时: ${duration}ms)`);
-      
+
     } catch (error) {
       const duration = Date.now() - startTime;
       logger.error(`图缓存预热失败 (耗时: ${duration}ms)`, error);
@@ -95,7 +95,7 @@ export class CacheWarmupService {
       isCompleted: !this.isWarmingUp && this.warmupPromise === null
     };
   }
-  
+
   /**
    * 获取预热统计信息
    */

@@ -77,23 +77,23 @@ class ImportTaskQueue {
     const LOG_INTERVAL = 12; // 每12次无任务才记录一次日志
     const AUTO_RETRY_INTERVAL = 60; // 自动重试检查间隔（秒）
     let lastAutoRetryTime = 0;
-    
+
     while (this.isRunning) {
       try {
         const hasTasks = await this.processPendingTasks();
-        
+
         if (hasTasks) {
           consecutiveEmptyRounds = 0;
           // 有任务时使用正常间隔
           await new Promise(resolve => setTimeout(resolve, QUEUE_INTERVAL));
         } else {
           consecutiveEmptyRounds++;
-          
+
           // 只在特定间隔记录日志，避免日志过多
           if (consecutiveEmptyRounds % LOG_INTERVAL === 0) {
             logger.info(`任务队列空闲中，已连续${consecutiveEmptyRounds}次无任务`);
           }
-          
+
           // 检查是否需要自动重试429限流错误任务
           const currentTime = Date.now();
           if (currentTime - lastAutoRetryTime >= AUTO_RETRY_INTERVAL * 1000) {
@@ -106,7 +106,7 @@ class ImportTaskQueue {
             }
             lastAutoRetryTime = currentTime;
           }
-          
+
           // 连续无任务时增加间隔
           const interval = consecutiveEmptyRounds >= MAX_EMPTY_ROUNDS ? LONG_INTERVAL : QUEUE_INTERVAL;
           await new Promise(resolve => setTimeout(resolve, interval));
@@ -126,7 +126,7 @@ class ImportTaskQueue {
     // 查询待处理的任务（status='pending' 且重试次数<3）
     try {
       const queryStartTime = Date.now();
-      
+
       const pendingTasks = await database.all<ImportTaskContent>(
         `SELECT * FROM import_tasks_content 
          WHERE status = 'pending' AND retry_count < ? 
@@ -136,7 +136,7 @@ class ImportTaskQueue {
       );
 
       const queryDuration = Date.now() - queryStartTime;
-      
+
       if (pendingTasks.length === 0) {
         return false; // 没有待处理任务
       }
@@ -145,16 +145,16 @@ class ImportTaskQueue {
       // 并行处理所有任务，但HTTP请求会通过ValidationLimiter串行化
       const queueStatus = validationLimiter.getQueueStatus();
       logger.debug(`当前验证队列: ${queueStatus.queueLength}个待验证, 处理中: ${queueStatus.isProcessing}`);
-      
+
       const processingStartTime = Date.now();
-      
+
       await Promise.all(
         pendingTasks.map(task => this.processTask(task))
       );
-      
+
       const processingDuration = Date.now() - processingStartTime;
       logger.info(`批次处理完成，耗时: ${processingDuration}ms (平均: ${Math.round(processingDuration / pendingTasks.length)}ms/任务)`);
-      
+
       return true; // 有任务被处理
     } catch (error) {
       logger.error('查询待处理任务失败', error);
@@ -184,7 +184,7 @@ class ImportTaskQueue {
       const checkStart = Date.now();
       const existingRecipe = await this.checkDuplicateRecipe(task);
       checkDuplicateTime = Date.now() - checkStart;
-      
+
       if (existingRecipe) {
         await this.markAsDuplicate(task, existingRecipe.id);
         logger.debug(`任务${task.id}耗时: 总${Date.now() - taskStartTime}ms (去重检查: ${checkDuplicateTime}ms)`);
@@ -220,7 +220,7 @@ class ImportTaskQueue {
           [task.task_id]
         );
         const userId = taskInfo?.user_id || 1;
-        
+
         const taskResult = await taskService.checkAndCompleteTaskForRecipe(recipeId, userId);
         if (taskResult) {
           logger.success(`配方${recipeId}完成悬赏任务，用户${userId}获得${taskResult.prize}分奖励`);
@@ -308,11 +308,11 @@ class ImportTaskQueue {
         }
       } catch (error: any) {
         logger.error(`验证异常: ${error.message}`);
-        
+
         if (error.response) {
           const status = error.response.status;
           logger.warn(`错误响应: ${status}`, error.response.data);
-          
+
           if (status === 400) {
             // 参数错误（物品名称无效等）
             return { success: false, error: '参数错误：物品名称无效或格式不正确' };
@@ -324,10 +324,10 @@ class ImportTaskQueue {
             return { success: false, error: '包含非法物件（还没出现过的物件）' };
           } else if (status === 429) {
             // 429限流错误，特殊处理，不增加重试次数
-            return { 
-              success: false, 
-              error: `验证失败，状态码: ${status}`, 
-              isRateLimit: true 
+            return {
+              success: false,
+              error: `验证失败，状态码: ${status}`,
+              isRateLimit: true
             };
           } else {
             return { success: false, error: `验证失败，状态码: ${status}` };
@@ -382,26 +382,26 @@ class ImportTaskQueue {
   private async updateUserContribution(userId: number, task: ImportTaskContent): Promise<void> {
     try {
       let totalContribution = 0;
-      
+
       // 1. 新配方贡献度：+1分
       totalContribution += 1;
-      
+
       // 2. 检查新物品贡献度：只有 result 是新物品时才 +2分
       // A 和 B 即使是新物品也不计入贡献
       const resultItem = task.result;
-      
+
       // 检查 result 是否已经存在
       const existingResult = await database.get<{ id: number }>(
         'SELECT id FROM items WHERE name = ?',
         [resultItem]
       );
-      
+
       // 如果 result 不存在，说明是新发现的物品
       if (!existingResult) {
         totalContribution += 2;
         logger.debug(`发现新物品 "${resultItem}"，贡献度+2`);
       }
-      
+
       // 3. 更新用户贡献度
       if (totalContribution > 0) {
         await userService.incrementContribution(userId, totalContribution);
@@ -426,7 +426,7 @@ class ImportTaskQueue {
   private async updateItemsDictionary(items: string[], resultEmoji?: string, taskId?: number) {
     // 获取任务的创建者 ID
     let userId = 1; // 默认使用管理员 ID
-    
+
     if (taskId) {
       try {
         const taskInfo = await database.get<{ user_id: number }>(
@@ -443,13 +443,13 @@ class ImportTaskQueue {
     for (let i = 0; i < items.length; i++) {
       const item = items[i];
       const isResult = (i === 2); // 只有 result (索引2) 才记录发现者
-      
+
       // 先检查物品是否已存在
       const existing = await database.get<{ id: number; user_id: number | null }>(
         'SELECT id, user_id FROM items WHERE name = ? LIMIT 1',
         [item]
       );
-      
+
       if (!existing) {
         // 物品不存在，插入新记录
         // 只有 result 才记录 user_id，A 和 B 设为 NULL
@@ -457,7 +457,7 @@ class ImportTaskQueue {
           'INSERT INTO items (name, is_base, user_id, created_at) VALUES (?, 0, ?, ?)',
           [item, isResult ? userId : null, getCurrentUTC8TimeForDB()]
         );
-        
+
         if (isResult) {
           logger.debug(`新物品添加到词典: ${item} (发现者: ${userId})`);
         } else {
@@ -473,7 +473,7 @@ class ImportTaskQueue {
         logger.debug(`更新物品发现者: ${item} (发现者: ${userId})`);
       }
     }
-    
+
     // 如果有 emoji，更新结果物品的 emoji
     if (resultEmoji && items[2]) {
       await database.run(

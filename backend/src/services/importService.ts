@@ -49,12 +49,12 @@ export class ImportService {
         itemA = itemA.trim();
         itemB = itemB.trim();
         result = result.trim();
-        
+
         // 确保 item_a < item_b (字典序)
         if (itemA > itemB) {
           [itemA, itemB] = [itemB, itemA];
         }
-        
+
         recipes.push({
           item_a: itemA,
           item_b: itemB,
@@ -97,7 +97,7 @@ export class ImportService {
   async processImportTask(taskId: number): Promise<{ successCount: number; failedCount: number; duplicateCount: number }> {
     try {
       logger.info(`开始处理导入任务${taskId}，使用队列系统`);
-      
+
       // 立即将任务状态设置为处理中
       await database.run(
         'UPDATE import_tasks SET status = ? WHERE id = ?',

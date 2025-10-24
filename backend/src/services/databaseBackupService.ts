@@ -29,14 +29,14 @@ class DatabaseBackupService {
 
   constructor() {
     // 从环境变量读取配置
-    const dbPath = process.env.DB_PATH 
+    const dbPath = process.env.DB_PATH
       ? path.resolve(path.join(__dirname, '../../'), process.env.DB_PATH)
       : path.resolve(path.join(__dirname, '../../'), 'database/azothpath.db');
 
     this.config = {
       enabled: process.env.DB_BACKUP_ENABLED !== 'false', // 默认启用
       intervalHours: parseInt(process.env.DB_BACKUP_INTERVAL_HOURS || '2'), // 默认2小时
-      backupDir: process.env.DB_BACKUP_DIR 
+      backupDir: process.env.DB_BACKUP_DIR
         ? path.resolve(path.join(__dirname, '../../'), process.env.DB_BACKUP_DIR)
         : path.resolve(path.join(__dirname, '../../'), 'database/backups'),
       maxBackups: parseInt(process.env.DB_BACKUP_MAX_COUNT || '24'), // 默认保留24个备份（2天）
@@ -137,7 +137,7 @@ class DatabaseBackupService {
    */
   private async walCheckpoint(retries = 3): Promise<void> {
     logger.debug('执行 WAL checkpoint...');
-    
+
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         await this.executeCheckpoint();
@@ -234,7 +234,7 @@ class DatabaseBackupService {
       // 如果备份数量超过限制，删除最旧的
       if (files.length > this.config.maxBackups) {
         const filesToDelete = files.slice(this.config.maxBackups);
-        
+
         for (const file of filesToDelete) {
           try {
             fs.unlinkSync(file.path);

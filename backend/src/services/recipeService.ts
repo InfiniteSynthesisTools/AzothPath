@@ -306,11 +306,12 @@ export class RecipeService {
     orderBy?: string;
     userId?: number;
     result?: string;
+    material?: string;    // 新增：查询作为材料（item_a 或 item_b）的配方
     cursor?: string; // 游标分页
     includePrivate?: boolean; // 管理用途：包含未公开
     includeStats?: boolean;   // 是否计算每条配方的路径统计（默认关闭，较耗时）
   }) {
-    const { page = 1, limit = 20, search, orderBy = 'created_at', userId, result, cursor, includePrivate = false, includeStats = false } = params;
+    const { page = 1, limit = 20, search, orderBy = 'created_at', userId, result, material, cursor, includePrivate = false, includeStats = false } = params;
 
     // 使用JOIN替代子查询，大幅提升性能
     let sql = `
@@ -345,6 +346,12 @@ export class RecipeService {
     if (result) {
       conditions.push('r.result = ?');
       sqlParams.push(result);
+    }
+
+    // 新增：material 参数支持（查询作为材料的配方）
+    if (material) {
+      conditions.push('(r.item_a = ? OR r.item_b = ?)');
+      sqlParams.push(material, material);
     }
 
     // 游标分页优化（推荐）或传统分页
@@ -427,6 +434,12 @@ export class RecipeService {
     // result参数
     if (result) {
       countParams.push(sqlParams[paramIndex++]);
+    }
+
+    // material参数（2个，因为是 item_a = ? OR item_b = ?）
+    if (material) {
+      countParams.push(sqlParams[paramIndex], sqlParams[paramIndex + 1]);
+      paramIndex += 2;
     }
 
     // cursor参数

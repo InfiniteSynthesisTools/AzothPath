@@ -219,6 +219,9 @@
                   <button class="copy-btn" @click.stop="copyRecipe(recipe)" title="复制配方">
                     <CopyIcon />
                   </button>
+                  <button class="detail-btn" @click.stop="goToRecipeDetail(recipe)" title="查看详情">
+                    <span>➔</span>
+                  </button>
                 </div>
               </div>
               <el-tag 
@@ -255,6 +258,74 @@
         <!-- 无配方提示 -->
         <div v-else class="no-recipes">
           <el-empty description="暂无配方数据" />
+        </div>
+      </div>
+
+      <!-- 作为材料的配方列表卡片 -->
+      <div class="material-recipes-section" v-if="materialRecipes.length > 0">
+        <div class="section-header">
+          <h2 class="section-title">作为材料的配方</h2>
+          <div class="section-subtitle">此物品作为材料出现的配方</div>
+        </div>
+        
+        <!-- 作为材料的配方列表 -->
+        <div class="recipes-list">
+          <div 
+            v-for="recipe in paginatedMaterialRecipes" 
+            :key="recipe.id" 
+            class="recipe-card"
+          >
+            <div class="recipe-header">
+              <div class="recipe-formula">
+                <div class="ingredient-cards">
+                  <div class="ingredient-card" @click="goToElementDetail(recipe.item_a)">
+                    <span class="ingredient-emoji">{{ recipe.item_a_emoji || '🔘' }}</span>
+                    <span class="ingredient-name">{{ recipe.item_a }}</span>
+                  </div>
+                  <span class="operator">+</span>
+                  <div class="ingredient-card" @click="goToElementDetail(recipe.item_b)">
+                    <span class="ingredient-emoji">{{ recipe.item_b_emoji || '🔘' }}</span>
+                    <span class="ingredient-name">{{ recipe.item_b }}</span>
+                  </div>
+                  <span class="operator">=</span>
+                  <div class="result-card" @click="goToElementDetail(recipe.result)">
+                    <span class="result-emoji">{{ recipe.result_emoji || '🔘' }}</span>
+                    <span class="result-name">{{ recipe.result }}</span>
+                  </div>
+                  <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="toggling[recipe.id] === true">
+                    <span class="heart">❤</span> {{ recipe.likes || 0 }}
+                  </button>
+                  <button class="copy-btn" @click.stop="copyRecipe(recipe)" title="复制配方">
+                    <CopyIcon />
+                  </button>
+                  <button class="detail-btn" @click.stop="goToRecipeDetail(recipe)" title="查看详情">
+                    <span>➔</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+            
+            <div class="recipe-footer">
+              <div class="recipe-meta">
+                <span class="recipe-depth">深度: {{ recipe.depth || 0 }}</span>
+                <span class="recipe-width">宽度: {{ recipe.width || 0 }}</span>
+                <span class="recipe-breadth">广度: {{ recipe.breadth || 0 }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        
+        <!-- 分页组件 -->
+        <div class="pagination-section" v-if="materialRecipes.length > 0">
+          <el-pagination
+            v-model:current-page="materialCurrentPage"
+            v-model:page-size="materialPageSize"
+            :page-sizes="[5, 10, 20, 50]"
+            :total="materialRecipes.length"
+            layout="total, sizes, prev, pager, next, jumper"
+            @size-change="handleMaterialSizeChange"
+            @current-change="handleMaterialCurrentChange"
+          />
         </div>
       </div>
 
@@ -312,10 +383,13 @@ const router = useRouter();
 
 const element = ref<Element | null>(null);
 const recipes = ref<RecipeDetail[]>([]);
+const materialRecipes = ref<RecipeDetail[]>([]);
 const loading = ref(false);
 const recipesLoading = ref(false);
 const currentPage = ref(1);
 const pageSize = ref(5);
+const materialCurrentPage = ref(1);
+const materialPageSize = ref(5);
 
 // 可达性统计
 interface ReachabilityStats {
@@ -411,6 +485,13 @@ const paginatedRecipes = computed(() => {
   return recipes.value.slice(start, end);
 });
 
+// 计算分页后的作为材料的配方列表
+const paginatedMaterialRecipes = computed(() => {
+  const start = (materialCurrentPage.value - 1) * materialPageSize.value;
+  const end = start + materialPageSize.value;
+  return materialRecipes.value.slice(start, end);
+});
+
 // 获取冰柱图数据（使用新的按需生成API）
 const fetchIcicleChartData = async (elementName: string) => {
   icicleChartLoading.value = true;
@@ -490,6 +571,9 @@ const fetchElementDetail = async () => {
       
       // 获取配方列表
       await fetchRecipes();
+      
+      // 获取作为材料的配方列表
+      await fetchMaterialRecipes();
       
       // 获取可达性统计信息
       const reachabilityResult = await fetchReachabilityStats(elementData.name);
@@ -589,6 +673,32 @@ const fetchRecipes = async () => {
   }
 };
 
+// 获取作为材料的配方列表（作为item_a或item_b出现的配方）
+const fetchMaterialRecipes = async () => {
+  try {
+    const elementName = element.value?.name;
+    if (!elementName) return;
+    
+    // 获取该物品作为item_a出现的配方
+    const responseA = await recipeApi.list({ 
+      material: elementName,
+      includeStats: true
+    });
+    
+    // 收集所有作为材料出现的配方
+    let allMaterialRecipes: RecipeDetail[] = [];
+    if (responseA && responseA.recipes && Array.isArray(responseA.recipes)) {
+      allMaterialRecipes = responseA.recipes;
+    }
+    
+    // 按照最简排序算法对配方进行排序
+    materialRecipes.value = sortRecipesBySimplestPath(allMaterialRecipes);
+  } catch (error: any) {
+    console.error('获取作为材料的配方失败:', error);
+    materialRecipes.value = [];
+  }
+};
+
 // 分页大小改变
 const handleSizeChange = (size: number) => {
   pageSize.value = size;
@@ -598,6 +708,17 @@ const handleSizeChange = (size: number) => {
 // 当前页改变
 const handleCurrentChange = (page: number) => {
   currentPage.value = page;
+};
+
+// 作为材料配方分页大小改变
+const handleMaterialSizeChange = (size: number) => {
+  materialPageSize.value = size;
+  materialCurrentPage.value = 1;
+};
+
+// 作为材料配方当前页改变
+const handleMaterialCurrentChange = (page: number) => {
+  materialCurrentPage.value = page;
 };
 
 // 冰柱图节点点击事件
@@ -643,6 +764,14 @@ const goToElementDetail = async (elementName: string) => {
     console.error('跳转到元素详情失败:', error);
     ElMessage.error('跳转失败，请稍后重试');
   }
+};
+
+// 跳转到配方详情页
+const goToRecipeDetail = (recipe: RecipeDetail) => {
+  router.push({
+    name: 'RecipeDetail',
+    params: { id: recipe.id }
+  });
 };
 
 // 返回上一页
@@ -1158,6 +1287,34 @@ onMounted(() => {
   box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
 }
 .copy-btn:active {
+  transform: translateY(0);
+}
+
+.detail-btn {
+  border: 1px solid #e0e3e7;
+  background: #ffffff;
+  color: #606266;
+  border-radius: 12px;
+  padding: 4px 8px;
+  line-height: 1;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  transition: all 0.3s ease;
+  width: 28px;
+  height: 28px;
+}
+.detail-btn:hover {
+  background: #f0f9ff;
+  border-color: #409eff;
+  color: #409eff;
+  transform: translateY(-2px);
+  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+}
+.detail-btn:active {
   transform: translateY(0);
 }
 

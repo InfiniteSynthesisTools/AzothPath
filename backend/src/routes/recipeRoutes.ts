@@ -21,6 +21,7 @@ router.get('/', async (req: Request, res: Response) => {
     const search = req.query.search as string;
     const orderBy = req.query.orderBy as string;
     const result = req.query.result as string;
+    const material = req.query.material as string;  // 新增：查询作为材料的配方
     const cursor = req.query.cursor as string; // 新增游标分页支持
 
     // 尝试从认证信息中获取用户ID
@@ -46,7 +47,7 @@ router.get('/', async (req: Request, res: Response) => {
     }
 
     const includeStats = ((req.query.includeStats as string) || '0');
-    const recipes = await recipeService.getRecipes({ page, limit, search, orderBy, userId, result, cursor, includePrivate, includeStats: includeStats === '1' || includeStats === 'true' });
+    const recipes = await recipeService.getRecipes({ page, limit, search, orderBy, userId, result, material, cursor, includePrivate, includeStats: includeStats === '1' || includeStats === 'true' });
 
     res.json({
       code: 200,

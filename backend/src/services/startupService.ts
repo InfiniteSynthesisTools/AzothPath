@@ -154,12 +154,20 @@ export class StartupService {
 
       for (const task of activeTasks) {
         // 检查是否存在合成此物品的配方
-        const recipe = await database.get<{ id: number; user_id: number }>(
-          'SELECT id, user_id FROM recipes WHERE result = ? ORDER BY created_at ASC LIMIT 1',
+        const recipe = await database.get<{ id: number; user_id: number; item_a: string; item_b: string }>(
+          'SELECT id, user_id, item_a, item_b FROM recipes WHERE result = ? ORDER BY created_at ASC LIMIT 1',
           [task.item_name]
         );
 
         if (recipe) {
+          // 检查目标物品是否存在于材料物品中
+          // 如果目标物品是材料之一，则不算完成任务
+          const materials = [recipe.item_a, recipe.item_b];
+          if (materials.includes(task.item_name)) {
+            logger.info(`任务检查: "${task.item_name}" 存在于配方ID: ${recipe.id} 的材料中，跳过完成`);
+            continue;
+          }
+
           // 找到配方，完成任务
           await database.transaction(async (tx) => {
             // 更新任务状态

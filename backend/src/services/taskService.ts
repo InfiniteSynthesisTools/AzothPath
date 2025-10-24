@@ -284,9 +284,9 @@ export class TaskService {
     try {
       logger.info(`检查配方${recipeId}是否完成相关任务，用户${userId}`);
 
-      // 获取配方的结果物品
+      // 获取配方的详细信息
       const recipe = await database.get<any>(
-        'SELECT result FROM recipes WHERE id = ?',
+        'SELECT result, item_a, item_b FROM recipes WHERE id = ?',
         [recipeId]
       );
 
@@ -295,7 +295,7 @@ export class TaskService {
         return null;
       }
 
-      logger.info(`配方${recipeId}的结果物品: ${recipe.result}`);
+      logger.info(`配方${recipeId}的结果物品: ${recipe.result}, 材料: ${recipe.item_a} + ${recipe.item_b}`);
 
       // 查找该物品的活跃任务
       const task = await database.get<Task>(
@@ -309,6 +309,17 @@ export class TaskService {
       }
 
       logger.info(`找到活跃任务${task.id}，物品: ${task.item_name}`);
+
+      // 检查目标物品是否存在于材料物品中
+      const targetItem = task.item_name;
+      const materials = [recipe.item_a, recipe.item_b];
+      
+      if (materials.includes(targetItem)) {
+        logger.info(`目标物品${targetItem}存在于材料中，该配方不算完成任务`);
+        return null;
+      }
+
+      logger.info(`目标物品${targetItem}不存在于材料中，可以完成任务`);
 
       // 自动完成任务
       const result = await this.completeTask(task.id, recipeId, userId);

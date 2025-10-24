@@ -221,15 +221,6 @@ Authorization: Bearer <your_jwt_token>
 }
 ```
 
-#### GET /api/recipes/grouped
-获取按结果分组的配方列表
-
-**查询参数：**
-- `page`: 页码（默认1）
-- `limit`: 每页数量（默认20）
-- `search`: 搜索关键词
-- `result`: 按结果筛选
-
 #### GET /api/recipes/:id
 获取配方详情
 
@@ -331,9 +322,6 @@ Authorization: Bearer <your_jwt_token>
 - `batchSize`: 批次大小（默认1000）
 - `lastId`: 上次获取的最后一个ID
 - `search`: 搜索关键词
-
-#### POST /api/recipes/optimize
-创建优化索引（管理员功能）
 
 ### 4. 任务管理 API
 

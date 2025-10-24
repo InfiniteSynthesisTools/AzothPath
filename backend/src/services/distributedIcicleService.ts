@@ -65,8 +65,8 @@ export class DistributedIcicleService {
       
     } catch (error) {
       logger.error('分布式冰柱图生成失败：', error);
-      // 降级到单机处理
-      return await this.recipeService.generateIcicleChart(limit);
+      // 🚫 新架构：不再使用全量生成，返回空数据
+      return { nodes: [], totalElements: 0, maxDepth: 0 };
     }
   }
   

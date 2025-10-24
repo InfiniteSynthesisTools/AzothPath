@@ -411,30 +411,26 @@ const paginatedRecipes = computed(() => {
   return recipes.value.slice(start, end);
 });
 
-// 获取冰柱图数据
+// 获取冰柱图数据（使用新的按需生成API）
 const fetchIcicleChartData = async (elementName: string) => {
   icicleChartLoading.value = true;
   try {
     console.log('开始获取冰柱图数据，元素名称:', elementName);
-    const response = await recipeApi.getIcicleChartForItem(elementName);
+    const response = await recipeApi.getIcicleChartOnDemand(elementName, {
+      maxDepth: 10, // 限制深度避免过深
+      includeStats: true // 包含统计信息
+    });
     console.log('冰柱图API响应:', response);
     
-    // 检查响应结构：可能是直接的数据对象或包装后的响应
-    if (response && response.nodes && Array.isArray(response.nodes)) {
-      // 直接的数据对象结构
+    // 后端返回格式: { nodes: IcicleNode[], totalElements: number, maxDepth: number }
+    if (response && response.nodes && response.nodes.length > 0) {
+      // 直接使用后端返回的数据（已经是正确格式）
       icicleChartData.value = response;
-      console.log('冰柱图数据设置成功（直接结构）:', icicleChartData.value);
-    } else if (response && response.code === 200 && response.data && response.data.nodes) {
-      // 包装后的响应结构
-      icicleChartData.value = response.data;
-      console.log('冰柱图数据设置成功（包装结构）:', icicleChartData.value);
-    } else if (response === null || (response && response.code === 404)) {
+      console.log('冰柱图数据设置成功:', icicleChartData.value);
+    } else {
       // 元素不可达或没有冰柱图数据
       icicleChartData.value = { nodes: [], totalElements: 0, maxDepth: 0 };
       console.log('元素不可达或没有冰柱图数据，显示空冰柱图');
-    } else {
-      icicleChartData.value = null;
-      console.log('冰柱图数据为空，响应结构:', response);
     }
   } catch (error: any) {
     console.error('获取冰柱图数据失败:', error);

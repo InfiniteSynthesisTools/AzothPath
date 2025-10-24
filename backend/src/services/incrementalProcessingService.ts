@@ -260,9 +260,8 @@ export class IncrementalProcessingService {
         if (newTree) {
           cache.shortestPathTrees.set(itemName, newTree);
           
-          // 预计算统计信息（通过公共方法触发）
-          // 这里通过生成冰柱图来间接触发统计计算
-          await this.recipeService.generateIcicleChart();
+          // 🆕 新架构：最短路径树已缓存，无需额外预计算
+          logger.debug(`物品 ${itemName} 的最短路径树已更新到缓存`);
         }
       } catch (error) {
         logger.warn(`物品 ${itemName} 增量处理失败：`, error);

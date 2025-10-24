@@ -411,7 +411,6 @@ CREATE INDEX idx_recipe_likes_user_id ON recipe_likes(user_id);
 | 功能点 | 权限 | API 端点 | 状态 |
 | :--- | :--- | :--- | :--- |
 | **配方列表** | 公开 | `GET /api/recipes` - 支持分页、搜索、排序、游标分页 | ✅ 已实现 |
-| **分组列表** | 公开 | `GET /api/recipes/grouped` - 按结果物品分组，显示所有合成方式 | ✅ 已实现 |
 | **配方详情** | 公开 | `GET /api/recipes/:id` - 包含创建者信息、物品 emoji | ✅ 已实现 |
 | **提交配方** | 需认证 | `POST /api/recipes/submit` - 单条配方提交，实时验证 | ✅ 已实现 |
 | **批量导入** | 需认证 | `POST /api/import-tasks/batch` - 异步处理，返回 taskId | ✅ 已实现 |

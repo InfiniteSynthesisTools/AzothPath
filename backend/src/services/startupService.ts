@@ -1,5 +1,6 @@
 import { database } from '../database/connection';
 import { logger } from '../utils/logger';
+import { recipeService } from './recipeService';
 
 /**
  * 启动时初始化服务
@@ -16,21 +17,51 @@ export class StartupService {
       // 确保数据库已初始化
       await database.init();
 
-      // 0. 在任何重算前，确保 user.emoji 列存在，并为缺少头像的用户随机分配
+      // 0. 🆕 预热图缓存（新架构核心：构建全局配方图）
+      await this.warmupGraphCache();
+
+      // 1. 在任何重算前，确保 user.emoji 列存在，并为缺少头像的用户随机分配
       await this.ensureUserEmojiAndAssign();
       
-      // 1. 重新计算 items 表的发现者
+      // 2. 重新计算 items 表的发现者
       await this.recalculateItemDiscoverers();
       
-      // 2. 重新计算任务完成情况
+      // 3. 重新计算任务完成情况
       await this.recalculateTaskCompletion();
       
-      // 3. 重新计算玩家贡献值
+      // 4. 重新计算玩家贡献值
       await this.recalculateUserContributions();
       
       logger.success('=== 启动初始化完成 ===');
     } catch (error) {
       logger.error('启动初始化失败', error);
+      throw error;
+    }
+  }
+
+  /**
+   * 🆕 预热图缓存（新架构核心）
+   * 在启动时构建全局配方图，包含可达性分析和最短路径树
+   * 新配方会自动触发图缓存刷新（TTL机制）
+   */
+  private async warmupGraphCache(): Promise<void> {
+    logger.info('开始预热图缓存...');
+    const startTime = Date.now();
+
+    try {
+      // 调用 getGraphCache 方法，如果缓存不存在会自动构建
+      const cache = await recipeService.getGraphCache();
+      
+      const duration = Date.now() - startTime;
+      logger.success(
+        `图缓存预热完成: ${cache.recipes.length} 个配方, ${cache.allItemNames.length} 个物品, ${cache.reachableItems.size} 个可达物品 (耗时: ${duration}ms)`
+      );
+      
+      // 输出关键统计信息
+      logger.info(`图缓存统计: 不可达物品 ${cache.unreachableItems.size} 个, 最短路径树 ${cache.shortestPathTrees.size} 个`);
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      logger.error(`图缓存预热失败 (耗时: ${duration}ms)`, error);
       throw error;
     }
   }

@@ -6,7 +6,6 @@ import type {
   RecipeListResponse,
   CraftingPath,
   SubmitRecipeResponse,
-  IcicleChartData,
   IcicleNode
 } from '@/types';
 
@@ -14,21 +13,6 @@ export const recipeApi = {
   // 获取配方列表（支持游标分页）
   list(params: RecipeSearchParams & { cursor?: string } = {}) {
     return api.get<RecipeListResponse & { hasMore?: boolean; nextCursor?: number }>('/recipes', { params });
-  },
-
-  // 获取按结果分组的配方列表
-  listGrouped(params: RecipeSearchParams = {}) {
-    return api.get<{
-      grouped_recipes: Array<{
-        result: string;
-        result_emoji?: string;
-        recipe_count: number;
-        recipes: Recipe[];
-      }>;
-      total: number;
-      page: number;
-      limit: number;
-    }>('/recipes/grouped', { params });
   },
 
   // 获取配方详情
@@ -58,13 +42,6 @@ export const recipeApi = {
     });
   },
 
-  // 搜索所有合成路径
-  searchAllPaths(item: string, limit: number = 100) {
-    return api.get<{ trees: CraftingPath[]; total: number }>('/recipes/path', {
-      params: { item, mode: 'all', limit }
-    });
-  },
-
   // 获取图统计信息
   getGraphStats() {
     return api.get<{
@@ -87,11 +64,6 @@ export const recipeApi = {
       hasMore: boolean;
       lastId: number;
     }>('/recipes/batch', { params });
-  },
-
-  // 创建优化索引（管理员功能）
-  optimizeIndexes() {
-    return api.post<{ message: string }>('/recipes/optimize');
   },
 
   // 获取物品列表
@@ -124,88 +96,15 @@ export const recipeApi = {
   },
 
   /**
-   * 获取冰柱图数据
+   * 按需生成单个物品的冰柱图数据
+   * 返回格式: { nodes: IcicleNode[], totalElements: number, maxDepth: number }
    */
-  getIcicleChart(params?: { compress?: boolean; limit?: number }) {
-    return api.get<IcicleChartData>('/recipes/icicle-chart', { params });
-  },
-
-  /**
-   * 获取分页冰柱图数据
-   */
-  getPaginatedIcicleChart(params: { page?: number; pageSize?: number }) {
-    return api.get<PaginatedIcicleChartData>('/recipes/icicle-chart/paginated', { params });
-  },
-
-  /**
-   * 获取增量更新的冰柱图数据
-   */
-  getIncrementalIcicleChart(params: { lastVersion?: number }) {
+  getIcicleChartOnDemand(item: string, params?: { maxDepth?: number; includeStats?: boolean }) {
     return api.get<{
-      data: IcicleChartData;
-      version: number;
-      isFullUpdate: boolean;
-      updatedNodes: string[];
-    }>('/recipes/icicle-chart/incremental', { params });
-  },
-
-  /**
-   * 获取冰柱图API性能统计信息
-   */
-  getIcicleChartPerformance() {
-    return api.get<{
-      totalRequests: number;
-      compressedRequests: number;
-      paginatedRequests: number;
-      incrementalRequests: number;
-      averageResponseTime: number;
-      totalResponseTime: number;
-      compressionRatio: number;
-      paginationRatio: number;
-      incrementalRatio: number;
-    }>('/recipes/icicle-chart/performance');
-  },
-
-  /**
-   * 获取单个物品的最短路径树（使用缓存优化）
-   */
-  getShortestPathTree(item: string) {
-    return api.get<IcicleNode>('/recipes/shortest-path', {
-      params: { item }
-    });
-  },
-
-  // 刷新缓存（管理员功能）
-  refreshCache(cacheType?: 'graph' | 'icicle' | 'all') {
-    return api.post<{ message: string }>('/recipes/refresh-cache', { cacheType });
-  },
-
-  // 获取缓存状态（管理员功能）
-  getCacheStatus() {
-    return api.get<{
-      hasGraphCache: boolean;
-      graphCacheAge?: number;
-      hasIcicleCache: boolean;
-      icicleCacheAge?: number;
-      shortestPathTreeCount?: number;
-    }>('/recipes/cache-status');
-  },
-
-  // 性能测试（管理员功能）
-  benchmark() {
-    return api.post<{
-      optimizedTime: number;
-      originalTime: number;
-      speedup: number;
-      cacheHitRate: number;
-    }>('/recipes/benchmark');
-  },
-
-  /**
-   * 获取单个元素的冰柱图数据
-   */
-  getIcicleChartForItem(item: string) {
-    return api.get<IcicleChartData>(`/recipes/icicle-chart/item/${encodeURIComponent(item)}`);
+      nodes: IcicleNode[];
+      totalElements: number;
+      maxDepth: number;
+    }>(`/recipes/icicle-chart/on-demand/${encodeURIComponent(item)}`, { params });
   },
 
   /**

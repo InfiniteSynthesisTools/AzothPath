@@ -104,17 +104,6 @@ export const useRecipeStore = defineStore('recipe', () => {
     }
   };
 
-  // 搜索所有合成路径
-  const searchAllPaths = async (item: string, limit = 100) => {
-    loading.value = true;
-    try {
-      const data = await recipeApi.searchAllPaths(item, limit);
-      return data;
-    } finally {
-      loading.value = false;
-    }
-  };
-
   // 重置搜索参数
   const resetSearchParams = () => {
     searchParams.value = {
@@ -138,7 +127,6 @@ export const useRecipeStore = defineStore('recipe', () => {
     deleteRecipe,
     toggleLike,
     searchPath,
-    searchAllPaths,
     resetSearchParams
   };
 });

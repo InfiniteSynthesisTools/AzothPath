@@ -63,219 +63,6 @@ router.get('/', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/recipes/grouped
- * 获取按结果分组的配方列表
- */
-router.get('/grouped', async (req: Request, res: Response) => {
-  try {
-    const page = parseInt(req.query.page as string) || 1;
-    const limit = parseInt(req.query.limit as string) || 20;
-    const search = req.query.search as string;
-    const result = req.query.result as string;
-
-    // 尝试从认证信息中获取用户ID
-    let userId: number | undefined;
-    let includePrivate = false;
-    try {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
-        userId = decoded.userId;
-        const user = await userService.getCurrentUser(userId);
-        const isAdmin = user && user.auth === 9;
-        if (isAdmin) {
-          const q = (req.query.includePrivate as string) || '1';
-          includePrivate = q === '1' || q === 'true';
-        }
-      }
-    } catch (error) {
-      logger.debug('Token验证失败，继续执行（无用户上下文）');
-    }
-
-    const groupedRecipes = await recipeService.getGroupedRecipes({
-      page,
-      limit,
-      search,
-      result,
-      userId,
-      includePrivate
-    });
-
-    res.json({
-      code: 200,
-      message: '获取成功',
-      data: groupedRecipes
-    });
-  } catch (error: any) {
-    logger.error('获取分组配方列表失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取分组配方列表失败'
-    });
-  }
-});
-
-/**
- * GET /api/recipes/icicle-chart/performance
- * 获取冰柱图API性能统计信息
- */
-router.get('/icicle-chart/performance', async (req: Request, res: Response) => {
-  try {
-    const stats = recipeService.getPerformanceStats();
-    
-    res.json({
-      code: 200,
-      message: '获取性能统计成功',
-      data: stats
-    });
-  } catch (error: any) {
-    logger.error('获取性能统计失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取性能统计失败'
-    });
-  }
-});
-
-/**
- * GET /api/recipes/icicle-chart/incremental
- * 获取增量更新的冰柱图数据
- */
-router.get('/icicle-chart/incremental', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const lastVersionParam = req.query.lastVersion as string | undefined;
-    const lastVersion = lastVersionParam ? parseInt(lastVersionParam) : undefined;
-    
-    const result = await recipeService.getIncrementalIcicleChart(lastVersion);
-    
-    const responseTime = Date.now() - startTime;
-    
-    // 记录性能指标
-    recipeService.recordPerformanceMetrics('incremental', responseTime);
-    
-    res.json({
-      code: 200,
-      message: '获取增量冰柱图数据成功',
-      data: result,
-      responseTime
-    });
-  } catch (error: any) {
-    const responseTime = Date.now() - startTime;
-    logger.error('获取增量冰柱图数据失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取增量冰柱图数据失败',
-      responseTime
-    });
-  }
-});
-
-/**
- * GET /api/recipes/icicle-chart/paginated
- * 获取分页冰柱图数据（用于大数据量场景）
- */
-router.get('/icicle-chart/paginated', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const pageParam = req.query.page as string | undefined;
-    const page = pageParam ? Math.max(1, parseInt(pageParam)) : 1;
-    
-    const pageSizeParam = req.query.pageSize as string | undefined;
-    const pageSize = pageSizeParam ? Math.min(1000, Math.max(10, parseInt(pageSizeParam))) : 1000;
-    
-    const data = await recipeService.generatePaginatedIcicleChart(page, pageSize);
-    
-    const responseTime = Date.now() - startTime;
-    
-    // 记录性能指标
-    recipeService.recordPerformanceMetrics('paginated', responseTime);
-    
-    res.json({
-      code: 200,
-      message: '获取分页冰柱图数据成功',
-      data,
-      responseTime
-    });
-  } catch (error: any) {
-    const responseTime = Date.now() - startTime;
-    logger.error('获取分页冰柱图数据失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取分页冰柱图数据失败',
-      responseTime
-    });
-  }
-});
-
-/**
- * GET /api/recipes/icicle-chart
- * 获取冰柱图数据（支持压缩和分页）
- */
-router.get('/icicle-chart', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    // 可选：限制返回节点数量，减少首次渲染压力（默认不限制）
-    const limitParam = req.query.limit as string | undefined;
-    const limit = limitParam ? parseInt(limitParam) : undefined;
-    
-    // 压缩选项：是否启用数据压缩
-    const compressParam = req.query.compress as string | undefined;
-    const enableCompression = compressParam === 'true' || compressParam === '1';
-    
-    const data = await recipeService.generateIcicleChart(limit);
-    
-    let responseData: any = data;
-    let compressed = false;
-    let originalSize = JSON.stringify(data).length;
-    let compressedSize = originalSize;
-    
-    // 如果启用压缩且数据量较大，返回压缩版数据
-    if (enableCompression && data.nodes.length > 1000) {
-      const compressedData = recipeService.compressIcicleChartData(data);
-      responseData = compressedData;
-      compressed = true;
-      compressedSize = JSON.stringify(compressedData).length;
-    }
-    
-    // 如果指定了限制，则裁剪数据
-    if (limit && limit < data.nodes.length) {
-      responseData = {
-        ...responseData,
-        nodes: responseData.nodes.slice(0, limit)
-      };
-    }
-    
-    const responseTime = Date.now() - startTime;
-    
-    // 记录性能指标
-    if (enableCompression) {
-      recipeService.recordPerformanceMetrics('compressed', responseTime);
-    }
-    
-    res.json({
-      code: 200,
-      message: compressed ? '获取冰柱图数据成功（压缩版）' : '获取冰柱图数据成功',
-      data: responseData,
-      compressed,
-      originalSize,
-      compressedSize,
-      compressionRatio: compressed ? ((originalSize - compressedSize) / originalSize * 100).toFixed(2) : 0,
-      responseTime
-    });
-  } catch (error: any) {
-    const responseTime = Date.now() - startTime;
-    logger.error('获取冰柱图数据失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取冰柱图数据失败',
-      responseTime
-    });
-  }
-});
-
-/**
  * GET /api/recipes/shortest-path/:item
  * 获取单个物品的最短路径树（使用缓存优化）
  */
@@ -518,159 +305,45 @@ router.get('/batch', async (req: Request, res: Response) => {
 });
 
 /**
- * POST /api/recipes/optimize
- * 创建优化索引（管理员功能）
+ * GET /api/recipes/icicle-chart/on-demand/:item
+ * 🚀 按需生成冰柱图（从图结构动态提取子图）
+ * 支持深度限制，避免返回超大对象
  */
-router.post('/optimize', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    // 检查管理员权限
-    const user = await userService.getCurrentUser(req.userId!);
-    if (!user || user.auth < 9) {
-      return res.status(403).json({
-        code: 403,
-        message: '权限不足'
-      });
-    }
-
-    await recipeService.createOptimizedIndexes();
-
-    res.json({
-      code: 200,
-      message: '索引优化完成'
-    });
-  } catch (error: any) {
-    logger.error('创建优化索引失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '创建优化索引失败'
-    });
-  }
-});
-
-/**
- * POST /api/recipes/refresh-cache
- * 刷新缓存（管理员功能）
- */
-router.post('/refresh-cache', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    // 检查管理员权限
-    const user = await userService.getCurrentUser(req.userId!);
-    if (!user || user.auth < 9) {
-      return res.status(403).json({
-        code: 403,
-        message: '权限不足'
-      });
-    }
-
-    const { cacheType = 'all' } = req.body as { cacheType?: 'graph' | 'icicle' | 'all' };
-
-    if (cacheType === 'graph' || cacheType === 'all') {
-      await recipeService.refreshGraphCache();
-    }
-
-    if (cacheType === 'icicle' || cacheType === 'all') {
-      await recipeService.refreshIcicleCache();
-    }
-
-    res.json({
-      code: 200,
-      message: `缓存刷新完成: ${cacheType}`
-    });
-  } catch (error: any) {
-    logger.error('刷新缓存失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '刷新缓存失败'
-    });
-  }
-});
-
-/**
- * GET /api/recipes/cache-status
- * 获取缓存状态（管理员功能）
- */
-router.get('/cache-status', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    // 检查管理员权限
-    const user = await userService.getCurrentUser(req.userId!);
-    if (!user || user.auth < 9) {
-      return res.status(403).json({
-        code: 403,
-        message: '权限不足'
-      });
-    }
-
-    const cacheStatus = recipeService.getCacheStatus();
-
-    res.json({
-      code: 200,
-      message: '获取缓存状态成功',
-      data: cacheStatus
-    });
-  } catch (error: any) {
-    logger.error('获取缓存状态失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取缓存状态失败'
-    });
-  }
-});
-
-/**
- * POST /api/recipes/benchmark
- * 性能测试：比较优化前后的冰柱图生成时间（管理员功能）
- */
-router.post('/benchmark', authMiddleware, async (req: AuthRequest, res: Response) => {
-  try {
-    // 检查管理员权限
-    const user = await userService.getCurrentUser(req.userId!);
-    if (!user || user.auth < 9) {
-      return res.status(403).json({
-        code: 403,
-        message: '权限不足'
-      });
-    }
-
-    const benchmarkResult = await recipeService.benchmarkIcicleGeneration();
-
-    res.json({
-      code: 200,
-      message: '性能测试完成',
-      data: benchmarkResult
-    });
-  } catch (error: any) {
-    logger.error('性能测试失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '性能测试失败'
-    });
-  }
-});
-
-/**
- * GET /api/recipes/icicle-chart/item/:item
- * 获取单个元素的冰柱图数据
- */
-router.get('/icicle-chart/item/:item', async (req: Request, res: Response) => {
+router.get('/icicle-chart/on-demand/:item', async (req: Request, res: Response) => {
   const startTime = Date.now();
   try {
     const item = decodeURIComponent(req.params.item);
-    const data = await recipeService.getIcicleChartForItem(item);
+    const maxDepthParam = req.query.maxDepth as string | undefined;
+    const maxDepth = maxDepthParam ? parseInt(maxDepthParam) : undefined;
+    const includeStats = (req.query.includeStats as string) === 'true';
+    
+    const data = await recipeService.generateIcicleChartOnDemand(item, maxDepth, includeStats);
+    
+    if (!data) {
+      return res.status(404).json({
+        code: 404,
+        message: '物品不存在或无法生成冰柱图'
+      });
+    }
     
     const responseTime = Date.now() - startTime;
     
     res.json({
       code: 200,
-      message: '获取元素冰柱图数据成功',
-      data: data,
-      responseTime
+      message: '按需生成冰柱图成功',
+      data,
+      responseTime,
+      metadata: {
+        maxDepth: maxDepth || '不限制',
+        nodeCount: data.nodes.length
+      }
     });
   } catch (error: any) {
     const responseTime = Date.now() - startTime;
-    logger.error('获取元素冰柱图数据失败', error);
+    logger.error('按需生成冰柱图失败', error);
     res.status(500).json({
       code: 500,
-      message: error.message || '获取元素冰柱图数据失败',
+      message: error.message || '按需生成冰柱图失败',
       responseTime
     });
   }

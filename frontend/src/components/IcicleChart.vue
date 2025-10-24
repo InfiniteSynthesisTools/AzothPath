@@ -28,7 +28,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed } from 'vue'
 import type { IcicleNode } from '@/types'
 
 interface Props {
@@ -56,48 +56,77 @@ const chartWidth = ref(0)
 
 // 使用矩形冰柱图布局算法
 const visibleNodes = computed(() => {
-  console.log('visibleNodes computed:', {
-    propsData: props.data,
-    propsDataLength: props.data?.length
-  })
-  
   if (!props.data || props.data.length === 0) {
     chartHeight.value = 200 // 默认最小高度
     chartWidth.value = props.width
     return []
   }
-  
+
+  // 清空缓存以应对新数据
+  weightCache.clear();
+  styleCache.clear();
+
   // 使用矩形冰柱图布局算法
   const nodes = calculateNodeLayout(props.data)
-  
-  // 动态计算图表高度和宽度
+
+  // 动态计算图表高度和宽度（优化：避免 map + Math.max）
   if (nodes.length > 0) {
-    const maxY = Math.max(...nodes.map(node => node.y + node.height))
-    const maxX = Math.max(...nodes.map(node => node.x + node.width))
-    chartHeight.value = Math.max(maxY + 100, 300) // 添加边距，最小高度300px
-    chartWidth.value = Math.max(maxX + 100, props.width) // 添加边距，最小宽度为props.width
+    let maxY = 0
+    let maxX = 0
+    
+    for (let i = 0; i < nodes.length; i++) {
+      const node = nodes[i]
+      const nodeBottom = (node as any).y + (node as any).height
+      const nodeRight = (node as any).x + (node as any).width
+      
+      if (nodeBottom > maxY) maxY = nodeBottom
+      if (nodeRight > maxX) maxX = nodeRight
+    }
+
+    chartHeight.value = Math.max(maxY + 100, 300)
+    chartWidth.value = Math.max(maxX + 100, props.width)
   } else {
     chartHeight.value = 200
     chartWidth.value = props.width
   }
-  
+
   return nodes
 })
+
+// 定义浅色系调色板常量，避免每次调用都重新创建
+const LIGHT_COLOR_PALETTE = [
+  '#ffd9b3', // 浅橙色
+  '#ffe0b3', // 浅黄色
+  '#c2edce', // 浅绿色
+  '#c5b9f5', // 浅紫色
+  '#f0bbd9'  // 浅粉色
+];
+
+// 权重计算缓存
+const weightCache = new Map<IcicleNode, number>();
 
 // 矩形冰柱图布局算法
 const calculateNodeLayout = (nodes: IcicleNode[]) => {
   const BASE_HEIGHT = 60;
   const SPACING = 2;
   
-  // 计算每个节点的权重（基于子节点数量或固定值）
+  // 计算每个节点的权重（基于子节点数量或固定值）- 使用缓存避免重复计算
   const calculateNodeWeight = (node: IcicleNode): number => {
+    if (weightCache.has(node)) {
+      return weightCache.get(node)!;
+    }
+    
+    let weight: number;
     if (node.children && node.children.length > 0) {
       // 父节点的权重等于所有子节点权重之和
-      return node.children.reduce((sum: number, child: any) => sum + calculateNodeWeight(child), 0);
+      weight = node.children.reduce((sum: number, child: any) => sum + calculateNodeWeight(child), 0);
     } else {
       // 叶子节点的权重为1
-      return 1;
+      weight = 1;
     }
+    
+    weightCache.set(node, weight);
+    return weight;
   };
   
   // 计算总权重
@@ -113,12 +142,12 @@ const calculateNodeLayout = (nodes: IcicleNode[]) => {
   
   // 递归布局所有节点
   const layoutNode = (node: IcicleNode, x: number, y: number, width: number, level: number = 0) => {
-    // 设置当前节点的位置和尺寸
-    node.x = x;
-    node.y = y;
-    node.width = width;
-    node.height = BASE_HEIGHT;
-    node.level = level;
+    // 设置节点的位置和尺寸
+    (node as any).x = x;
+    (node as any).y = y;
+    (node as any).width = width;
+    (node as any).height = BASE_HEIGHT;
+    (node as any).level = level;
     
     // 将当前节点添加到结果数组中
     allLayoutNodes.push(node);
@@ -156,51 +185,40 @@ const calculateNodeLayout = (nodes: IcicleNode[]) => {
   return allLayoutNodes;
 }
 
-// 扁平化节点树
-const flattenNodes = (nodes: IcicleNode[]): IcicleNode[] => {
-  const result: IcicleNode[] = []
-  
-  const traverse = (node: IcicleNode, depth: number = 0) => {
-    // 添加当前节点
-    result.push({
-      ...node,
-      depth
-    })
-    
-    // 递归处理子节点
-    if (node.children) {
-      node.children.forEach(child => traverse(child, depth + 1))
-    }
-  }
-  
-  nodes.forEach(node => traverse(node))
-  return result
-}
+// 缓存节点样式，避免每次渲染都创建新对象
+const styleCache = new Map<IcicleNode, any>();
 
 // 获取节点样式
 const getNodeStyle = (node: any) => {
-  return {
+  if (styleCache.has(node)) {
+    return styleCache.get(node);
+  }
+  
+  const style = {
     left: `${node.x || 0}px`,
     top: `${node.y || 0}px`,
     width: `${node.width || 100}px`,
     height: `${node.height || 30}px`,
     backgroundColor: getNodeColor(node)
-  }
+  };
+  
+  styleCache.set(node, style);
+  return style;
 }
 
-// 获取节点颜色
+// 获取节点颜色 - 浅色系配色，使用常量调色板
 const getNodeColor = (node: any) => {
   if (node.isBase) {
-    // 基础元素使用醒目的红色系
-    return '#e74c3c';
+    // 基础元素使用浅色系 - 浅蓝色
+    return '#a8d8f0';
   } else {
-    // 合成元素使用渐变色，根据层级和宽度动态调整
+    // 合成元素使用浅色系渐变，根据层级调整
     const level = node.level || 0;
     const value = node.value || 1;
-    const hue = (level * 60 + value * 30) % 360;
-    const saturation = Math.min(85, 70 + level * 5);
-    const lightness = Math.max(40, 60 - level * 3);
-    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+    
+    // 根据层级选择颜色，并根据 value 调整亮度
+    const paletteIndex = (level + Math.floor(value)) % LIGHT_COLOR_PALETTE.length;
+    return LIGHT_COLOR_PALETTE[paletteIndex];
   }
 }
 
@@ -208,17 +226,13 @@ const getNodeColor = (node: any) => {
 const onNodeClick = (node: IcicleNode) => {
   emit('nodeClick', node)
 }
-
-onMounted(() => {
-  console.log('IcicleChart mounted with data:', props.data)
-})
 </script>
 
 <style scoped>
 .icicle-chart {
   width: 100%;
   min-height: 300px;
-  background: #f8f9fa;
+  background: #f5f7fa;
   border-radius: 8px;
   overflow: auto;
   display: flex;
@@ -230,26 +244,27 @@ onMounted(() => {
 
 .chart-container {
   position: relative;
-  background: white;
+  background: #fafbfc;
   border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   overflow: visible;
   margin: 0 auto;
 }
 
 .icicle-node {
   position: absolute;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1.5px solid rgba(100, 150, 180, 0.4);
   border-radius: 4px;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
   z-index: 1;
 }
 
 .icicle-node:hover {
   transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  border-color: rgba(100, 150, 180, 0.7);
   z-index: 100;
 }
 
@@ -259,7 +274,7 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   height: 100%;
-  color: white;
+  color: #333;
   font-size: 12px;
   font-weight: 500;
 }

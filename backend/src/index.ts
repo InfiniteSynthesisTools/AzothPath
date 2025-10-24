@@ -39,7 +39,7 @@ app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
 // 健康检查
-app.get('/health', (req, res) => {
+app.get('/api/health', (req, res) => {
   // 获取当前时间（已设置为UTC+8）
   const now = new Date();
   
@@ -119,7 +119,7 @@ try {
   app.listen(PORT, async () => {
     logger.success(`服务器启动成功 - 端口: ${PORT}`);
     logger.info(`API文档: http://localhost:${PORT}/api`);
-    logger.info(`健康检查: http://localhost:${PORT}/health`);
+    logger.info(`健康检查: http://localhost:${PORT}/api/health`);
     
     // 执行启动初始化
     try {

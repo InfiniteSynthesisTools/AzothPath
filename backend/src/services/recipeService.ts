@@ -60,48 +60,32 @@ export interface IcicleChartData {
   maxDepth: number;
 }
 
-export class RecipeService {
-  // 图缓存相关属性
-  private graphCache: {
-    recipes: Recipe[];
-    items: Item[];
-    baseItems: Item[];
-    itemToRecipes: Record<string, Recipe[]>;
-    recipeGraph: Record<string, string[]>;
-    baseItemNames: string[];
-    allItemNames: string[];
-    itemEmojiMap: Record<string, string>;
-    reachableItems: Set<string>;           // ✅ 新增：可达物品集合
-    unreachableItems: Set<string>;         // ✅ 新增：不可达物品集合
-    shortestPathTrees: Map<string, IcicleNode>; // 🚀 新增：最短路径树缓存
-    lastUpdated: number;
-  } | null = null;
+/**
+ * 图缓存数据结构
+ */
+interface GraphCache {
+  recipes: Recipe[];
+  items: Item[];
+  baseItems: Item[];
+  itemToRecipes: Record<string, Recipe[]>;
+  recipeGraph: Record<string, string[]>;
+  baseItemNames: string[];
+  allItemNames: string[];
+  itemEmojiMap: Record<string, string>;
+  reachableItems: Set<string>;
+  unreachableItems: Set<string>;
+  shortestPathTrees: Map<string, IcicleNode>;
+  lastUpdated: number;
+}
 
-  // 并发保护：当缓存正在构建时，保存构建的 Promise，避免重复构建
-  private graphCachePromise: Promise<{
-    recipes: Recipe[];
-    items: Item[];
-    baseItems: Item[];
-    itemToRecipes: Record<string, Recipe[]>;
-    recipeGraph: Record<string, string[]>;
-    baseItemNames: string[];
-    allItemNames: string[];
-    itemEmojiMap: Record<string, string>;
-    reachableItems: Set<string>;
-    unreachableItems: Set<string>;
-    shortestPathTrees: Map<string, IcicleNode>;
-  }> | null = null;
+// ============ Emoji 处理器 ============
 
-  // 缓存有效期（默认更长，显著降低重建频率）
-  private readonly CACHE_TTL = 60 * 60 * 1000; // 图缓存 60 分钟
-
+class EmojiProcessor {
   /**
-   * 处理记录中的 emoji 字段，只保留第一个 emoji
+   * 处理单个记录的 emoji 字段
    */
-  private truncateRecordEmojis<T extends Record<string, any>>(record: T): T {
+  static truncateRecord<T extends Record<string, any>>(record: T): T {
     const result: any = { ...record };
-    
-    // 处理常见的 emoji 字段
     const emojiFields = ['emoji', 'item_a_emoji', 'item_b_emoji', 'result_emoji'];
     
     for (const field of emojiFields) {
@@ -114,39 +98,77 @@ export class RecipeService {
   }
 
   /**
-   * 批量处理记录数组中的 emoji 字段
+   * 批量处理记录的 emoji 字段
+   */
+  static truncateRecords<T extends Record<string, any>>(records: T[]): T[] {
+    return records.map(r => this.truncateRecord(r));
+  }
+}
+
+// ============ 数据库查询辅助函数 ============
+
+class DatabaseQueryHelper {
+  /**
+   * 获取图缓存所需的所有数据
+   */
+  static async fetchGraphData() {
+    const [recipes, items, baseItems] = await Promise.all([
+      databaseAdapter.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1'),
+      databaseAdapter.all<Item>('SELECT name, emoji FROM items'),
+      databaseAdapter.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1')
+    ]);
+    
+    return { recipes, items, baseItems };
+  }
+
+  /**
+   * 构建 emoji 映射表
+   */
+  static buildEmojiMap(items: Item[]): Record<string, string> {
+    const map: Record<string, string> = {};
+    for (const item of items) {
+      if (item.emoji) {
+        map[item.name] = item.emoji;
+      }
+    }
+    return map;
+  }
+}
+
+// ============ RecipeService 主类 ============
+
+export class RecipeService {
+  private graphCache: GraphCache | null = null;
+  private graphCachePromise: Promise<GraphCache> | null = null;
+  private readonly CACHE_TTL = 60 * 60 * 1000; // 60 分钟
+
+  /**
+   * 处理记录中的 emoji 字段
+   */
+  private truncateRecordEmojis<T extends Record<string, any>>(record: T): T {
+    return EmojiProcessor.truncateRecord(record);
+  }
+
+  /**
+   * 批量处理记录中的 emoji 字段
    */
   private truncateRecordsEmojis<T extends Record<string, any>>(records: T[]): T[] {
-    return records.map(record => this.truncateRecordEmojis(record));
+    return EmojiProcessor.truncateRecords(records);
   }
 
   /**
    * 获取或更新图缓存（非阻塞版本）
-   * 优化：在缓存构建期间返回旧缓存数据，避免阻塞请求
    */
-  public async getGraphCache(): Promise<{
-    recipes: Recipe[];
-    items: Item[];
-    baseItems: Item[];
-    itemToRecipes: Record<string, Recipe[]>;
-    recipeGraph: Record<string, string[]>;
-    baseItemNames: string[];
-    allItemNames: string[];
-    itemEmojiMap: Record<string, string>;
-    reachableItems: Set<string>;           // ✅ 新增：可达物品集合
-    unreachableItems: Set<string>;         // ✅ 新增：不可达物品集合
-    shortestPathTrees: Map<string, IcicleNode>; // 🚀 新增：最短路径树缓存
-  }> {
+  public async getGraphCache(): Promise<GraphCache> {
     const now = Date.now();
 
-    // 如果缓存存在且未过期，直接返回
+    // 缓存存在且未过期，直接返回
     if (this.graphCache && now - this.graphCache.lastUpdated <= this.CACHE_TTL) {
       return this.graphCache;
     }
 
-    // 如果缓存存在但过期，返回旧缓存，并触发异步更新（非阻塞）
+    // 缓存存在但过期，返回旧缓存并异步更新
     if (this.graphCache) {
-      // 如果未在构建中，启动异步构建
       if (!this.graphCachePromise) {
         this.graphCachePromise = this.buildGraphCacheAsync().finally(() => {
           this.graphCachePromise = null;
@@ -155,7 +177,7 @@ export class RecipeService {
       return this.graphCache;
     }
 
-    // 如果无缓存，则等待构建（初始情况）
+    // 无缓存，等待构建（首次调用）
     if (this.graphCachePromise) {
       return this.graphCachePromise;
     }
@@ -170,86 +192,31 @@ export class RecipeService {
   /**
    * 异步构建图缓存（内部方法）
    */
-  private async buildGraphCacheAsync(): Promise<{
-    recipes: Recipe[];
-    items: Item[];
-    baseItems: Item[];
-    itemToRecipes: Record<string, Recipe[]>;
-    recipeGraph: Record<string, string[]>;
-    baseItemNames: string[];
-    allItemNames: string[];
-    itemEmojiMap: Record<string, string>;
-    reachableItems: Set<string>;
-    unreachableItems: Set<string>;
-    shortestPathTrees: Map<string, IcicleNode>;
-  }> {
+  private async buildGraphCacheAsync(): Promise<GraphCache> {
     try {
       logger.info('图缓存已过期或不存在，重新构建...');
 
-      // 获取所有公开配方和物品
-      const recipes = await databaseAdapter.all<Recipe>('SELECT id, item_a, item_b, result FROM recipes WHERE is_public = 1');
-      const items = await databaseAdapter.all<Item>('SELECT name, emoji FROM items');
-      const baseItems = await databaseAdapter.all<Item>('SELECT name, emoji FROM items WHERE is_base = 1');
-
+      // 1. 获取数据
+      const { recipes, items, baseItems } = await DatabaseQueryHelper.fetchGraphData();
       const baseItemNames = baseItems.map(item => item.name);
       const allItemNames = items.map(item => item.name);
+      const itemEmojiMap = DatabaseQueryHelper.buildEmojiMap(items);
 
-      // 构建依赖图
+      // 2. 构建依赖图
       const { itemToRecipes, recipeGraph } = this.buildDependencyGraph(recipes, allItemNames);
 
-      // 🚀 性能优化：进行可达性分析
+      // 3. 可达性分析
       const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
 
-      // 构建emoji映射
-      const itemEmojiMap: Record<string, string> = {};
-      for (const item of items) {
-        if (item.emoji) {
-          itemEmojiMap[item.name] = item.emoji;
-        }
-      }
+      // 4. 预计算最短路径树
+      const shortestPathTrees = await this.precomputeShortestPathTrees(
+        reachableItems, 
+        baseItemNames, 
+        itemToRecipes, 
+        itemEmojiMap
+      );
 
-      // 🚀 性能优化：预计算所有可达物品的最短路径树
-      const shortestPathTrees = new Map<string, IcicleNode>();
-      logger.info('开始预计算最短路径树...');
-
-      // 使用全局记忆化缓存构建所有可达物品的最短路径树
-      const globalTreeMemo = new Map<string, IcicleNode | null>();
-      let precomputedCount = 0;
-      const totalReachable = reachableItems.size;
-
-      // 将同步循环改为异步分批处理，避免阻塞事件循环
-      const reachableItemsArray = Array.from(reachableItems);
-      const BATCH_SIZE = 5; // 减小批次大小到5个物品，进一步减少阻塞
-
-      for (let i = 0; i < reachableItemsArray.length; i += BATCH_SIZE) {
-        const batch = reachableItemsArray.slice(i, i + BATCH_SIZE);
-
-        // 同步处理当前批次
-        for (const itemName of batch) {
-          const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
-          if (tree) {
-            shortestPathTrees.set(itemName, tree);
-          }
-          precomputedCount++;
-
-          // 每处理100个物品输出一次进度，更频繁地更新进度
-          if (precomputedCount % 100 === 0) {
-            logger.info(`最短路径树预计算进度：${precomputedCount}/${totalReachable} (${Math.round(precomputedCount / totalReachable * 100)}%)`);
-
-            // 每100个物品也让出事件循环一次
-            await new Promise(resolve => setTimeout(resolve, 0));
-          }
-        }
-
-        // 每处理完一批后让出事件循环，允许其他请求处理
-        if (i + BATCH_SIZE < reachableItemsArray.length) {
-          await new Promise(resolve => setTimeout(resolve, 0));
-        }
-      }
-
-      logger.info(`最短路径树预计算完成：共 ${shortestPathTrees.size} 个物品的最短路径树已缓存`);
-
-      // 更新缓存
+      // 5. 构建并存储缓存
       const newCache = {
         recipes,
         items,
@@ -259,14 +226,13 @@ export class RecipeService {
         baseItemNames,
         allItemNames,
         itemEmojiMap,
-        reachableItems,           // ✅ 新增：可达物品集合
-        unreachableItems,         // ✅ 新增：不可达物品集合
-        shortestPathTrees,        // 🚀 新增：最短路径树缓存
+        reachableItems,
+        unreachableItems,
+        shortestPathTrees,
         lastUpdated: Date.now()
       };
 
       this.graphCache = newCache;
-
       logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品`);
 
       return newCache;
@@ -277,8 +243,47 @@ export class RecipeService {
   }
 
   /**
-   * 强制刷新图缓存
+   * 预计算所有可达物品的最短路径树
    */
+  private async precomputeShortestPathTrees(
+    reachableItems: Set<string>,
+    baseItemNames: string[],
+    itemToRecipes: Record<string, Recipe[]>,
+    itemEmojiMap: Record<string, string>
+  ): Promise<Map<string, IcicleNode>> {
+    const shortestPathTrees = new Map<string, IcicleNode>();
+    const globalTreeMemo = new Map<string, IcicleNode | null>();
+    
+    logger.info('开始预计算最短路径树...');
+
+    const reachableArray = Array.from(reachableItems);
+    const BATCH_SIZE = 5;
+    
+    for (let i = 0; i < reachableArray.length; i += BATCH_SIZE) {
+      const batch = reachableArray.slice(i, i + BATCH_SIZE);
+      
+      for (const itemName of batch) {
+        const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
+        if (tree) {
+          shortestPathTrees.set(itemName, tree);
+        }
+      }
+
+      // 让出事件循环
+      if (i + BATCH_SIZE < reachableArray.length) {
+        await new Promise(resolve => setTimeout(resolve, 0));
+        
+        // 定期输出进度
+        if ((i + BATCH_SIZE) % 100 === 0) {
+          logger.info(`预计算进度：${i + BATCH_SIZE}/${reachableArray.length}`);
+        }
+      }
+    }
+
+    logger.info(`最短路径树预计算完成：共 ${shortestPathTrees.size} 个物品`);
+    return shortestPathTrees;
+  }
+
   async refreshGraphCache(): Promise<void> {
     this.graphCache = null;
     await this.getGraphCache();
@@ -921,56 +926,6 @@ export class RecipeService {
       total_materials: totalMaterials,
       breadth: breadthSum,
       materials
-    };
-  }
-
-  /**
-   * 批量获取配方（用于大数据量场景）
-   */
-  async getRecipesBatch(params: {
-    batchSize?: number;
-    lastId?: number;
-    search?: string;
-    userId?: number;
-  }) {
-    const { batchSize = 1000, lastId = 0, search, userId } = params;
-
-    let sql = `
-      SELECT r.*, 
-             u.name as creator_name,
-             ia.emoji as item_a_emoji,
-             ib.emoji as item_b_emoji,
-             ir.emoji as result_emoji,
-             ${userId ? 'CASE WHEN rl.id IS NOT NULL THEN 1 ELSE 0 END as is_liked' : '0 as is_liked'}
-      FROM recipes r
-      LEFT JOIN user u ON r.user_id = u.id
-      LEFT JOIN items ia ON ia.name = r.item_a
-      LEFT JOIN items ib ON ib.name = r.item_b  
-      LEFT JOIN items ir ON ir.name = r.result
-      ${userId ? 'LEFT JOIN recipe_likes rl ON rl.recipe_id = r.id AND rl.user_id = ?' : ''}
-      WHERE r.id > ?
-    `;
-
-    const sqlParams: any[] = [];
-    if (userId) {
-      sqlParams.push(userId);
-    }
-    sqlParams.push(lastId);
-
-    if (search) {
-      sql += ` AND (r.item_a LIKE ? OR r.item_b LIKE ? OR r.result LIKE ?)`;
-      sqlParams.push(`%${search}%`, `%${search}%`, `%${search}%`);
-    }
-
-    sql += ` ORDER BY r.id ASC LIMIT ?`;
-    sqlParams.push(batchSize);
-
-    const recipes = await databaseAdapter.all(sql, sqlParams);
-
-    return {
-      recipes,
-      hasMore: recipes.length === batchSize,
-      lastId: recipes.length > 0 ? recipes[recipes.length - 1].id : lastId
     };
   }
 

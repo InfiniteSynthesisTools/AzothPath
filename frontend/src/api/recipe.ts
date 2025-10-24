@@ -57,15 +57,6 @@ export const recipeApi = {
     }>('/recipes/graph/stats');
   },
 
-  // 批量获取配方（用于大数据量场景）
-  getBatch(params: { batchSize?: number; lastId?: number; search?: string } = {}) {
-    return api.get<{
-      recipes: Recipe[];
-      hasMore: boolean;
-      lastId: number;
-    }>('/recipes/batch', { params });
-  },
-
   // 获取物品列表
   getItems(params: {
     page?: number;

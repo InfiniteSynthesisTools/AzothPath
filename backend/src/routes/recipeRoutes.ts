@@ -266,45 +266,6 @@ router.get('/graph/stats', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/recipes/batch
- * 批量获取配方（用于大数据量场景）
- */
-router.get('/batch', async (req: Request, res: Response) => {
-  try {
-    const batchSize = parseInt(req.query.batchSize as string) || 1000;
-    const lastId = parseInt(req.query.lastId as string) || 0;
-    const search = req.query.search as string;
-
-    // 尝试从认证信息中获取用户ID
-    let userId: number | undefined;
-    try {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        const decoded = jwt.verify(token, JWT_SECRET) as { userId: number; role: string };
-        userId = decoded.userId;
-      }
-    } catch (error) {
-      logger.debug('Token验证失败，继续执行（无用户上下文）');
-    }
-
-    const result = await recipeService.getRecipesBatch({ batchSize, lastId, search, userId });
-
-    res.json({
-      code: 200,
-      message: '获取成功',
-      data: result
-    });
-  } catch (error: any) {
-    logger.error('批量获取配方失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '批量获取配方失败'
-    });
-  }
-});
-
-/**
  * GET /api/recipes/icicle-chart/on-demand/:item
  * 🚀 按需生成冰柱图（从图结构动态提取子图）
  * 支持深度限制，避免返回超大对象

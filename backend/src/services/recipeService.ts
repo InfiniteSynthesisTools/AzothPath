@@ -1,6 +1,7 @@
 import { databaseAdapter } from '../database/databaseAdapter';
 import { logger } from '../utils/logger';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
+import { truncateEmoji } from '../utils/emoji';
 
 export interface Recipe {
   id: number;
@@ -93,6 +94,31 @@ export class RecipeService {
 
   // 缓存有效期（默认更长，显著降低重建频率）
   private readonly CACHE_TTL = 60 * 60 * 1000; // 图缓存 60 分钟
+
+  /**
+   * 处理记录中的 emoji 字段，只保留第一个 emoji
+   */
+  private truncateRecordEmojis<T extends Record<string, any>>(record: T): T {
+    const result: any = { ...record };
+    
+    // 处理常见的 emoji 字段
+    const emojiFields = ['emoji', 'item_a_emoji', 'item_b_emoji', 'result_emoji'];
+    
+    for (const field of emojiFields) {
+      if (result[field] && typeof result[field] === 'string') {
+        result[field] = truncateEmoji(result[field]);
+      }
+    }
+    
+    return result as T;
+  }
+
+  /**
+   * 批量处理记录数组中的 emoji 字段
+   */
+  private truncateRecordsEmojis<T extends Record<string, any>>(records: T[]): T[] {
+    return records.map(record => this.truncateRecordEmojis(record));
+  }
 
   /**
    * 获取或更新图缓存（非阻塞版本）
@@ -405,7 +431,7 @@ export class RecipeService {
     const totalPromise = this.getCountAsync(countParams, conditions);
 
     return {
-      recipes: recipesWithStats,
+      recipes: this.truncateRecordsEmojis(recipesWithStats),
       total: await totalPromise,
       page,
       limit,
@@ -524,9 +550,9 @@ export class RecipeService {
 
       groupedRecipes.push({
         result: resultItem.result,
-        result_emoji: resultItem.result_emoji,
+        result_emoji: resultItem.result_emoji ? truncateEmoji(resultItem.result_emoji) : undefined,
         recipe_count: resultItem.recipe_count,
-        recipes: recipes
+        recipes: this.truncateRecordsEmojis(recipes)
       });
     }
 
@@ -598,7 +624,7 @@ export class RecipeService {
       throw new Error('配方不存在');
     }
 
-    return recipe;
+    return this.truncateRecordEmojis(recipe);
   }
 
   /**
@@ -1209,7 +1235,7 @@ export class RecipeService {
       throw new Error('物品不存在');
     }
 
-    return item;
+    return this.truncateRecordEmojis(item);
   }
 
   /**
@@ -1270,11 +1296,12 @@ export class RecipeService {
       if (childA && childB) {
         // 合成元素的宽度是子节点宽度之和
         const value = childA.value + childB.value;
+        const emoji = itemEmojiMap[itemName];
 
         const node: IcicleNode = {
           id: `synthetic_${itemName}`,
           name: itemName,
-          emoji: itemEmojiMap[itemName],
+          emoji: emoji ? truncateEmoji(emoji) : undefined,
           isBase: false,
           value,
           children: [childA, childB],
@@ -1540,7 +1567,7 @@ export class RecipeService {
        LIMIT 1`
     );
 
-    return item || null;
+    return item ? this.truncateRecordEmojis(item) : null;
   }
 
   /**
@@ -1644,7 +1671,7 @@ export class RecipeService {
     );
 
     return {
-      items,
+      items: this.truncateRecordsEmojis(items),
       total: totalResult?.count || 0,
       page, limit
     };
@@ -1813,7 +1840,7 @@ export class RecipeService {
       return {
         id: itemName,
         name: itemName,
-        emoji,
+        emoji: emoji ? truncateEmoji(emoji) : undefined,
         isBase: false,
         value: 1
       };
@@ -1858,7 +1885,7 @@ export class RecipeService {
     return {
       id: itemName,
       name: itemName,
-      emoji,
+      emoji: emoji ? truncateEmoji(emoji) : undefined,
       isBase: false,
       value,
       children: [childA, childB],

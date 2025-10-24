@@ -26,12 +26,6 @@ interface ImportTaskContent {
   updated_at: string;
 }
 
-interface ValidationResponse {
-  result: string;
-  emoji?: string;
-  isNew?: boolean;
-}
-
 class ImportTaskQueue {
   private isRunning: boolean = false;
   private processingIds: Set<number> = new Set();

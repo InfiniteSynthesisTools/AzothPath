@@ -39,15 +39,6 @@ class ImportTaskQueue {
       return;
     }
 
-    // 等待数据库初始化完成
-    try {
-      await database.init();
-      logger.debug('数据库连接已确认，启动任务队列');
-    } catch (error) {
-      logger.error('数据库初始化失败，任务队列启动失败', error);
-      return;
-    }
-
     this.isRunning = true;
     logger.success('导入任务队列已启动');
     this.processLoop();

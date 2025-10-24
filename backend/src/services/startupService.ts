@@ -1,6 +1,8 @@
 import { database } from '../database/connection';
 import { logger } from '../utils/logger';
 import { recipeService } from './recipeService';
+import { databaseBackupService } from './databaseBackupService';
+import { importTaskQueue } from './importTaskQueue';
 
 /**
  * 启动时初始化服务
@@ -17,6 +19,9 @@ export class StartupService {
       // 确保数据库已初始化
       await database.init();
 
+      // 启动数据库自动备份服务
+      databaseBackupService.start();
+
       // 1. 预热图缓存（新架构核心：构建全局配方图）
       await this.warmupGraphCache();
 
@@ -28,6 +33,9 @@ export class StartupService {
 
       // 4. 重新计算玩家贡献值
       await this.recalculateUserContributions();
+
+      // 5. 启动导入任务队列
+      await importTaskQueue.start();
 
       logger.success('=== 启动初始化完成 ===');
     } catch (error) {

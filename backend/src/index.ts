@@ -61,17 +61,8 @@ import itemsRoutes from './routes/itemsRoutes';
 import systemRoutes from './routes/systemRoutes';
 import tagRoutes from './routes/tagRoutes';
 
-// 导入任务队列
-import { importTaskQueue } from './services/importTaskQueue';
-
-// 导入数据库备份服务
-import { databaseBackupService } from './services/databaseBackupService';
-
 // 导入启动初始化服务
 import { startupService } from './services/startupService';
-
-// 导入缓存预热服务
-import { cacheWarmupService } from './services/cacheWarmupService';
 
 // API 路由
 app.get('/api', (req, res) => {
@@ -130,27 +121,11 @@ try {
     logger.info(`API文档: http://localhost:${PORT}/api`);
     logger.info(`健康检查: http://localhost:${PORT}/health`);
     
-    // 执行启动初始化（重新计算任务和贡献值）
+    // 执行启动初始化
     try {
       await startupService.initialize();
     } catch (error) {
       logger.error('启动初始化失败，但服务器继续运行', error);
-    }
-    
-    // 启动导入任务队列
-    try {
-      await importTaskQueue.start();
-      logger.info('导入任务队列启动成功');
-    } catch (error) {
-      logger.error('导入任务队列启动失败', error);
-    }
-
-    // 启动数据库自动备份服务
-    try {
-      databaseBackupService.start();
-      logger.info('数据库备份服务启动成功');
-    } catch (error) {
-      logger.error('数据库备份服务启动失败', error);
     }
   });
 

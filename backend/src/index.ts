@@ -137,16 +137,6 @@ try {
       logger.error('启动初始化失败，但服务器继续运行', error);
     }
     
-    // 启动缓存预热（异步执行，不阻塞服务器启动）
-    try {
-      cacheWarmupService.warmup().catch(error => {
-        logger.error('缓存预热失败，但服务器继续运行', error);
-      });
-      logger.info('缓存预热已启动（异步执行）');
-    } catch (error) {
-      logger.error('缓存预热启动失败，但服务器继续运行', error);
-    }
-    
     // 启动导入任务队列
     try {
       await importTaskQueue.start();

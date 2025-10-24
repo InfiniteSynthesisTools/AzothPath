@@ -69,12 +69,12 @@ class DatabaseBackupService {
     // 确保备份目录存在
     this.ensureBackupDirExists();
 
-    // 延迟10秒后执行首次备份（避免启动时的数据库锁竞争）
+    // 延迟3秒后执行首次备份（避免启动时的数据库锁竞争）
     setTimeout(() => {
       this.performBackup().catch(err => {
         logger.error('首次备份失败', err);
       });
-    }, 10000);
+    }, 3000);
 
     // 设置定时任务
     const intervalMs = this.config.intervalHours * 60 * 60 * 1000;

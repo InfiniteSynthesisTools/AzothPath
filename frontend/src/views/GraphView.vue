@@ -172,7 +172,7 @@ import {
 import { recipeApi } from '@/api';
 
 // 响应式数据
-const activeTab = ref('icicle');
+const activeTab = ref('dag');
 const hasData = ref(false);
 const loadingDAG = ref(false);
 
@@ -410,147 +410,16 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
-.chart-wrapper {
-  position: relative;
-  border: 1px solid #e8eaed;
-  border-radius: 8px;
-  background: white;
-  overflow: hidden;
-}
-
-.chart-container {
-  height: 600px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  overflow: hidden; /* 改为hidden避免滚动条干扰拖拽 */
-  width: 100%;
-}
-
-.placeholder {
-  text-align: center;
-  color: #909399;
-}
-
-.placeholder p {
-  margin: 16px 0 0;
-  font-size: 16px;
-}
-
-.fullscreen-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid #409eff;
-  color: #409eff;
-  z-index: 10;
-}
-
-.fullscreen-btn:hover {
-  background: #409eff;
-  color: white;
-}
-
-/* 冰柱图拖拽容器 - 覆盖整个画布区域 */
-.icicle-drag-container {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  z-index: 1;
-  /* 确保背景色覆盖整个画布区域 */
-  background: #f8f9fa;
-}
-
-/* 冰柱图节点样式 */
-.icicle-chart-content {
-  position: relative;
-  min-width: 100%;
-  min-height: 600px;
-  background: #f8f9fa;
-  border-radius: 8px;
-  width: 100%;
-  height: 100%;
-  /* 确保拖拽区域覆盖整个画布 */
-  overflow: visible;
-}
-
-.virtual-scroll-container {
-  position: relative;
-  width: 100%;
-  height: 100%;
-}
-
-.performance-hint {
-  position: fixed;
-  top: 80px;
-  right: 20px;
-  max-width: 300px;
-  z-index: 1000;
-  pointer-events: auto;
-}
-
-.icicle-node {
-  position: absolute;
-  border-radius: 4px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  color: white;
-  font-weight: 500;
-  border: 1px solid rgba(255, 255, 255, 0.3);
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-sizing: border-box;
-  overflow: hidden;
-}
-
-.icicle-node:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-  z-index: 100 !important;
-}
-
-.node-content {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 2px;
-  padding: 4px 6px;
-  text-align: center;
-  width: 100%;
-}
-
-.node-emoji {
-  font-size: 16px;
-  line-height: 1;
-}
-
-.node-name {
-  font-size: 12px;
-  font-weight: 600;
-  line-height: 1.1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  max-width: 100%;
-}
-
-.node-value {
-  font-size: 10px;
-  opacity: 0.8;
-}
-
-/* 有向图样式 */
+/* DAG Chart Placeholder */
 .dag-chart-content {
   width: 100%;
-  height: 100%;
+  height: 600px;
   display: flex;
   align-items: center;
   justify-content: center;
+  background: white;
+  border: 1px solid #e8eaed;
+  border-radius: 8px;
 }
 
 .dag-placeholder {
@@ -558,49 +427,12 @@ onUnmounted(() => {
   color: #909399;
 }
 
-/* 工具提示样式 */
-.icicle-tooltip {
-  position: fixed;
-  background: rgba(0, 0, 0, 0.9);
-  color: white;
-  padding: 12px;
-  border-radius: 6px;
-  font-size: 12px;
-  z-index: 1000;
-  pointer-events: none;
-  max-width: 200px;
-  backdrop-filter: blur(4px);
-}
-
-.tooltip-header {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-bottom: 6px;
-  font-weight: 600;
-}
-
-.tooltip-emoji {
+.dag-placeholder p {
+  margin: 16px 0 0;
   font-size: 16px;
 }
 
-.tooltip-name {
-  font-size: 14px;
-}
-
-.tooltip-content {
-  font-size: 12px;
-  opacity: 0.9;
-  line-height: 1.4;
-}
-
-.tooltip-recipe {
-  margin-top: 4px;
-  padding-top: 4px;
-  border-top: 1px solid rgba(255, 255, 255, 0.3);
-}
-
-/* 响应式设计 */
+/* Responsive Design */
 @media (max-width: 768px) {
   .graph-view {
     padding: 10px;
@@ -634,29 +466,8 @@ onUnmounted(() => {
     width: 100%;
   }
   
-  .chart-container {
+  .dag-chart-content {
     height: 400px;
-  }
-  
-  /* 移动端优化 */
-  .icicle-node {
-    min-width: 60px;
-    font-size: 10px;
-  }
-  
-  .node-name {
-    font-size: 10px;
-    line-height: 1.1;
-  }
-  
-  .node-emoji {
-    font-size: 14px;
-  }
-  
-  .view-controls {
-    width: 100%;
-    justify-content: center;
-    margin-top: 10px;
   }
 }
 
@@ -669,26 +480,8 @@ onUnmounted(() => {
     font-size: 20px;
   }
   
-  .chart-container {
+  .dag-chart-content {
     height: 350px;
-  }
-  
-  /* 超小屏幕优化 */
-  .icicle-node {
-    min-width: 50px;
-    font-size: 9px;
-  }
-  
-  .node-name {
-    font-size: 9px;
-  }
-  
-  .node-emoji {
-    font-size: 12px;
-  }
-  
-  .stats-section .el-col {
-    margin-bottom: 10px;
   }
 }
 </style>

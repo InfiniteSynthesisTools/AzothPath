@@ -149,7 +149,12 @@ export class LRUCache<K, V> {
 
 /**
  * 创建冰柱图专用缓存（单例）
- * 最多缓存 10 个冰柱图结果，有效期 1 小时
+ * 最多缓存 500 个冰柱图结果，有效期 1 小时
+ * 
+ * 容量计算：
+ * - 平均树大小：300 个节点 × 250 字节 = 75KB
+ * - 500 个树 × 75KB = 37.5MB
+ * - 留有充足余地，不会触发频繁 GC 或堆溢出
  */
 export const icicleChartCache = new LRUCache<
   string, // itemName
@@ -159,7 +164,7 @@ export const icicleChartCache = new LRUCache<
     maxDepth: number;
   }
 >(
-  10, // 最多 10 个
+  500, // 最多 500 个（之前只有 10 个！）
   60 * 60 * 1000 // 1 小时过期
 );
 

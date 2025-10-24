@@ -134,12 +134,12 @@ class DatabaseBackupService {
    * 执行 WAL checkpoint（将WAL日志合并到主数据库）
    */
   private async walCheckpoint(retries = 3): Promise<void> {
-    logger.debug('执行 WAL checkpoint...');
+    logger.info('执行 WAL checkpoint...');
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
         await this.executeCheckpoint();
-        logger.debug('WAL checkpoint 完成');
+        logger.info('WAL checkpoint 完成');
         return;
       } catch (error: any) {
         // 如果是 SQLITE_LOCKED 或 SQLITE_BUSY 错误，等待后重试
@@ -180,7 +180,7 @@ class DatabaseBackupService {
    * 复制数据库文件
    */
   private async copyDatabase(destPath: string): Promise<void> {
-    logger.debug(`复制数据库文件: ${this.config.dbPath} -> ${destPath}`);
+    logger.info(`复制数据库文件: ${this.config.dbPath} -> ${destPath}`);
 
     return new Promise<void>((resolve, reject) => {
       // 检查源文件是否存在
@@ -204,7 +204,7 @@ class DatabaseBackupService {
       });
 
       writeStream.on('finish', () => {
-        logger.debug('数据库文件复制完成');
+        logger.info('数据库文件复制完成');
         resolve();
       });
 
@@ -216,7 +216,7 @@ class DatabaseBackupService {
    * 清理旧备份（保留最近N个）
    */
   private async cleanupOldBackups(): Promise<void> {
-    logger.debug('清理旧备份...');
+    logger.info('清理旧备份...');
 
     try {
       // 读取备份目录中的所有备份文件
@@ -236,7 +236,7 @@ class DatabaseBackupService {
         for (const file of filesToDelete) {
           try {
             fs.unlinkSync(file.path);
-            logger.debug(`删除旧备份: ${file.name}`);
+            logger.info(`删除旧备份: ${file.name}`);
           } catch (err) {
             logger.warn(`删除备份文件失败: ${file.name}`, err);
           }
@@ -244,7 +244,7 @@ class DatabaseBackupService {
 
         logger.info(`清理旧备份完成 (删除 ${filesToDelete.length} 个文件)`);
       } else {
-        logger.debug(`备份数量未超过限制 (${files.length}/${this.config.maxBackups})`);
+        logger.info(`备份数量未超过限制 (${files.length}/${this.config.maxBackups})`);
       }
     } catch (error) {
       logger.error('清理旧备份失败', error);

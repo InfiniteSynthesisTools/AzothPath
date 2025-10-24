@@ -54,7 +54,6 @@ export class StartupService {
     const startTime = Date.now();
 
     try {
-      // 调用 getGraphCache 方法，如果缓存不存在会自动构建
       const cache = await recipeService.getGraphCache();
 
       const duration = Date.now() - startTime;
@@ -63,7 +62,7 @@ export class StartupService {
       );
 
       // 输出关键统计信息
-      logger.info(`图缓存统计: 不可达物品 ${cache.unreachableItems.size} 个, 最短路径树 ${cache.shortestPathTrees.size} 个`);
+      logger.info(`图缓存统计: 不可达物品 ${cache.unreachableItems.size} 个`);
     } catch (error) {
       const duration = Date.now() - startTime;
       logger.error(`图缓存预热失败 (耗时: ${duration}ms)`, error);

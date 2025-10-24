@@ -57,7 +57,7 @@ async function initDatabase(force: boolean = false): Promise<void> {
       if (fs.existsSync(file)) {
         try {
           fs.unlinkSync(file);
-          logger.debug(`删除文件: ${file}`);
+          logger.info(`删除文件: ${file}`);
         } catch (err) {
           logger.warn(`删除文件失败: ${file}`, err);
         }

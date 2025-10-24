@@ -209,15 +209,7 @@ export class RecipeService {
       // 3. 可达性分析
       const { reachableItems, unreachableItems } = this.analyzeReachability(baseItemNames, itemToRecipes, allItemNames);
 
-      // 4. 预计算最短路径树
-      const shortestPathTrees = await this.precomputeShortestPathTrees(
-        reachableItems, 
-        baseItemNames, 
-        itemToRecipes, 
-        itemEmojiMap
-      );
-
-      // 5. 构建并存储缓存
+      // 4. 构建并存储缓存
       const newCache = {
         recipes,
         items,
@@ -229,7 +221,7 @@ export class RecipeService {
         itemEmojiMap,
         reachableItems,
         unreachableItems,
-        shortestPathTrees,
+        shortestPathTrees: new Map<string, IcicleNode>(),
         lastUpdated: Date.now()
       };
 
@@ -241,48 +233,6 @@ export class RecipeService {
       logger.error('图缓存构建失败:', err);
       throw err;
     }
-  }
-
-  /**
-   * 预计算所有可达物品的最短路径树
-   */
-  private async precomputeShortestPathTrees(
-    reachableItems: Set<string>,
-    baseItemNames: string[],
-    itemToRecipes: Record<string, Recipe[]>,
-    itemEmojiMap: Record<string, string>
-  ): Promise<Map<string, IcicleNode>> {
-    const shortestPathTrees = new Map<string, IcicleNode>();
-    const globalTreeMemo = new Map<string, IcicleNode | null>();
-    
-    logger.info('开始预计算最短路径树...');
-
-    const reachableArray = Array.from(reachableItems);
-    const BATCH_SIZE = 5;
-    
-    for (let i = 0; i < reachableArray.length; i += BATCH_SIZE) {
-      const batch = reachableArray.slice(i, i + BATCH_SIZE);
-      
-      for (const itemName of batch) {
-        const tree = this.buildIcicleTreeWithCache(itemName, baseItemNames, itemToRecipes, itemEmojiMap, globalTreeMemo);
-        if (tree) {
-          shortestPathTrees.set(itemName, tree);
-        }
-      }
-
-      // 让出事件循环
-      if (i + BATCH_SIZE < reachableArray.length) {
-        await new Promise(resolve => setTimeout(resolve, 0));
-        
-        // 定期输出进度
-        if ((i + BATCH_SIZE) % 100 === 0) {
-          logger.info(`预计算进度：${i + BATCH_SIZE}/${reachableArray.length}`);
-        }
-      }
-    }
-
-    logger.info(`最短路径树预计算完成：共 ${shortestPathTrees.size} 个物品`);
-    return shortestPathTrees;
   }
 
   async refreshGraphCache(): Promise<void> {
@@ -944,29 +894,20 @@ export class RecipeService {
   }
 
   /**
-   * 获取单个物品的最短路径树（使用缓存优化）
-   * 
-   * 🚀 性能优化：直接从缓存获取，避免重复计算
+   * 获取单个物品的最短路径树 - 已改用全局 icicleChartCache
+   * 不再维护内部 LRU 缓存
    */
   async getShortestPathTree(itemName: string): Promise<IcicleNode | null> {
     const cache = await this.getGraphCache();
 
-    // 🚀 直接从缓存获取最短路径树
-    const tree = cache.shortestPathTrees.get(itemName);
-
-    if (tree) {
-      logger.debug(`最短路径树缓存命中：${itemName}`);
-      return tree;
-    }
-
-    // 如果缓存中没有，检查是否可达
+    // 检查物品是否可达
     if (!cache.reachableItems.has(itemName)) {
-      logger.debug(`物品 ${itemName} 不可达，无法构建路径树`);
+      logger.info(`物品 ${itemName} 不可达，无法构建路径树`);
       return null;
     }
 
-    // 缓存中没有但物品可达，重新构建（这种情况应该很少发生）
-    logger.info(`最短路径树缓存未命中，重新构建：${itemName}`);
+    // 按需构建树
+    logger.info(`最短路径树：按需构建 ${itemName}`);
     const globalTreeMemo = new Map<string, IcicleNode | null>();
     const newTree = this.buildIcicleTreeWithCache(
       itemName,
@@ -975,11 +916,6 @@ export class RecipeService {
       cache.itemEmojiMap,
       globalTreeMemo
     );
-
-    // 更新缓存
-    if (newTree) {
-      cache.shortestPathTrees.set(itemName, newTree);
-    }
 
     return newTree;
   }
@@ -990,14 +926,12 @@ export class RecipeService {
   getCacheStatus(): {
     hasGraphCache: boolean;
     graphCacheAge?: number;
-    shortestPathTreeCount?: number; // 🚀 最短路径树数量
   } {
     const now = Date.now();
 
     return this.graphCache ? {
       hasGraphCache: true,
-      graphCacheAge: now - this.graphCache.lastUpdated,
-      shortestPathTreeCount: this.graphCache.shortestPathTrees.size
+      graphCacheAge: now - this.graphCache.lastUpdated
     } : {
       hasGraphCache: false
     };
@@ -1153,7 +1087,7 @@ export class RecipeService {
     if (detectedCycles.size > 0) {
       logger.warn(`可达性分析：检测到 ${detectedCycles.size} 个循环依赖，已跳过相关配方`);
       // 如果需要调试，可以取消下面的注释
-      // logger.debug(`循环依赖物品列表: ${Array.from(detectedCycles).join(', ')}`);
+      // logger.info(`循环依赖物品列表: ${Array.from(detectedCycles).join(', ')}`);
     }
 
     logger.info(`可达性分析完成：可达物品 ${reachableItems.size} 个`);
@@ -1218,77 +1152,117 @@ export class RecipeService {
    * 5. 修复：尝试所有可达配方，确保所有可达元素都能构建冰柱图
    */
   private buildIcicleTreeWithCache(
-    itemName: string,
+    startItem: string,
     baseItems: string[],
     itemToRecipes: Record<string, Recipe[]>,
     itemEmojiMap: Record<string, string>,
     globalMemo: Map<string, IcicleNode | null>
   ): IcicleNode | null {
-    // 🚀 缓存命中（包括循环依赖返回的null）
-    if (globalMemo.has(itemName)) {
-      return globalMemo.get(itemName)!;
+    // 快速路径：缓存命中
+    if (globalMemo.has(startItem)) {
+      return globalMemo.get(startItem)!;
     }
 
-    // 🚀 标记为正在处理（防止循环依赖）
-    globalMemo.set(itemName, null);
+    // 递归构建冰柱树（带记忆化）
+    // 使用递归而非复杂的状态机，因为：
+    // 1. 大多数物品链条不会超过 100 层深度
+    // 2. 记忆化防止重复计算
+    // 3. 垃圾回收更高效（函数栈帧自动释放）
+    const build = (itemName: string, depth: number = 0): IcicleNode | null => {
+      // 深度限制防止无限递归（超过 500 层则中止）
+      if (depth > 500) {
+        logger.warn(`树构建深度超过 500，可能存在循环依赖: ${itemName}`);
+        return null;
+      }
 
-    const isBase = baseItems.includes(itemName);
+      // 记忆化检查
+      if (globalMemo.has(itemName)) {
+        return globalMemo.get(itemName)!;
+      }
 
-    // 基础元素：固定宽度为1
-    if (isBase) {
-      const node: IcicleNode = {
-        id: `base_${itemName}`,
-        name: itemName,
-        emoji: itemEmojiMap[itemName],
-        isBase: true,
-        value: 1
-      };
-      globalMemo.set(itemName, node);
-      return node;
-    }
+      // 标记为处理中（防止循环引用）
+      globalMemo.set(itemName, null);
 
-    // 合成元素：获取所有配方
-    const recipes = itemToRecipes[itemName];
-    if (!recipes || recipes.length === 0) {
-      // 保持null，表示无法构建
-      return null;
-    }
-
-    // 🚀 修复：尝试所有可达配方，确保所有可达元素都能构建冰柱图
-    // 按最短路径排序后的配方列表，优先尝试最短路径
-    for (const recipe of recipes) {
-      // 🚀 递归构建子节点（使用缓存，不克隆Set）
-      const childA = this.buildIcicleTreeWithCache(recipe.item_a, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
-      const childB = this.buildIcicleTreeWithCache(recipe.item_b, baseItems, itemToRecipes, itemEmojiMap, globalMemo);
-
-      // 如果两个子节点都成功构建，则使用这个配方
-      if (childA && childB) {
-        // 合成元素的宽度是子节点宽度之和
-        const value = childA.value + childB.value;
-        const emoji = itemEmojiMap[itemName];
-
+      // 基础材料
+      if (baseItems.includes(itemName)) {
         const node: IcicleNode = {
-          id: `synthetic_${itemName}`,
+          id: `base_${itemName}`,
           name: itemName,
-          emoji: emoji ? truncateEmoji(emoji) : undefined,
-          isBase: false,
-          value,
-          children: [childA, childB],
-          recipe: {
-            item_a: recipe.item_a,
-            item_b: recipe.item_b
-          }
+          emoji: itemEmojiMap[itemName],
+          isBase: true,
+          value: 1
         };
-
         globalMemo.set(itemName, node);
         return node;
       }
-    }
 
-    // 🚀 如果所有配方都无法构建，返回null
-    // 这种情况应该很少见，因为可达性分析已经确保物品可达
-    logger.warn(`物品 "${itemName}" 无法构建冰柱图`);
-    return null;
+      // 获取配方
+      const recipes = itemToRecipes[itemName];
+      if (!recipes || recipes.length === 0) {
+        return null;
+      }
+
+      // 尝试第一个配方（优先使用排序后的最优配方）
+      const recipe = recipes[0];
+      const childA = build(recipe.item_a, depth + 1);
+      const childB = build(recipe.item_b, depth + 1);
+
+      if (!childA || !childB) {
+        // 第一个配方失败，尝试其他配方
+        for (let i = 1; i < recipes.length; i++) {
+          const nextRecipe = recipes[i];
+          const nextChildA = build(nextRecipe.item_a, depth + 1);
+          const nextChildB = build(nextRecipe.item_b, depth + 1);
+
+          if (nextChildA && nextChildB) {
+            // 找到可行的配方
+            const value = nextChildA.value + nextChildB.value;
+            const emoji = itemEmojiMap[itemName];
+
+            const node: IcicleNode = {
+              id: `synthetic_${itemName}_${i}`,
+              name: itemName,
+              emoji: emoji ? truncateEmoji(emoji) : undefined,
+              isBase: false,
+              value,
+              children: [nextChildA, nextChildB],
+              recipe: {
+                item_a: nextRecipe.item_a,
+                item_b: nextRecipe.item_b
+              }
+            };
+
+            globalMemo.set(itemName, node);
+            return node;
+          }
+        }
+
+        // 所有配方都失败
+        return null;
+      }
+
+      // 构建节点
+      const value = childA.value + childB.value;
+      const emoji = itemEmojiMap[itemName];
+
+      const node: IcicleNode = {
+        id: `synthetic_${itemName}`,
+        name: itemName,
+        emoji: emoji ? truncateEmoji(emoji) : undefined,
+        isBase: false,
+        value,
+        children: [childA, childB],
+        recipe: {
+          item_a: recipe.item_a,
+          item_b: recipe.item_b
+        }
+      };
+
+      globalMemo.set(itemName, node);
+      return node;
+    };
+
+    return build(startItem);
   }
 
   /**
@@ -1396,8 +1370,7 @@ export class RecipeService {
     recipe: Recipe,
     baseItems: string[],
     itemToRecipes: Record<string, Recipe[]>,
-    memo: Record<string, { depth: number; width: number; breadth: number }> = {},
-    visited: Set<string> = new Set()
+    memo: Record<string, { depth: number; width: number; breadth: number }> = {}
   ): { depth: number; width: number; breadth: number } {
     const cacheKey = `${recipe.item_a}_${recipe.item_b}_${recipe.result}`;
     if (memo[cacheKey]) {
@@ -1405,9 +1378,9 @@ export class RecipeService {
     }
 
     // 计算 item_a 的统计信息
-    const statsA = this.calculateItemStatsForSorting(recipe.item_a, baseItems, itemToRecipes, memo, visited);
+    const statsA = this.calculateItemStatsForSorting(recipe.item_a, baseItems, itemToRecipes, memo);
     // 计算 item_b 的统计信息
-    const statsB = this.calculateItemStatsForSorting(recipe.item_b, baseItems, itemToRecipes, memo, visited);
+    const statsB = this.calculateItemStatsForSorting(recipe.item_b, baseItems, itemToRecipes, memo);
 
     // 深度：取两个素材的最大深度
     const depth = Math.max(statsA.depth, statsB.depth);
@@ -1438,60 +1411,118 @@ export class RecipeService {
   }
 
   /**
-   * 计算物品的统计信息（用于排序）
+   * 计算物品的统计信息（用于排序） - 迭代式DFS，避免深层递归
+   * 使用显式栈来处理依赖链，更高效且不易栈溢出
    */
   private calculateItemStatsForSorting(
-    itemName: string,
+    startItem: string,
     baseItems: string[],
     itemToRecipes: Record<string, Recipe[]>,
-    memo: Record<string, { depth: number; width: number; breadth: number }> = {},
-    visited: Set<string> = new Set()
+    memo: Record<string, { depth: number; width: number; breadth: number }> = {}
   ): { depth: number; width: number; breadth: number } {
-    // 防止循环依赖
-    if (visited.has(itemName)) {
-      return { depth: 0, width: 0, breadth: 0 };
+    if (memo[startItem]) {
+      return memo[startItem];
     }
 
-    if (memo[itemName]) {
-      return memo[itemName];
-    }
-
-    // 广度计算：能够合成这个物品的配方数的总和
-    const breadth = (itemToRecipes[itemName] || []).length;
-
-    // 如果是基础材料，深度为0，宽度为0
-    if (baseItems.includes(itemName)) {
+    // 快速检查基础材料
+    if (baseItems.includes(startItem)) {
+      const breadth = (itemToRecipes[startItem] || []).length;
       const result = { depth: 0, width: 0, breadth };
-      memo[itemName] = result;
+      memo[startItem] = result;
       return result;
     }
 
-    // 对于合成材料，获取最简配方并计算深度和宽度
-    const recipes = itemToRecipes[itemName];
+    // 快速检查是否有配方
+    const recipes = itemToRecipes[startItem];
     if (!recipes || recipes.length === 0) {
+      const breadth = (itemToRecipes[startItem] || []).length;
       const result = { depth: 0, width: 0, breadth };
-      memo[itemName] = result;
+      memo[startItem] = result;
       return result;
     }
 
-    // 选择第一个配方（这里会在排序后选择最简的）
-    const recipe = recipes[0];
+    // 迭代式DFS栈：{ itemName, stage: 'process' | 'combine' }
+    // stage='process': 需要处理依赖
+    // stage='combine': 依赖已处理，合并结果
+    interface StackFrame {
+      itemName: string;
+      stage: 'process' | 'combine';
+      recipe?: Recipe;
+      statsA?: { depth: number; width: number; breadth: number };
+      statsB?: { depth: number; width: number; breadth: number };
+    }
 
-    // 添加当前物品到已访问集合
-    visited.add(itemName);
-    const stats = this.calculateRecipeStats(recipe, baseItems, itemToRecipes, memo, visited);
-    // 移除当前物品，允许其他路径访问
-    visited.delete(itemName);
+    const stack: StackFrame[] = [{ itemName: startItem, stage: 'process' }];
+    const processing = new Set<string>();
 
-    // 深度需要+1（当前合成步骤）
-    const result = {
-      depth: stats.depth + 1,
-      width: stats.width + 1,
-      breadth
-    };
+    while (stack.length > 0) {
+      const frame = stack[stack.length - 1]!;
 
-    memo[itemName] = result;
-    return result;
+      if (frame.stage === 'process') {
+        // 快速路径：已在缓存中
+        if (memo[frame.itemName]) {
+          stack.pop();
+          continue;
+        }
+
+        // 检测循环依赖
+        if (processing.has(frame.itemName)) {
+          const breadth = (itemToRecipes[frame.itemName] || []).length;
+          memo[frame.itemName] = { depth: 0, width: 0, breadth };
+          stack.pop();
+          continue;
+        }
+
+        // 基础材料
+        if (baseItems.includes(frame.itemName)) {
+          const breadth = (itemToRecipes[frame.itemName] || []).length;
+          memo[frame.itemName] = { depth: 0, width: 0, breadth };
+          stack.pop();
+          continue;
+        }
+
+        // 没有配方
+        const itemRecipes = itemToRecipes[frame.itemName];
+        if (!itemRecipes || itemRecipes.length === 0) {
+          const breadth = (itemToRecipes[frame.itemName] || []).length;
+          memo[frame.itemName] = { depth: 0, width: 0, breadth };
+          stack.pop();
+          continue;
+        }
+
+        // 标记处理中，获取第一个配方
+        processing.add(frame.itemName);
+        frame.recipe = itemRecipes[0];
+        frame.stage = 'combine';
+
+        // 推入依赖项（反序，因为栈是后进先出）
+        const itemB = frame.recipe.item_b;
+        const itemA = frame.recipe.item_a;
+
+        // 只有未在缓存中的才推入
+        if (!memo[itemB]) {
+          stack.push({ itemName: itemB, stage: 'process' });
+        }
+        if (!memo[itemA]) {
+          stack.push({ itemName: itemA, stage: 'process' });
+        }
+      } else if (frame.stage === 'combine') {
+        // 依赖已处理，合并结果
+        const recipe = frame.recipe!;
+        const statsA = memo[recipe.item_a] || { depth: 0, width: 0, breadth: 0 };
+        const statsB = memo[recipe.item_b] || { depth: 0, width: 0, breadth: 0 };
+
+        const breadth = (itemToRecipes[frame.itemName] || []).length;
+        const depth = Math.max(statsA.depth, statsB.depth) + 1;
+        const width = statsA.width + statsB.width + 1;
+
+        memo[frame.itemName] = { depth, width, breadth };
+        processing.delete(frame.itemName);
+        stack.pop();
+      }
+    }
+
+    return memo[startItem] || { depth: 0, width: 0, breadth: 0 };
   }
 
   /**

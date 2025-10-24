@@ -43,7 +43,7 @@ router.get('/', async (req: Request, res: Response) => {
       }
     } catch (error) {
       // 如果token验证失败，继续执行但不传递userId
-      logger.debug('Token验证失败，继续执行（无用户上下文）');
+      logger.info('Token验证失败，继续执行（无用户上下文）');
     }
 
     const includeStats = ((req.query.includeStats as string) || '0');

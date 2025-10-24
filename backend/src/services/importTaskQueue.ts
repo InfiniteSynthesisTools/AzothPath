@@ -129,7 +129,7 @@ class ImportTaskQueue {
 
       // 并行处理所有任务，但HTTP请求会通过ValidationLimiter串行化
       const queueStatus = validationLimiter.getQueueStatus();
-      logger.debug(`当前验证队列: ${queueStatus.queueLength}个待验证, 处理中: ${queueStatus.isProcessing}`);
+      logger.info(`当前验证队列: ${queueStatus.queueLength}个待验证, 处理中: ${queueStatus.isProcessing}`);
 
       const processingStartTime = Date.now();
 
@@ -163,7 +163,7 @@ class ImportTaskQueue {
     let dbWriteTime = 0;
 
     try {
-      logger.debug(`处理任务${task.id}: ${task.item_a} + ${task.item_b} = ${task.result}`);
+      logger.info(`处理任务${task.id}: ${task.item_a} + ${task.item_b} = ${task.result}`);
 
       // 1. 检查是否已存在相同配方（去重）
       const checkStart = Date.now();
@@ -172,7 +172,7 @@ class ImportTaskQueue {
 
       if (existingRecipe) {
         await this.markAsDuplicate(task, existingRecipe.id);
-        logger.debug(`任务${task.id}耗时: 总${Date.now() - taskStartTime}ms (去重检查: ${checkDuplicateTime}ms)`);
+        logger.info(`任务${task.id}耗时: 总${Date.now() - taskStartTime}ms (去重检查: ${checkDuplicateTime}ms)`);
         return;
       }
 
@@ -184,7 +184,7 @@ class ImportTaskQueue {
       if (!validationResult.success) {
         // 验证失败，增加重试次数
         await this.incrementRetry(task, validationResult.error || 'Unknown error', validationResult.isRateLimit);
-        logger.debug(`任务${task.id}验证失败，耗时: ${validateTime}ms`);
+        logger.info(`任务${task.id}验证失败，耗时: ${validateTime}ms`);
         return;
       }
 
@@ -258,7 +258,7 @@ class ImportTaskQueue {
     // 使用全局限速器包装 HTTP 请求
     return validationLimiter.limitValidation(async () => {
       try {
-        logger.debug(`验证配方: ${task.item_a} + ${task.item_b} = ${task.result}`);
+        logger.info(`验证配方: ${task.item_a} + ${task.item_b} = ${task.result}`);
         const response = await axios.get(apiConfig.validationApiUrl, {
           params: {
             itemA: task.item_a,
@@ -269,7 +269,7 @@ class ImportTaskQueue {
           headers: apiConfig.headers
         });
 
-        logger.debug(`API响应: ${response.status}`, response.data);
+        logger.info(`API响应: ${response.status}`, response.data);
 
         if (response.status === 200) {
           const data = response.data;
@@ -281,10 +281,10 @@ class ImportTaskQueue {
                 error: `结果不匹配: 预期 "${task.result}", 实际 "${data.item}"`
               };
             }
-            logger.debug(`验证成功: ${task.item_a} + ${task.item_b} = ${data.item}`);
+            logger.info(`验证成功: ${task.item_a} + ${task.item_b} = ${data.item}`);
             return { success: true, emoji: data.emoji };
           } else {
-            logger.debug(`验证失败: API返回空结果`);
+            logger.info(`验证失败: API返回空结果`);
             return { success: false, error: 'API返回空结果' };
           }
         } else {
@@ -384,7 +384,7 @@ class ImportTaskQueue {
       // 如果 result 不存在，说明是新发现的物品
       if (!existingResult) {
         totalContribution += 2;
-        logger.debug(`发现新物品 "${resultItem}"，贡献度+2`);
+        logger.info(`发现新物品 "${resultItem}"，贡献度+2`);
       }
 
       // 3. 更新用户贡献度
@@ -393,7 +393,7 @@ class ImportTaskQueue {
         const newItemBonus = totalContribution - 1;
         logger.success(`用户 ${userId} 贡献度增加 ${totalContribution} 分 (新配方: +1${newItemBonus > 0 ? `, 新物品: +${newItemBonus}` : ''})`);
       } else {
-        logger.debug(`用户 ${userId} 贡献度无变化 (所有物品已存在)`);
+        logger.info(`用户 ${userId} 贡献度无变化 (所有物品已存在)`);
       }
     } catch (error) {
       logger.error(`更新用户 ${userId} 贡献度失败:`, error);
@@ -444,9 +444,9 @@ class ImportTaskQueue {
         );
 
         if (isResult) {
-          logger.debug(`新物品添加到词典: ${item} (发现者: ${userId})`);
+          logger.info(`新物品添加到词典: ${item} (发现者: ${userId})`);
         } else {
-          logger.debug(`新物品添加到词典: ${item} (材料，未记录发现者)`);
+          logger.info(`新物品添加到词典: ${item} (材料，未记录发现者)`);
         }
       } else if (isResult && existing.user_id === null) {
         // 如果是 result，且之前作为材料添加过（user_id 为 NULL）
@@ -455,7 +455,7 @@ class ImportTaskQueue {
           'UPDATE items SET user_id = ? WHERE name = ? AND user_id IS NULL',
           [userId, item]
         );
-        logger.debug(`更新物品发现者: ${item} (发现者: ${userId})`);
+        logger.info(`更新物品发现者: ${item} (发现者: ${userId})`);
       }
     }
 
@@ -465,7 +465,7 @@ class ImportTaskQueue {
         'UPDATE items SET emoji = ? WHERE name = ? AND (emoji IS NULL OR emoji = \'\')',
         [resultEmoji, items[2]]
       );
-      logger.debug(`保存emoji: ${items[2]} = ${resultEmoji}`);
+      logger.info(`保存emoji: ${items[2]} = ${resultEmoji}`);
     }
   }
 

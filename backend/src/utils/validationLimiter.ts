@@ -61,7 +61,7 @@ class ValidationLimiter {
       // 如果距离上次请求不足 minInterval，等待
       if (timeSinceLastValidation < this.minInterval) {
         const waitTime = this.minInterval - timeSinceLastValidation;
-        logger.debug(`验证限速: 等待 ${waitTime}ms (最小间隔: ${this.minInterval}ms)`);
+        logger.info(`验证限速: 等待 ${waitTime}ms (最小间隔: ${this.minInterval}ms)`);
         await this.delay(waitTime);
       }
 

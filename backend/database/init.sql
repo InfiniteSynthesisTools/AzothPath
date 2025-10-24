@@ -29,6 +29,32 @@ CREATE INDEX IF NOT EXISTS idx_recipes_user_id ON recipes(user_id);
 CREATE INDEX IF NOT EXISTS idx_recipes_created_at ON recipes(created_at);
 CREATE INDEX IF NOT EXISTS idx_recipes_likes ON recipes(likes DESC);
 
+-- 复合索引：按创建时间查询（最常用，支持游标分页）
+CREATE INDEX IF NOT EXISTS idx_recipes_created_at_id ON recipes(created_at DESC, id DESC);
+
+-- 复合索引：按点赞数查询
+CREATE INDEX IF NOT EXISTS idx_recipes_likes_id ON recipes(likes DESC, id DESC);
+
+-- 复合索引：按结果物品查询（分组查询必需）
+CREATE INDEX IF NOT EXISTS idx_recipes_result_likes ON recipes(result, likes DESC, created_at DESC);
+
+-- 复合索引：公开状态过滤（所有查询都用到）
+CREATE INDEX IF NOT EXISTS idx_recipes_is_public_created_at ON recipes(is_public, created_at DESC, id DESC);
+
+-- 单列索引：游标分页优化
+CREATE INDEX IF NOT EXISTS idx_recipes_id_desc ON recipes(id DESC);
+
+-- 单列索引：材料搜索优化（支持 item_a 和 item_b）
+CREATE INDEX IF NOT EXISTS idx_recipes_item_a ON recipes(item_a);
+CREATE INDEX IF NOT EXISTS idx_recipes_item_b ON recipes(item_b);
+
+-- 复合索引：result + is_public 组合查询
+CREATE INDEX IF NOT EXISTS idx_recipes_result_public ON recipes(result, is_public);
+
+-- 覆盖索引：避免回表查询
+CREATE INDEX IF NOT EXISTS idx_recipes_cover ON recipes(id, created_at, likes, user_id);
+
+
 -- ====================================
 -- 2. items 表 (物品词典)
 -- ====================================
@@ -45,6 +71,12 @@ CREATE TABLE IF NOT EXISTS items (
 
 CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
 CREATE INDEX IF NOT EXISTS idx_items_pinyin ON items(pinyin);
+
+-- 复合索引：按类型过滤（基础材料 vs 合成材料）
+CREATE INDEX IF NOT EXISTS idx_items_is_base_name ON items(is_base, name);
+
+-- 复合索引：公开状态过滤
+CREATE INDEX IF NOT EXISTS idx_items_is_public_name ON items(is_public, name);
 
 -- 插入基础材料
 INSERT OR IGNORE INTO items (name, emoji, is_base) VALUES 
@@ -95,6 +127,12 @@ CREATE INDEX IF NOT EXISTS idx_task_item_name ON task(item_name);
 CREATE INDEX IF NOT EXISTS idx_task_task_type ON task(task_type);
 CREATE INDEX IF NOT EXISTS idx_task_created_by_user_id ON task(created_by_user_id);
 
+-- 复合索引：任务状态查询（按创建时间排序）
+CREATE INDEX IF NOT EXISTS idx_task_status_created ON task(status, created_at DESC);
+
+-- 复合索引：物品名称查询（检查任务是否存在）
+CREATE INDEX IF NOT EXISTS idx_task_item_name_status ON task(item_name, status);
+
 -- ====================================
 -- 5. import_tasks 表 (批量导入任务汇总)
 -- ====================================
@@ -116,6 +154,12 @@ CREATE INDEX IF NOT EXISTS idx_import_tasks_user_id ON import_tasks(user_id);
 CREATE INDEX IF NOT EXISTS idx_import_tasks_status ON import_tasks(status);
 CREATE INDEX IF NOT EXISTS idx_import_tasks_created_at ON import_tasks(created_at);
 
+-- 复合索引：用户导入历史查询
+CREATE INDEX IF NOT EXISTS idx_import_tasks_user_created ON import_tasks(user_id, created_at DESC);
+
+-- 复合索引：任务状态查询
+CREATE INDEX IF NOT EXISTS idx_import_tasks_status_created ON import_tasks(status, created_at DESC);
+
 -- ====================================
 -- 6. import_tasks_content 表 (批量导入任务明细)
 -- ====================================
@@ -136,17 +180,8 @@ CREATE TABLE IF NOT EXISTS import_tasks_content (
 CREATE INDEX IF NOT EXISTS idx_import_tasks_content_task_id ON import_tasks_content(task_id);
 CREATE INDEX IF NOT EXISTS idx_import_tasks_content_status ON import_tasks_content(status);
 
--- ====================================
--- 性能优化索引（针对上万条数据优化）
--- ====================================
-
--- 复合索引优化搜索和排序
-CREATE INDEX IF NOT EXISTS idx_recipes_search ON recipes(item_a, item_b, result);
-CREATE INDEX IF NOT EXISTS idx_recipes_result_created ON recipes(result, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_recipes_result_likes ON recipes(result, likes DESC);
-
--- 覆盖索引优化（避免回表查询）
-CREATE INDEX IF NOT EXISTS idx_recipes_cover ON recipes(id, created_at, likes, user_id);
+-- 复合索引：任务明细查询
+CREATE INDEX IF NOT EXISTS idx_import_tasks_content_task_status ON import_tasks_content(task_id, status);
 
 -- ====================================
 -- 7. recipe_likes 表 (配方点赞记录)
@@ -161,6 +196,12 @@ CREATE TABLE IF NOT EXISTS recipe_likes (
 
 CREATE INDEX IF NOT EXISTS idx_recipe_likes_recipe_id ON recipe_likes(recipe_id);
 CREATE INDEX IF NOT EXISTS idx_recipe_likes_user_id ON recipe_likes(user_id);
+
+-- 复合索引：用户点赞查询（检查是否已点赞）
+CREATE INDEX IF NOT EXISTS idx_recipe_likes_recipe_user ON recipe_likes(recipe_id, user_id);
+
+-- 复合索引：用户点赞列表查询
+CREATE INDEX IF NOT EXISTS idx_recipe_likes_user_created ON recipe_likes(user_id, created_at DESC);
 
 -- ====================================
 -- 7. tags 表 (标签系统)

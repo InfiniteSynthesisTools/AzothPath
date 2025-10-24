@@ -281,6 +281,8 @@ router.get('/icicle-chart/on-demand/:item', async (req: Request, res: Response) 
     const data = await recipeService.generateIcicleChartOnDemand(item, maxDepth, includeStats);
     
     if (!data) {
+      const responseTime = Date.now() - startTime;
+      logger.warn(`冰柱图生成失败：物品不存在或无法生成 - "${item}" (耗时: ${responseTime}ms)`);
       return res.status(404).json({
         code: 404,
         message: '物品不存在或无法生成冰柱图'

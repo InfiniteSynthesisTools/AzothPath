@@ -1693,11 +1693,21 @@ export class RecipeService {
 
       // 检查物品是否存在
       if (!cache.allItemNames.includes(itemName)) {
+        logger.warn(`物品 "${itemName}" 不存在于物品库中`, {
+          totalItems: cache.allItemNames.length,
+          itemExists: false
+        });
         return null;
       }
 
       // 检查可达性
       const isReachable = cache.reachableItems.has(itemName);
+      if (!isReachable) {
+        logger.warn(`物品 "${itemName}" 不可达（无法从基础材料合成）`, {
+          reachable: false,
+          totalReachable: cache.reachableItems.size
+        });
+      }
 
       // 从图结构中提取子图并构建树
       const tree = this.extractSubgraphAsTree(
@@ -1710,6 +1720,11 @@ export class RecipeService {
       );
 
       if (!tree) {
+        logger.warn(`无法为物品 "${itemName}" 生成冰柱图树`, {
+          reason: '提取子图失败，可能是无法找到有效配方',
+          isReachable,
+          hasRecipes: (cache.itemToRecipes[itemName] || []).length > 0
+        });
         return null;
       }
 
@@ -1801,54 +1816,57 @@ export class RecipeService {
       };
     }
 
-    // 🚀 优化：选择最短路径的配方（如果有缓存的话）
-    // 这里可以从 shortestPathTrees 中获取，但为了通用性，使用第一个配方
-    const recipe = recipes[0];
-    const { item_a, item_b } = recipe;
+    // 🚀 改进：尝试所有配方，直到找到能完整构建的
+    // 这样可以避免仅因为第一个配方的材料无法构建就返回 null
+    for (const recipe of recipes) {
+      const { item_a, item_b } = recipe;
 
-    // 递归构建子树
-    const childA = this.extractSubgraphAsTree(
-      item_a,
-      itemToRecipes,
-      baseItemNames,
-      itemEmojiMap,
-      reachableItems,
-      maxDepth,
-      currentDepth + 1,
-      new Set(visited) // 每个分支独立的 visited 集合
-    );
+      // 递归构建子树
+      const childA = this.extractSubgraphAsTree(
+        item_a,
+        itemToRecipes,
+        baseItemNames,
+        itemEmojiMap,
+        reachableItems,
+        maxDepth,
+        currentDepth + 1,
+        new Set(visited) // 每个分支独立的 visited 集合
+      );
 
-    const childB = this.extractSubgraphAsTree(
-      item_b,
-      itemToRecipes,
-      baseItemNames,
-      itemEmojiMap,
-      reachableItems,
-      maxDepth,
-      currentDepth + 1,
-      new Set(visited)
-    );
+      const childB = this.extractSubgraphAsTree(
+        item_b,
+        itemToRecipes,
+        baseItemNames,
+        itemEmojiMap,
+        reachableItems,
+        maxDepth,
+        currentDepth + 1,
+        new Set(visited)
+      );
 
-    // 如果子节点无法构建，返回 null
-    if (!childA || !childB) {
-      return null;
+      // 🔑 关键修复：如果这个配方的两个材料都能构建树，就使用它
+      if (childA && childB) {
+        // 计算权重（子节点权重之和）
+        const value = childA.value + childB.value;
+
+        return {
+          id: itemName,
+          name: itemName,
+          emoji: emoji ? truncateEmoji(emoji) : undefined,
+          isBase: false,
+          value,
+          children: [childA, childB],
+          recipe: {
+            item_a,
+            item_b
+          }
+        };
+      }
+      // 否则继续尝试下一个配方
     }
 
-    // 计算权重（子节点权重之和）
-    const value = childA.value + childB.value;
-
-    return {
-      id: itemName,
-      name: itemName,
-      emoji: emoji ? truncateEmoji(emoji) : undefined,
-      isBase: false,
-      value,
-      children: [childA, childB],
-      recipe: {
-        item_a,
-        item_b
-      }
-    };
+    // 如果所有配方都无法构建完整树，返回 null
+    return null;
   }
 }
 

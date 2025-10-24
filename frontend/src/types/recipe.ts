@@ -103,14 +103,3 @@ export interface IcicleChartData {
   totalElements: number;
   maxDepth: number;
 }
-
-// 分页版冰柱图数据
-export interface PaginatedIcicleChartData {
-  nodes: IcicleNode[];
-  totalElements: number;
-  maxDepth: number;
-  hasMore: boolean;
-  nextCursor?: string;
-  currentPage: number;
-  totalPages: number;
-}

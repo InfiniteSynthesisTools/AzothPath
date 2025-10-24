@@ -470,7 +470,7 @@ class RecipeGraph:
 
 #### 图算法实现位置
 - **核心服务**: `backend/src/services/recipeService.ts`
-- **主要算法**: `searchPath()`, `analyzeUnreachableGraphs()`, `buildDependencyGraph()`
+- **主要算法**: `searchPath()`, `buildDependencyGraph()`
 - **性能优化**: 使用 BFS 可达性分析 + 缓存策略
 
 #### 图分类系统

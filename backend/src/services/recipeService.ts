@@ -2,6 +2,7 @@ import { databaseAdapter } from '../database/databaseAdapter';
 import { logger } from '../utils/logger';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 import { truncateEmoji } from '../utils/emoji';
+import { icicleChartCache } from '../utils/lruCache';
 
 export interface Recipe {
   id: number;
@@ -1689,6 +1690,18 @@ export class RecipeService {
     includeStats: boolean = false
   ): Promise<IcicleChartData | null> {
     try {
+      // 🔥 首先检查 LRU 缓存
+      const cacheKey = itemName; // 注：这里忽略 maxDepth 和 includeStats，使用默认设置
+      const cachedResult = icicleChartCache.get(cacheKey);
+      
+      if (cachedResult) {
+        logger.info(`[缓存命中] 物品 "${itemName}" 的冰柱图`, {
+          cacheSize: icicleChartCache.size,
+          fromCache: true
+        });
+        return cachedResult;
+      }
+
       const cache = await this.getGraphCache();
 
       // 检查物品是否存在
@@ -1708,9 +1721,10 @@ export class RecipeService {
           totalReachable: cache.reachableItems.size
         });
       }
+      logger.info(`按需生成物品 "${itemName}" 的冰柱图，最大深度: ${maxDepth ?? '无限制'}, 包含统计: ${includeStats}, 可达性: ${isReachable}`);
 
-      // 从图结构中提取子图并构建树
-      const tree = this.extractSubgraphAsTree(
+      // 异步调用，避免阻塞事件循环
+      const tree = await this.extractSubgraphAsTreeAsync(
         itemName,
         cache.itemToRecipes,
         cache.baseItemNames,
@@ -1718,6 +1732,12 @@ export class RecipeService {
         cache.reachableItems,
         maxDepth
       );
+
+      logger.info(`提取物品 "${itemName}" 的冰柱图树成功`, {
+        maxDepth,
+        includeStats,
+        isReachable
+      });
 
       if (!tree) {
         logger.warn(`无法为物品 "${itemName}" 生成冰柱图树`, {
@@ -1741,11 +1761,19 @@ export class RecipeService {
         };
       }
 
-      return {
+      const result = {
         nodes: [tree],
         totalElements: 1,
         maxDepth: depth
       };
+
+      // 🔥 保存到 LRU 缓存
+      icicleChartCache.set(itemName, result);
+      logger.info(`[缓存保存] 物品 "${itemName}" 的冰柱图已缓存`, {
+        cacheSize: icicleChartCache.size
+      });
+
+      return result;
     } catch (error) {
       logger.error(`按需生成物品 "${itemName}" 的冰柱图失败:`, error);
       throw error;
@@ -1765,108 +1793,454 @@ export class RecipeService {
    * @param currentDepth 当前深度（递归用）
    * @param visited 已访问节点（防止循环）
    */
+  private async extractSubgraphAsTreeAsync(
+    itemName: string,
+    itemToRecipes: Record<string, Recipe[]>,
+    baseItemNames: string[],
+    itemEmojiMap: Record<string, string>,
+    reachableItems: Set<string>,
+    maxDepth?: number
+  ): Promise<IcicleNode | null> {
+    // 异步迭代方式构建树，使用 setImmediate 分片让出事件循环
+    
+    interface WorkItem {
+      itemName: string;
+      depth: number;
+      visited: Set<string>;
+      state: 'initial' | 'fetching_children' | 'combining';
+      tryRecipeIndex: number;
+      childA?: IcicleNode | null;
+      childB?: IcicleNode | null;
+    }
+
+    const resultCache = new Map<string, IcicleNode | null>();
+    const stack: WorkItem[] = [];
+    let operationCount = 0; // 计数器，每 100 次操作让出一次事件循环
+
+    const yieldToEventLoop = (): Promise<void> => {
+      return new Promise(resolve => setImmediate(resolve));
+    };
+
+    stack.push({
+      itemName,
+      depth: 0,
+      visited: new Set(),
+      state: 'initial',
+      tryRecipeIndex: 0
+    });
+
+    while (stack.length > 0) {
+      // 每 100 次操作让出一次事件循环
+      operationCount++;
+      if (operationCount % 100 === 0) {
+        await yieldToEventLoop();
+      }
+
+      const work = stack[stack.length - 1];
+      const cacheKey = work.itemName;
+
+      // 状态1：初始处理
+      if (work.state === 'initial') {
+        // 深度限制检查
+        if (maxDepth !== undefined && work.depth >= maxDepth) {
+          stack.pop();
+          resultCache.set(cacheKey, null);
+          continue;
+        }
+
+        // 循环检测
+        if (work.visited.has(work.itemName)) {
+          stack.pop();
+          resultCache.set(cacheKey, null);
+          continue;
+        }
+
+        const isBase = baseItemNames.includes(work.itemName);
+        const emoji = itemEmojiMap[work.itemName];
+
+        // 基础材料节点
+        if (isBase) {
+          stack.pop();
+          resultCache.set(cacheKey, {
+            id: work.itemName,
+            name: work.itemName,
+            emoji,
+            isBase: true,
+            value: 1
+          });
+          continue;
+        }
+
+        // 获取配方
+        const recipes = itemToRecipes[work.itemName];
+
+        // 没有配方的节点
+        if (!recipes || recipes.length === 0) {
+          stack.pop();
+          resultCache.set(cacheKey, {
+            id: work.itemName,
+            name: work.itemName,
+            emoji: emoji ? truncateEmoji(emoji) : undefined,
+            isBase: false,
+            value: 1
+          });
+          continue;
+        }
+
+        // 转换到 fetching_children 状态
+        work.state = 'fetching_children';
+      }
+
+      // 状态2：获取子节点
+      if (work.state === 'fetching_children') {
+        const recipes = itemToRecipes[work.itemName];
+
+        if (!recipes || work.tryRecipeIndex >= recipes.length) {
+          // 所有配方都尝试过了，返回 null
+          stack.pop();
+          resultCache.set(cacheKey, null);
+          continue;
+        }
+
+        const recipe = recipes[work.tryRecipeIndex];
+        const { item_a, item_b } = recipe;
+
+        const newVisited = new Set(work.visited);
+        newVisited.add(work.itemName);
+
+        // 检查子节点是否已在缓存中
+        const childACached = resultCache.has(item_a);
+        const childBCached = resultCache.has(item_b);
+
+        if (childACached && childBCached) {
+          // 两个子节点都已缓存，合并它们
+          const childA = resultCache.get(item_a)!;
+          const childB = resultCache.get(item_b)!;
+
+          if (childA && childB) {
+            // 两个子节点都成功，使用此配方
+            const value = childA.value + childB.value;
+            stack.pop();
+            resultCache.set(cacheKey, {
+              id: work.itemName,
+              name: work.itemName,
+              emoji: itemEmojiMap[work.itemName] ? truncateEmoji(itemEmojiMap[work.itemName]) : undefined,
+              isBase: false,
+              value,
+              children: [childA, childB],
+              recipe: { item_a, item_b }
+            });
+          } else {
+            // 此配方失败，尝试下一个
+            work.tryRecipeIndex++;
+          }
+        } else {
+          // 需要构建子节点，优先构建 childA
+          if (!childACached) {
+            // 先添加 childB 到栈（这样 childA 会先处理，栈是 LIFO）
+            stack.push({
+              itemName: item_b,
+              depth: work.depth + 1,
+              visited: new Set(newVisited),
+              state: 'initial',
+              tryRecipeIndex: 0
+            });
+
+            // 再添加 childA
+            stack.push({
+              itemName: item_a,
+              depth: work.depth + 1,
+              visited: new Set(newVisited),
+              state: 'initial',
+              tryRecipeIndex: 0
+            });
+
+            // 标记当前工作项为等待状态
+            work.state = 'combining';
+            work.childA = undefined;
+            work.childB = undefined;
+          } else if (!childBCached) {
+            // childA 已缓存，只需要 childB
+            work.childA = resultCache.get(item_a)!;
+
+            stack.push({
+              itemName: item_b,
+              depth: work.depth + 1,
+              visited: new Set(newVisited),
+              state: 'initial',
+              tryRecipeIndex: 0
+            });
+
+            work.state = 'combining';
+            work.childB = undefined;
+          }
+        }
+      }
+
+      // 状态3：合并子节点
+      if (work.state === 'combining') {
+        const recipes = itemToRecipes[work.itemName];
+        const recipe = recipes![work.tryRecipeIndex];
+        const { item_a, item_b } = recipe;
+
+        // 获取缓存中的子节点
+        const childA = work.childA ?? resultCache.get(item_a) ?? undefined;
+        const childB = work.childB ?? resultCache.get(item_b) ?? undefined;
+
+        if (childA !== undefined && childB !== undefined) {
+          if (childA && childB) {
+            // 两个子节点都成功，使用此配方
+            const value = childA.value + childB.value;
+            stack.pop();
+            resultCache.set(cacheKey, {
+              id: work.itemName,
+              name: work.itemName,
+              emoji: itemEmojiMap[work.itemName] ? truncateEmoji(itemEmojiMap[work.itemName]) : undefined,
+              isBase: false,
+              value,
+              children: [childA, childB],
+              recipe: { item_a, item_b }
+            });
+          } else {
+            // 此配方失败，尝试下一个
+            work.state = 'fetching_children';
+            work.tryRecipeIndex++;
+            work.childA = undefined;
+            work.childB = undefined;
+          }
+        }
+      }
+    }
+
+    return resultCache.get(itemName) ?? null;
+  }
+
+  /**
+   * 🔍 从图结构中提取子图并构建为树（同步版本，用于其他场景）
+   * 这是按需生成的核心逻辑，直接从图的邻接表构建树
+   * 
+   * @param itemName 目标物品
+   * @param itemToRecipes 物品到配方的映射
+   * @param baseItemNames 基础材料名称列表
+   * @param itemEmojiMap 物品到 emoji 的映射
+   * @param reachableItems 可达物品集合
+   * @param maxDepth 最大深度限制
+   * @param currentDepth 当前深度（递归用）
+   * @param visited 已访问节点（防止循环）
+   */
   private extractSubgraphAsTree(
     itemName: string,
     itemToRecipes: Record<string, Recipe[]>,
     baseItemNames: string[],
     itemEmojiMap: Record<string, string>,
     reachableItems: Set<string>,
-    maxDepth?: number,
-    currentDepth: number = 0,
-    visited: Set<string> = new Set()
+    maxDepth?: number
   ): IcicleNode | null {
-    // 深度限制检查
-    if (maxDepth !== undefined && currentDepth >= maxDepth) {
-      return null;
+    // 迭代方式构建树，避免递归栈溢出
+    
+    interface WorkItem {
+      itemName: string;
+      depth: number;
+      visited: Set<string>;
+      state: 'initial' | 'fetching_children' | 'combining';
+      tryRecipeIndex: number;
+      childA?: IcicleNode | null;
+      childB?: IcicleNode | null;
     }
 
-    // 循环检测（防止无限递归）
-    if (visited.has(itemName)) {
-      return null;
-    }
+    const resultCache = new Map<string, IcicleNode | null>();
+    const stack: WorkItem[] = [];
 
-    // 标记为已访问
-    visited.add(itemName);
+    // 初始工作项
+    stack.push({
+      itemName,
+      depth: 0,
+      visited: new Set(),
+      state: 'initial',
+      tryRecipeIndex: 0
+    });
 
-    const isBase = baseItemNames.includes(itemName);
-    const emoji = itemEmojiMap[itemName];
+    while (stack.length > 0) {
+      const work = stack[stack.length - 1];
 
-    // 基础材料节点（叶子节点）
-    if (isBase) {
-      return {
-        id: itemName,
-        name: itemName,
-        emoji,
-        isBase: true,
-        value: 1
-      };
-    }
+      // 生成缓存键（包含深度和visited状态，但为了简化，只用itemName作为键）
+      const cacheKey = work.itemName;
 
-    // 获取该物品的所有配方
-    const recipes = itemToRecipes[itemName];
+      // 状态1：初始处理
+      if (work.state === 'initial') {
+        // 深度限制检查
+        if (maxDepth !== undefined && work.depth >= maxDepth) {
+          stack.pop();
+          resultCache.set(cacheKey, null);
+          continue;
+        }
 
-    // 如果没有配方，作为叶子节点返回
-    if (!recipes || recipes.length === 0) {
-      return {
-        id: itemName,
-        name: itemName,
-        emoji: emoji ? truncateEmoji(emoji) : undefined,
-        isBase: false,
-        value: 1
-      };
-    }
+        // 循环检测
+        if (work.visited.has(work.itemName)) {
+          stack.pop();
+          resultCache.set(cacheKey, null);
+          continue;
+        }
 
-    // 🚀 改进：尝试所有配方，直到找到能完整构建的
-    // 这样可以避免仅因为第一个配方的材料无法构建就返回 null
-    for (const recipe of recipes) {
-      const { item_a, item_b } = recipe;
+        const isBase = baseItemNames.includes(work.itemName);
+        const emoji = itemEmojiMap[work.itemName];
 
-      // 递归构建子树
-      const childA = this.extractSubgraphAsTree(
-        item_a,
-        itemToRecipes,
-        baseItemNames,
-        itemEmojiMap,
-        reachableItems,
-        maxDepth,
-        currentDepth + 1,
-        new Set(visited) // 每个分支独立的 visited 集合
-      );
+        // 基础材料节点
+        if (isBase) {
+          stack.pop();
+          resultCache.set(cacheKey, {
+            id: work.itemName,
+            name: work.itemName,
+            emoji,
+            isBase: true,
+            value: 1
+          });
+          continue;
+        }
 
-      const childB = this.extractSubgraphAsTree(
-        item_b,
-        itemToRecipes,
-        baseItemNames,
-        itemEmojiMap,
-        reachableItems,
-        maxDepth,
-        currentDepth + 1,
-        new Set(visited)
-      );
+        // 获取配方
+        const recipes = itemToRecipes[work.itemName];
 
-      // 🔑 关键修复：如果这个配方的两个材料都能构建树，就使用它
-      if (childA && childB) {
-        // 计算权重（子节点权重之和）
-        const value = childA.value + childB.value;
+        // 没有配方的节点
+        if (!recipes || recipes.length === 0) {
+          stack.pop();
+          resultCache.set(cacheKey, {
+            id: work.itemName,
+            name: work.itemName,
+            emoji: emoji ? truncateEmoji(emoji) : undefined,
+            isBase: false,
+            value: 1
+          });
+          continue;
+        }
 
-        return {
-          id: itemName,
-          name: itemName,
-          emoji: emoji ? truncateEmoji(emoji) : undefined,
-          isBase: false,
-          value,
-          children: [childA, childB],
-          recipe: {
-            item_a,
-            item_b
-          }
-        };
+        // 转换到 fetching_children 状态
+        work.state = 'fetching_children';
+        // 不 pop，继续处理
       }
-      // 否则继续尝试下一个配方
+
+      // 状态2：获取子节点
+      if (work.state === 'fetching_children') {
+        const recipes = itemToRecipes[work.itemName];
+
+        if (!recipes || work.tryRecipeIndex >= recipes.length) {
+          // 所有配方都尝试过了，返回 null
+          stack.pop();
+          resultCache.set(cacheKey, null);
+          continue;
+        }
+
+        const recipe = recipes[work.tryRecipeIndex];
+        const { item_a, item_b } = recipe;
+
+        const newVisited = new Set(work.visited);
+        newVisited.add(work.itemName);
+
+        // 检查子节点是否已在缓存中
+        const childACached = resultCache.has(item_a);
+        const childBCached = resultCache.has(item_b);
+
+        if (childACached && childBCached) {
+          // 两个子节点都已缓存，合并它们
+          const childA = resultCache.get(item_a)!;
+          const childB = resultCache.get(item_b)!;
+
+          if (childA && childB) {
+            // 两个子节点都成功，使用此配方
+            const value = childA.value + childB.value;
+            stack.pop();
+            resultCache.set(cacheKey, {
+              id: work.itemName,
+              name: work.itemName,
+              emoji: itemEmojiMap[work.itemName] ? truncateEmoji(itemEmojiMap[work.itemName]) : undefined,
+              isBase: false,
+              value,
+              children: [childA, childB],
+              recipe: { item_a, item_b }
+            });
+          } else {
+            // 此配方失败，尝试下一个
+            work.tryRecipeIndex++;
+          }
+        } else {
+          // 需要构建子节点，优先构建 childA
+          if (!childACached) {
+            // 先添加 childB 到栈（这样 childA 会先处理，栈是 LIFO）
+            stack.push({
+              itemName: item_b,
+              depth: work.depth + 1,
+              visited: new Set(newVisited),
+              state: 'initial',
+              tryRecipeIndex: 0
+            });
+
+            // 再添加 childA
+            stack.push({
+              itemName: item_a,
+              depth: work.depth + 1,
+              visited: new Set(newVisited),
+              state: 'initial',
+              tryRecipeIndex: 0
+            });
+
+            // 标记当前工作项为等待状态
+            work.state = 'combining';
+            work.childA = undefined; // 还未获取
+            work.childB = undefined;
+          } else if (!childBCached) {
+            // childA 已缓存，只需要 childB
+            work.childA = resultCache.get(item_a)!;
+
+            stack.push({
+              itemName: item_b,
+              depth: work.depth + 1,
+              visited: new Set(newVisited),
+              state: 'initial',
+              tryRecipeIndex: 0
+            });
+
+            work.state = 'combining';
+            work.childB = undefined;
+          }
+        }
+      }
+
+      // 状态3：合并子节点
+      if (work.state === 'combining') {
+        const recipes = itemToRecipes[work.itemName];
+        const recipe = recipes![work.tryRecipeIndex];
+        const { item_a, item_b } = recipe;
+
+        // 获取缓存中的子节点
+        const childA = work.childA ?? resultCache.get(item_a) ?? undefined;
+        const childB = work.childB ?? resultCache.get(item_b) ?? undefined;
+
+        if (childA !== undefined && childB !== undefined) {
+          if (childA && childB) {
+            // 两个子节点都成功，使用此配方
+            const value = childA.value + childB.value;
+            stack.pop();
+            resultCache.set(cacheKey, {
+              id: work.itemName,
+              name: work.itemName,
+              emoji: itemEmojiMap[work.itemName] ? truncateEmoji(itemEmojiMap[work.itemName]) : undefined,
+              isBase: false,
+              value,
+              children: [childA, childB],
+              recipe: { item_a, item_b }
+            });
+          } else {
+            // 此配方失败，尝试下一个
+            work.state = 'fetching_children';
+            work.tryRecipeIndex++;
+            work.childA = undefined;
+            work.childB = undefined;
+          }
+        }
+      }
     }
 
-    // 如果所有配方都无法构建完整树，返回 null
-    return null;
+    return resultCache.get(itemName) ?? null;
   }
 }
 

@@ -417,7 +417,7 @@ const fetchIcicleChartData = async (elementName: string) => {
   try {
     console.log('开始获取冰柱图数据，元素名称:', elementName);
     const response = await recipeApi.getIcicleChartOnDemand(elementName, {
-      maxDepth: 10, // 限制深度避免过深
+      maxDepth: 15, // 限制深度避免过深
       includeStats: true // 包含统计信息
     });
     console.log('冰柱图API响应:', response);
@@ -494,9 +494,12 @@ const fetchElementDetail = async () => {
       // 获取可达性统计信息
       const reachabilityResult = await fetchReachabilityStats(elementData.name);
       
-      // 如果元素可达，获取冰柱图数据
+      // 异步加载冰柱图数据（不阻塞主流程）
       if (reachabilityResult.reachable) {
-        await fetchIcicleChartData(elementData.name);
+        // 在后台加载，不使用 await
+        fetchIcicleChartData(elementData.name).catch(error => {
+          console.error('后台加载冰柱图数据失败:', error);
+        });
       }
     } else {
       ElMessage.error('获取元素详情失败');

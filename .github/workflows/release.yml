@@ -181,15 +181,26 @@ jobs:
         command_timeout: 60m
         script_stop: true
         script: |
-          set -e  # 遇到错误立即退出
           echo "🚀 开始部署..."
           
           # 1. 杀死旧进程（如果存在）
-          if pgrep -f "node.*dist/index.js" > /dev/null; then
-            echo "⏹️ 停止旧进程..."
-            pkill -f "node.*dist/index.js" || true
-            sleep 2
+          echo "⏹️ 检查并停止旧进程..."
+          if pgrep -f "node.*dist/index.js" > /dev/null 2>&1; then
+            pkill -15 -f "node.*dist/index.js" 2>/dev/null || true
+            sleep 3
+            # 如果还有残留进程，强制终止
+            if pgrep -f "node.*dist/index.js" > /dev/null 2>&1; then
+              echo "  ⚠️ 进程未响应 SIGTERM，使用 SIGKILL..."
+              pkill -9 -f "node.*dist/index.js" 2>/dev/null || true
+              sleep 1
+            fi
+            echo "  ✅ 旧进程已停止"
+          else
+            echo "  ℹ️ 没有运行中的进程"
           fi
+          
+          # 从这里开始启用严格错误处理
+          set -e
           
           # 2. 进入部署目录
           cd ${{ secrets.SSH_TARGET_PATH }} || { echo "❌ 目录不存在: ${{ secrets.SSH_TARGET_PATH }}"; exit 1; }

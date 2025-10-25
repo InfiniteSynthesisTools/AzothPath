@@ -200,10 +200,11 @@ jobs:
           rm -rf AzothPath/backend/dist/ 2>/dev/null || true
           mkdir -p AzothPath  # 确保目录存在
           
-          # 4. 解压新版本
+          # 4. 解压新版本到临时目录
           echo "📦 解压新版本..."
           if [ -f "azoth-path-release.tar.gz" ]; then
-            tar -xzf azoth-path-release.tar.gz -C ./ --transform='s,^,azoth-path/,'
+            mkdir -p azoth-path-temp
+            tar -xzf azoth-path-release.tar.gz -C azoth-path-temp
           else
             echo "❌ 压缩包不存在"
             exit 1
@@ -211,23 +212,56 @@ jobs:
           
           # 5. 移动文件到正确位置
           echo "📂 移动文件..."
-          [ -d "azoth-path/frontend" ] && mv azoth-path/frontend AzothPath/frontend
-          [ -d "azoth-path/backend" ] && mv azoth-path/backend AzothPath/backend/dist
+          # 前端：frontend/ → AzothPath/frontend/
+          if [ -d "azoth-path-temp/frontend" ]; then
+            mv azoth-path-temp/frontend AzothPath/frontend
+            echo "  ✅ 前端文件已部署"
+          fi
+          
+          # 后端：backend/ → AzothPath/backend/dist/
+          if [ -d "azoth-path-temp/backend" ]; then
+            mkdir -p AzothPath/backend/dist
+            # backend/ 目录里的内容已经是编译后的 dist 内容
+            mv azoth-path-temp/backend/* AzothPath/backend/dist/
+            echo "  ✅ 后端文件已部署"
+          fi
+          
+          # 启动脚本
+          if [ -f "azoth-path-temp/start.sh" ]; then
+            mv azoth-path-temp/start.sh AzothPath/start.sh
+            chmod +x AzothPath/start.sh
+          fi
+          
+          # package.json 应该在 backend/dist/ 里
+          if [ -f "AzothPath/backend/package.json" ]; then
+            cp AzothPath/backend/package.json AzothPath/backend/package.json
+          fi
           
           # 6. 清理临时文件
           echo "🧹 清理临时文件..."
-          rm -rf azoth-path
+          rm -rf azoth-path-temp
           rm -f azoth-path-release.tar.gz azoth-path-release.zip
 
           # 7. 启动服务
           echo "🚀 启动服务..."
           cd ${{ secrets.SSH_TARGET_PATH }}/AzothPath
-          [ -f "./start.sh" ] && chmod +x ./start.sh && ./start.sh
           
-          # 8. 验证服务是否启动
-          sleep 3
+          # 尝试使用 start.sh，如果不存在则直接运行
+          if [ -f "./start.sh" ]; then
+            chmod +x ./start.sh
+            nohup ./start.sh > logs/app.log 2>&1 &
+          else
+            echo "❌ 启动脚本 start.sh 不存在"
+            exit 1
+          fi
+          
+          echo "⏳ 等待服务启动..."
+          sleep 5
+          
+          # 9. 验证服务是否启动
           if curl -s http://localhost:19198/api/health > /dev/null 2>&1; then
             echo "✅ 服务启动成功！"
           else
-            echo "⚠️ 服务启动，但健康检查未通过，请手动验证"
+            echo "⚠️ 健康检查未通过，查看日志："
+            tail -n 20 ${{ secrets.SSH_TARGET_PATH }}/AzothPath/logs/app.log || echo "无法读取日志"
           fi

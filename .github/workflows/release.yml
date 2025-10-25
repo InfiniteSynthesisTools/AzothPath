@@ -179,27 +179,18 @@ jobs:
         port: ${{ secrets.SSH_PORT || '22' }}
         # 增加超时时间
         command_timeout: 60m
-        script_stop: true
+        script_stop: false  # 不要在非零退出码时停止，让脚本自己处理错误
         script: |
           echo "🚀 开始部署..."
           
-          # 1. 杀死旧进程（如果存在）
-          echo "⏹️ 检查并停止旧进程..."
-          if pgrep -f "node.*dist/index.js" > /dev/null 2>&1; then
-            pkill -15 -f "node.*dist/index.js" 2>/dev/null || true
-            sleep 3
-            # 如果还有残留进程，强制终止
-            if pgrep -f "node.*dist/index.js" > /dev/null 2>&1; then
-              echo "  ⚠️ 进程未响应 SIGTERM，使用 SIGKILL..."
-              pkill -9 -f "node.*dist/index.js" 2>/dev/null || true
-              sleep 1
-            fi
-            echo "  ✅ 旧进程已停止"
-          else
-            echo "  ℹ️ 没有运行中的进程"
-          fi
+          # 1. 停止旧进程（使用更简单的方法）
+          echo "⏹️ 停止旧进程..."
+          pkill -15 -f "node.*dist/index.js" && echo "  ✅ 已发送 SIGTERM" || echo "  ℹ️ 没有运行中的进程"
+          sleep 3
           
-          # 从这里开始启用严格错误处理
+          # 强制终止任何残留进程
+          pkill -9 -f "node.*dist/index.js" 2>/dev/null && echo "  ⚠️ 强制终止残留进程" || true
+          sleep 1
           set -e
           
           # 2. 进入部署目录

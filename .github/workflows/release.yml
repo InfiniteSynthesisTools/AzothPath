@@ -2,7 +2,8 @@ name: Build Release
 
 on:
   push:
-    branches: main
+    tags:
+      - 'v*'
   workflow_dispatch:
 
 jobs:
@@ -78,13 +79,18 @@ jobs:
         tar -czf azoth-path-release.tar.gz -C release .
         cd release && zip -r ../azoth-path-release.zip . -x "*.git*"
         
-    - name: Upload release artifacts
+    - name: Upload tar.gz artifact
       uses: actions/upload-artifact@v4
       with:
-        name: azoth-path-release
-        path: |
-          azoth-path-release.tar.gz
-          azoth-path-release.zip
+        name: azoth-path-release-tar
+        path: azoth-path-release.tar.gz
+        retention-days: 30
+        
+    - name: Upload zip artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: azoth-path-release-zip
+        path: azoth-path-release.zip
         retention-days: 30
         
     - name: Create GitHub Release

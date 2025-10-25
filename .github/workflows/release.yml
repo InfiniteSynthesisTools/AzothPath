@@ -184,14 +184,8 @@ jobs:
           echo "🚀 开始部署..."
           
           # 1. 停止旧进程（使用更简单的方法）
-          echo "⏹️ 停止旧进程..."
-          pkill -15 -f "node.*dist/index.js" && echo "  ✅ 已发送 SIGTERM" || echo "  ℹ️ 没有运行中的进程"
-          sleep 3
-          
-          # 强制终止任何残留进程
-          pkill -9 -f "node.*dist/index.js" 2>/dev/null && echo "  ⚠️ 强制终止残留进程" || true
+          kill $(pidof node)
           sleep 1
-          set -e
           
           # 2. 进入部署目录
           cd ${{ secrets.SSH_TARGET_PATH }} || { echo "❌ 目录不存在: ${{ secrets.SSH_TARGET_PATH }}"; exit 1; }

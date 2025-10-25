@@ -66,14 +66,19 @@ jobs:
         cp prd.md release/
         cp todo.md release/
         cp -r docs release/ 2>/dev/null || true
-        
+
         # Create simple startup script
         cat > release/start.sh << 'EOF'
         #!/bin/bash
         echo "🚀 Starting Azoth Path..."
         cd backend
-        npm install --production
-        node dist/index.js
+        npm install --verbose --progress=true --production
+        LOGFILE="../logs/backend_$(date +%Y%m%d_%H%M%S).log"
+        nohup node dist/index.js > "$LOGFILE" 2>&1 &
+        echo ""
+        echo "✅ 后端已启动，日志文件: $LOGFILE"
+        echo "📝 前端静态文件位于 frontend 目录"
+        echo "💡 请使用 Nginx 或其他 Web 服务器托管前端文件"
         EOF
         chmod +x release/start.sh
         

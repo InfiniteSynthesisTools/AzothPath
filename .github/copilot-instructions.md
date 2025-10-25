@@ -1126,12 +1126,6 @@ API 文档包含完整的前端 TypeScript 类型定义，确保前后端数据�
 
 ## 📚 文件引用
 - `prd.md` - 完整的产品需求和技术规范文档
-- `recipe_calculator.py` - Python 参考实现（917行），包含 RecipeGraph 类
-  - 实现 BFS 可达性分析（O(V+E) 复杂度）
-  - 多路径枚举与记忆化（O(k^d) 最坏情况）
-  - 循环依赖检测（A+A=A 模式）
-  - 树分析，包含深度/步骤/材料统计
-  - **状态**: 参考实现，需要移植到 TypeScript 后端用于生产
 - `API_DOCUMENTATION.md` - 完整的 API 接口文档，包含请求/响应示例和错误码
 - Section 3.2.1 in prd.md - 完整的算法设计和复杂度分析
 - Section 4.2.4 in prd.md - 完整的 SQL 模式和索引

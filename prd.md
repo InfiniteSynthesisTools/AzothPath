@@ -1515,7 +1515,6 @@ npm run dev
 - **API 文档**: `API_DOCUMENTATION.md` - 完整的 API 端点说明和使用示例
 - **数据库架构**: `DATABASE_SCHEMA.md` - 完整的数据库表结构和关系说明  
 - **开发指南**: `.github/copilot-instructions.md` - AI 开发助手使用指南
-- **算法参考**: `recipe_calculator.py` - Python 参考实现（917 行，含 BFS、记忆化、循环检测）
 
 ### B. 快速启动命令
 

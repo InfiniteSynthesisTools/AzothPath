@@ -135,7 +135,7 @@ jobs:
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ secrets.SSH_PORT || '22' }}
-        source: "azoth-path-release.tar.gz,azoth-path-release.zip"
+        source: "azoth-path-release.tar.gz"
         target: ${{ secrets.SSH_TARGET_PATH }}
         rm: false
         
@@ -152,7 +152,7 @@ jobs:
           cd ${{ secrets.SSH_TARGET_PATH }}
           rm -rf ${{ secrets.SSH_TARGET_PATH }}/AzothPath/frontend/ && rm -rf ${{ secrets.SSH_TARGET_PATH }}/AzothPath/backend/dist/
           # 解压新版本
-          tar -xzf azoth-path-release.tar.gz -C . && mv release azoth-path || unzip -o azoth-path-release.zip -d azoth-path
+          tar -xzf azoth-path-release.tar.gz -C azoth-path
           # 把frontend、dist文件移到正确位置
           mv azoth-path/frontend ${{ secrets.SSH_TARGET_PATH }}/AzothPath/frontend
           mv azoth-path/backend/dist ${{ secrets.SSH_TARGET_PATH }}/AzothPath/backend

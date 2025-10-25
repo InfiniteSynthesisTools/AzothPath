@@ -268,8 +268,10 @@ router.get('/admin/list', authMiddleware, async (req: AuthRequest, res: Response
     const limit = parseInt(req.query.limit as string) || 20;
     const search = req.query.search as string;
     const roleFilter = req.query.role as string;
+    const sortBy = req.query.sortBy as string;
+    const sortOrder = req.query.sortOrder as string;
 
-    const result = await userService.getAllUsers(page, limit, search, roleFilter);
+    const result = await userService.getAllUsers(page, limit, search, roleFilter, sortBy, sortOrder);
 
     res.json({
       code: 200,

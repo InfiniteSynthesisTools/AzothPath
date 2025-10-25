@@ -226,6 +226,7 @@ const users = ref<any[]>([]);
 const searchQuery = ref('');
 const roleFilter = ref('');
 const sortBy = ref('contribute');
+const sortOrder = ref('desc');
 const currentPage = ref(1);
 const pageSize = ref(20);
 const totalUsers = ref(0);
@@ -265,35 +266,7 @@ const editRules: FormRules = {
 
 // 计算属性
 const filteredUsers = computed(() => {
-  let filtered = [...users.value];
-
-  // 搜索过滤
-  if (searchQuery.value) {
-    filtered = filtered.filter(user => 
-      user.name.toLowerCase().includes(searchQuery.value.toLowerCase())
-    );
-  }
-
-  // 角色过滤
-  if (roleFilter.value) {
-    filtered = filtered.filter(user => user.auth.toString() === roleFilter.value);
-  }
-
-  // 排序
-  filtered.sort((a, b) => {
-    switch (sortBy.value) {
-      case 'contribute':
-        return b.contribute - a.contribute;
-      case 'created_at':
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      case 'level':
-        return b.level - a.level;
-      default:
-        return 0;
-    }
-  });
-
-  return filtered;
+  return users.value;
 });
 
 // 方法
@@ -304,7 +277,9 @@ const loadUsers = async () => {
       page: currentPage.value,
       limit: pageSize.value,
       search: searchQuery.value,
-      role: roleFilter.value
+      role: roleFilter.value,
+      sortBy: sortBy.value,
+      sortOrder: sortOrder.value
     });
     // 响应拦截器已经处理了数据结构，直接使用result
     const data = result as any;
@@ -328,7 +303,16 @@ const handleFilter = () => {
   loadUsers();
 };
 
-const handleSort = () => {
+const handleSort = (sortInfo: any) => {
+  if (sortInfo.prop) {
+    sortBy.value = sortInfo.prop;
+    // 根据排序顺序设置排序方向
+    if (sortInfo.order === 'ascending') {
+      sortOrder.value = 'asc';
+    } else if (sortInfo.order === 'descending') {
+      sortOrder.value = 'desc';
+    }
+  }
   currentPage.value = 1;
   loadUsers();
 };

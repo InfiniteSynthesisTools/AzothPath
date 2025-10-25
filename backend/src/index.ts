@@ -38,17 +38,38 @@ app.use(cors());
 app.use(express.json({ limit: '20mb' }));
 app.use(express.urlencoded({ extended: true, limit: '20mb' }));
 
+// 请求统计
+let requestCount = 0;
+let errorCount = 0;
+
+// 请求统计中间件
+app.use((req, res, next) => {
+  requestCount++;
+  next();
+});
+
+// 错误统计中间件
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+  errorCount++;
+  next(err);
+});
+
 // 健康检查
 app.get('/api/health', (req, res) => {
   // 获取当前时间（已设置为UTC+8）
   const now = new Date();
+  
+  // 计算错误率
+  const errorRate = requestCount > 0 ? Math.round((errorCount / requestCount) * 100 * 10) / 10 : 0;
   
   res.json({ 
     status: 'ok', 
     message: 'Server is running',
     timestamp: now.toISOString(),
     timezone: 'Asia/Shanghai (UTC+8)',
-    uptime: process.uptime()
+    uptime: process.uptime(),
+    totalRequests: requestCount,
+    errorRate
   });
 });
 

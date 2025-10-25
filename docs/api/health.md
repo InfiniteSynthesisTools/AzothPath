@@ -23,7 +23,9 @@
   "message": "Server is running",
   "timestamp": "2025-10-19T13:31:20.248Z",
   "timezone": "Asia/Shanghai (UTC+8)",
-  "uptime": 438.118606129
+  "uptime": 438.118606129,
+  "totalRequests": 1500,
+  "errorRate": 0.5
 }
 ```
 
@@ -36,12 +38,17 @@
 | `timestamp` | string | 当前时间戳 (ISO 8601格式) |
 | `timezone` | string | 服务器时区信息 |
 | `uptime` | number | 服务器运行时间（秒） |
+| `totalRequests` | number | 总请求数（自服务器启动以来） |
+| `errorRate` | number | 错误率（百分比，保留一位小数） |
 
 ### 使用场景
 
 - **服务监控：** 检查后端服务是否正常运行
 - **负载均衡：** 健康检查端点，用于负载均衡器判断服务可用性
 - **运维监控：** 监控系统运行状态和运行时间
+- **性能监控：** 通过请求数和错误率监控API性能
+- **实时统计：** 获取服务器启动以来的请求统计信息
+- **错误率监控：** 实时监控系统错误率，及时发现异常
 
 ### 错误处理
 

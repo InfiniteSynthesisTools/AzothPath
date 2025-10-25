@@ -170,6 +170,7 @@ const loadElements = async () => {
       search: searchQuery.value,
       type: typeFilter.value,
       sortBy: sortBy.value,
+      sortOrder: 'desc', // 默认降序
       // 管理端：请求未公开数据
       includePrivate: userStore.isAdmin ? '1' : '0'
     });

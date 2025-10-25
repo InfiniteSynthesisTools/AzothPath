@@ -67,122 +67,142 @@
       <el-row :gutter="20">
         <!-- 系统信息 -->
         <el-col :span="12">
-          <el-card>
+          <el-card class="info-card">
             <template #header>
-              <h3>🖥️ 系统信息</h3>
+              <div class="card-header">
+                <el-icon class="header-icon"><Monitor /></el-icon>
+                <span class="header-title">系统信息</span>
+              </div>
             </template>
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="操作系统">{{ systemInfo.os.platform }}</el-descriptions-item>
-              <el-descriptions-item label="系统版本">{{ systemInfo.os.version }}</el-descriptions-item>
-              <el-descriptions-item label="主机名">{{ systemInfo.os.hostname }}</el-descriptions-item>
-              <el-descriptions-item label="架构">{{ systemInfo.os.arch }}</el-descriptions-item>
-              <el-descriptions-item label="Node.js版本">{{ systemInfo.node.version }}</el-descriptions-item>
-              <el-descriptions-item label="启动时间">{{ formatDateTime(systemInfo.startTime) }}</el-descriptions-item>
-            </el-descriptions>
+            <div class="info-content">
+              <div class="info-item">
+                <span class="info-label">操作系统</span>
+                <el-tag type="info" size="small">{{ systemInfo.os.platform }}</el-tag>
+              </div>
+              <div class="info-item">
+                <span class="info-label">系统版本</span>
+                <span class="info-value">{{ systemInfo.os.version }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">主机名</span>
+                <span class="info-value">{{ systemInfo.os.hostname }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">架构</span>
+                <span class="info-value">{{ systemInfo.os.arch }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">Node.js版本</span>
+                <el-tag type="success" size="small">{{ systemInfo.node.version }}</el-tag>
+              </div>
+              <div class="info-item">
+                <span class="info-label">启动时间</span>
+                <span class="info-value">{{ formatDateTime(systemInfo.startTime) }}</span>
+              </div>
+            </div>
           </el-card>
         </el-col>
 
         <!-- 内存详情 -->
         <el-col :span="12">
-          <el-card>
+          <el-card class="info-card">
             <template #header>
-              <h3>💾 内存详情</h3>
+              <div class="card-header">
+                <el-icon class="header-icon"><Monitor /></el-icon>
+                <span class="header-title">内存详情</span>
+              </div>
             </template>
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="总内存">{{ formatBytes(systemInfo.memory.total) }}</el-descriptions-item>
-              <el-descriptions-item label="已使用">{{ formatBytes(systemInfo.memory.used) }}</el-descriptions-item>
-              <el-descriptions-item label="可用内存">{{ formatBytes(systemInfo.memory.free) }}</el-descriptions-item>
-              <el-descriptions-item label="缓存">{{ formatBytes(systemInfo.memory.cached) }}</el-descriptions-item>
-            </el-descriptions>
+            <div class="info-content">
+              <div class="info-item">
+                <span class="info-label">总内存</span>
+                <span class="memory-value">{{ formatBytes(systemInfo.memory.total) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">已使用</span>
+                <span class="memory-used">{{ formatBytes(systemInfo.memory.used) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">可用内存</span>
+                <span class="memory-free">{{ formatBytes(systemInfo.memory.free) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">缓存</span>
+                <span class="info-value">{{ formatBytes(systemInfo.memory.cached) }}</span>
+              </div>
+            </div>
           </el-card>
         </el-col>
       </el-row>
 
-      <el-row :gutter="20" style="margin-top: 20px;">
+      <el-row :gutter="20" class="info-row">
         <!-- 磁盘信息 -->
         <el-col :span="12">
-          <el-card>
+          <el-card class="info-card">
             <template #header>
-              <h3>💿 磁盘信息</h3>
+              <div class="card-header">
+                <el-icon class="header-icon"><Folder /></el-icon>
+                <span class="header-title">磁盘信息</span>
+              </div>
             </template>
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="磁盘路径">{{ systemInfo.disk.path || '未知' }}</el-descriptions-item>
-              <el-descriptions-item label="总容量">{{ formatBytes(systemInfo.disk.total) }}</el-descriptions-item>
-              <el-descriptions-item label="已使用">{{ formatBytes(systemInfo.disk.used) }}</el-descriptions-item>
-              <el-descriptions-item label="可用空间">{{ formatBytes(systemInfo.disk.free) }}</el-descriptions-item>
-              <el-descriptions-item label="使用率">{{ systemInfo.disk.usage }}%</el-descriptions-item>
-            </el-descriptions>
+            <div class="info-content">
+              <div class="info-item">
+                <span class="info-label">磁盘路径</span>
+                <span class="disk-path">{{ systemInfo.disk.path || '未知' }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">总容量</span>
+                <span class="disk-value">{{ formatBytes(systemInfo.disk.total) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">已使用</span>
+                <span class="disk-used">{{ formatBytes(systemInfo.disk.used) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">可用空间</span>
+                <span class="disk-free">{{ formatBytes(systemInfo.disk.free) }}</span>
+              </div>
+              <div class="info-item">
+                <span class="info-label">使用率</span>
+                <el-progress 
+                  :percentage="systemInfo.disk.usage" 
+                  :color="getUsageColor(systemInfo.disk.usage)"
+                  :show-text="true"
+                  :stroke-width="8"
+                />
+              </div>
+            </div>
           </el-card>
         </el-col>
 
         <!-- API状态 -->
         <el-col :span="12">
-          <el-card>
+          <el-card class="info-card">
             <template #header>
-              <h3>🌐 API状态</h3>
+              <div class="card-header">
+                <el-icon class="header-icon"><Timer /></el-icon>
+                <span class="header-title">API状态</span>
+              </div>
             </template>
-            <el-descriptions :column="1" border>
-              <el-descriptions-item label="API状态">
-                <el-tag :type="apiStatus.healthy ? 'success' : 'danger'">
+            <div class="info-content">
+              <div class="info-item">
+                <span class="info-label">API状态</span>
+                <el-tag :type="apiStatus.healthy ? 'success' : 'danger'" size="small">
                   {{ apiStatus.healthy ? '正常' : '异常' }}
                 </el-tag>
-              </el-descriptions-item>
-              <el-descriptions-item label="响应时间">{{ apiStatus.responseTime }}ms</el-descriptions-item>
-              <el-descriptions-item label="请求总数">{{ apiStatus.totalRequests }}</el-descriptions-item>
-              <el-descriptions-item label="错误率">{{ apiStatus.errorRate }}%</el-descriptions-item>
-            </el-descriptions>
-          </el-card>
-        </el-col>
-      </el-row>
-    </div>
-
-    <!-- 实时监控图表 -->
-    <div class="monitoring-charts">
-      <el-row :gutter="20">
-        <el-col :span="24">
-          <el-card>
-            <template #header>
-              <div class="section-header">
-                <h3>📊 实时监控</h3>
-                <el-button type="primary" @click="toggleMonitoring">
-                  {{ monitoring ? '停止监控' : '开始监控' }}
-                </el-button>
               </div>
-            </template>
-            <div class="chart-container">
-              <div v-if="!monitoring" class="chart-placeholder">
-                <el-icon size="48"><TrendCharts /></el-icon>
-                <p>点击"开始监控"查看实时数据</p>
-                <p class="chart-desc">CPU、内存、API响应时间趋势图</p>
+              <div class="info-item">
+                <span class="info-label">响应时间</span>
+                <span class="response-time">{{ apiStatus.responseTime }}ms</span>
               </div>
-              <div v-else class="monitoring-data">
-                <div class="monitoring-stats">
-                  <div class="stat-item">
-                    <span class="stat-label">CPU使用率:</span>
-                    <span class="stat-value">{{ systemInfo.cpu.usage }}%</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-label">内存使用率:</span>
-                    <span class="stat-value">{{ systemInfo.memory.usage }}%</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-label">API响应时间:</span>
-                    <span class="stat-value">{{ apiStatus.responseTime }}ms</span>
-                  </div>
-                  <div class="stat-item">
-                    <span class="stat-label">最后更新:</span>
-                    <span class="stat-value">{{ lastUpdateTime }}</span>
-                  </div>
-                </div>
-                <div class="monitoring-log">
-                  <h4>监控日志</h4>
-                  <div class="log-container">
-                    <div v-for="(log, index) in monitoringLogs" :key="index" class="log-item">
-                      <span class="log-time">{{ log.time }}</span>
-                      <span class="log-message">{{ log.message }}</span>
-                    </div>
-                  </div>
-                </div>
+              <div class="info-item">
+                <span class="info-label">请求总数</span>
+                <el-tag type="primary" size="small">{{ apiStatus.totalRequests }}</el-tag>
+              </div>
+              <div class="info-item">
+                <span class="info-label">错误率</span>
+                <el-tag :type="apiStatus.errorRate > 5 ? 'danger' : 'success'" size="small">
+                  {{ apiStatus.errorRate }}%
+                </el-tag>
               </div>
             </div>
           </el-card>
@@ -193,9 +213,9 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted } from 'vue';
+import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-import { Cpu, Monitor, Folder, Timer, TrendCharts } from '@element-plus/icons-vue';
+import { Cpu, Monitor, Folder, Timer } from '@element-plus/icons-vue';
 import { formatDateTime } from '@/utils/format';
 import { systemApi } from '@/api';
 
@@ -241,10 +261,7 @@ const apiStatus = ref({
   errorRate: 0
 });
 
-const monitoring = ref(false);
-let monitoringInterval: NodeJS.Timeout | null = null;
 const lastUpdateTime = ref('');
-const monitoringLogs = ref<Array<{ time: string; message: string }>>([]);
 
 // 方法
 const refreshSystemInfo = async () => {
@@ -258,18 +275,9 @@ const refreshSystemInfo = async () => {
     
     // 更新最后更新时间
     lastUpdateTime.value = new Date().toLocaleTimeString();
-    
-    // 添加监控日志
-    if (monitoring.value) {
-      addMonitoringLog(`系统信息已更新 - CPU: ${response.cpu.usage}%, 内存: ${response.memory.usage}%`);
-    }
   } catch (error) {
     console.error('获取系统信息失败:', error);
     ElMessage.error('获取系统信息失败');
-    
-    if (monitoring.value) {
-      addMonitoringLog(`获取系统信息失败: ${error}`);
-    }
   }
 };
 
@@ -277,16 +285,17 @@ const refreshSystemInfo = async () => {
 const checkApiStatus = async () => {
   try {
     const startTime = Date.now();
-    const response = await fetch('/health');
+    const response = await systemApi.getHealthStatus();
     const responseTime = Date.now() - startTime;
     
     apiStatus.value = {
-      healthy: response.ok,
+      healthy: response.status === 'ok',
       responseTime,
-      totalRequests: Math.floor(Math.random() * 10000) + 1000, // 模拟数据
-      errorRate: Math.round(Math.random() * 5 * 10) / 10 // 模拟数据
+      totalRequests: response.totalRequests || 0,
+      errorRate: response.errorRate || 0
     };
   } catch (error) {
+    console.error('检查API状态失败:', error);
     apiStatus.value = {
       healthy: false,
       responseTime: 0,
@@ -296,41 +305,6 @@ const checkApiStatus = async () => {
   }
 };
 
-const addMonitoringLog = (message: string) => {
-  const now = new Date();
-  const time = now.toLocaleTimeString();
-  monitoringLogs.value.unshift({ time, message });
-  
-  // 限制日志数量，只保留最近20条
-  if (monitoringLogs.value.length > 20) {
-    monitoringLogs.value = monitoringLogs.value.slice(0, 20);
-  }
-};
-
-const toggleMonitoring = () => {
-  monitoring.value = !monitoring.value;
-  
-  if (monitoring.value) {
-    startMonitoring();
-    addMonitoringLog('开始实时监控');
-  } else {
-    stopMonitoring();
-    addMonitoringLog('停止实时监控');
-  }
-};
-
-const startMonitoring = () => {
-  monitoringInterval = setInterval(() => {
-    refreshSystemInfo();
-  }, 5000); // 每5秒刷新一次
-};
-
-const stopMonitoring = () => {
-  if (monitoringInterval) {
-    clearInterval(monitoringInterval);
-    monitoringInterval = null;
-  }
-};
 
 const formatBytes = (bytes: number): string => {
   if (bytes === 0) return '0 B';
@@ -340,14 +314,17 @@ const formatBytes = (bytes: number): string => {
   return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
 };
 
+const getUsageColor = (usage: number) => {
+  if (usage < 50) return '#67c23a';
+  if (usage < 80) return '#e6a23c';
+  return '#f56c6c';
+};
+
 // 生命周期
 onMounted(() => {
   refreshSystemInfo();
 });
 
-onUnmounted(() => {
-  stopMonitoring();
-});
 </script>
 
 <style scoped>
@@ -363,10 +340,6 @@ onUnmounted(() => {
   margin-bottom: 30px;
 }
 
-.monitoring-charts {
-  margin-bottom: 30px;
-}
-
 .section-header {
   display: flex;
   justify-content: space-between;
@@ -378,99 +351,96 @@ onUnmounted(() => {
   font-size: 1.2rem;
 }
 
-.chart-container {
-  height: 300px;
+/* 卡片头部样式 */
+.card-header {
   display: flex;
   align-items: center;
-  justify-content: center;
-  background-color: #f8f9fa;
-  border-radius: 8px;
+  gap: 10px;
+  padding: 4px 0;
 }
 
-.chart-placeholder {
-  text-align: center;
-  color: #909399;
+.header-icon {
+  font-size: 20px;
+  color: #409eff;
+  background: linear-gradient(135deg, #409eff, #67c23a);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
-.chart-desc {
-  font-size: 14px;
-  margin-top: 10px;
+.header-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  letter-spacing: 0.5px;
 }
 
-.monitoring-data {
+/* 信息卡片样式 */
+.info-card {
   height: 100%;
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
 }
 
-.monitoring-stats {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 15px;
+.info-card .el-card__body {
+  padding: 20px;
 }
 
-.stat-item {
+/* 响应时间样式 */
+.response-time {
+  font-weight: 600;
+  color: #67c23a;
+}
+
+/* 内存和磁盘数值样式 */
+.memory-value, .disk-value {
+  font-weight: 600;
+  color: #409eff;
+}
+
+.memory-used, .disk-used {
+  font-weight: 600;
+  color: #e6a23c;
+}
+
+.memory-free, .disk-free {
+  font-weight: 600;
+  color: #67c23a;
+}
+
+.disk-path {
+  font-family: 'Courier New', monospace;
+  font-size: 12px;
+  color: #909399;
+  background-color: #f5f7fa;
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+/* 行间距优化 */
+.info-row {
+  margin-top: 20px;
+}
+
+/* 信息内容样式 */
+.info-content {
+  padding: 0;
+}
+
+.info-item {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px;
-  background-color: #f8f9fa;
-  border-radius: 6px;
-  border-left: 4px solid #409eff;
+  padding: 10px 0;
 }
 
-.stat-label {
+.info-label {
+  font-weight: 600;
+  color: #606266;
+  font-size: 14px;
+}
+
+.info-value {
+  color: #303133;
   font-weight: 500;
-  color: #606266;
 }
 
-.stat-value {
-  font-weight: bold;
-  color: #303133;
-  font-size: 16px;
-}
-
-.monitoring-log {
-  flex: 1;
-  min-height: 200px;
-}
-
-.monitoring-log h4 {
-  margin: 0 0 10px 0;
-  color: #303133;
-  font-size: 16px;
-}
-
-.log-container {
-  height: 200px;
-  overflow-y: auto;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
-  padding: 10px;
-  background-color: #fafafa;
-}
-
-.log-item {
-  display: flex;
-  gap: 10px;
-  padding: 5px 0;
-  border-bottom: 1px solid #f0f0f0;
-  font-size: 13px;
-}
-
-.log-item:last-child {
-  border-bottom: none;
-}
-
-.log-time {
-  color: #909399;
-  min-width: 80px;
-  font-family: monospace;
-}
-
-.log-message {
-  color: #606266;
-  flex: 1;
-}
 </style>

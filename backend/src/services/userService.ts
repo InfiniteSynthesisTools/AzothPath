@@ -316,7 +316,7 @@ export class UserService {
   /**
    * 获取所有用户列表（管理员功能）
    */
-  async getAllUsers(page: number = 1, limit: number = 20, search?: string, roleFilter?: string) {
+  async getAllUsers(page: number = 1, limit: number = 20, search?: string, roleFilter?: string, sortBy?: string, sortOrder?: string) {
     const offset = (page - 1) * limit;
     let whereClause = 'WHERE 1=1';
     const params: any[] = [];
@@ -331,6 +331,18 @@ export class UserService {
     if (roleFilter) {
       whereClause += ' AND u.auth = ?';
       params.push(parseInt(roleFilter));
+    }
+
+    // 排序处理
+    let orderClause = 'ORDER BY u.contribute DESC, u.created_at ASC'; // 默认排序
+    if (sortBy && sortOrder) {
+      const validSortFields = ['id', 'name', 'auth', 'contribute', 'level', 'created_at', 'recipe_count', 'item_count'];
+      const validSortOrders = ['asc', 'desc'];
+      
+      if (validSortFields.includes(sortBy) && validSortOrders.includes(sortOrder.toLowerCase())) {
+        const order = sortOrder.toLowerCase() === 'asc' ? 'ASC' : 'DESC';
+        orderClause = `ORDER BY u.${sortBy} ${order}`;
+      }
     }
 
     // 查询用户列表
@@ -350,7 +362,7 @@ export class UserService {
          WHERE r.user_id = u.id) as item_count
       FROM user u
       ${whereClause}
-      ORDER BY u.contribute DESC, u.created_at ASC
+      ${orderClause}
       LIMIT ? OFFSET ?
     `, [...params, limit, offset]);
 

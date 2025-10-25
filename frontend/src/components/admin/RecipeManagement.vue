@@ -170,7 +170,8 @@ const loadRecipes = async () => {
       page: currentPage.value,
       limit: pageSize.value,
       search: searchQuery.value,
-      orderBy: sortBy.value
+      orderBy: sortBy.value,
+      sortOrder: orderBy.value
     });
     
     // 响应拦截器已经处理了数据结构，直接使用result

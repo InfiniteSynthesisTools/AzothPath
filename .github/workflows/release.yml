@@ -72,12 +72,14 @@ jobs:
         #!/bin/bash
         
         # 加载环境变量（确保 node 在 PATH 中）
-        export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+        export PATH="/root/.nvm/versions/node/v18.20.8/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+        [ -f "$HOME/.nvm/nvm.sh" ] && source "$HOME/.nvm/nvm.sh"
         [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
         [ -f "$HOME/.profile" ] && source "$HOME/.profile"
         
         # 尝试找到 node 可执行文件
-        NODE_BIN=$(which node 2>/dev/null || command -v node 2>/dev/null || echo "/usr/bin/node")
+        NODE_BIN=$(which node 2>/dev/null || command -v node 2>/dev/null || echo "/root/.nvm/versions/node/v18.20.8/bin/node")
+        NPM_BIN=$(which npm 2>/dev/null || command -v npm 2>/dev/null || echo "/root/.nvm/versions/node/v18.20.8/bin/npm")
         
         if [ ! -x "$NODE_BIN" ]; then
           echo "❌ 错误: 找不到 node 可执行文件"
@@ -87,9 +89,10 @@ jobs:
         
         echo "🚀 Starting Azoth Path..."
         echo "📍 Node.js: $NODE_BIN ($(${NODE_BIN} --version))"
+        echo "📍 npm: $NPM_BIN ($(${NPM_BIN} --version))"
         
         cd backend
-        npm install --verbose --progress=true --production
+        "$NPM_BIN" install --production --no-save 2>&1 | tail -n 10
         
         mkdir -p ../logs
         LOGFILE="../logs/backend_$(date +%Y%m%d_%H%M%S).log"

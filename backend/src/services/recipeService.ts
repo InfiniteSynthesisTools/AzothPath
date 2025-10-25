@@ -1142,6 +1142,45 @@ export class RecipeService {
   }
 
   /**
+   * 根据物品名称获取物品详情
+   */
+  async getItemByName(name: string) {
+    const item = await databaseAdapter.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string }>(
+      `SELECT 
+         i.*,
+         COALESCE(usage_stats.usage_count, 0) as usage_count,
+         COALESCE(result_stats.recipe_count, 0) as recipe_count,
+         u.name as discoverer_name
+       FROM items i
+       LEFT JOIN user u ON i.user_id = u.id
+       LEFT JOIN (
+         -- 计算作为材料被使用的次数
+         SELECT item_name, SUM(cnt) as usage_count
+         FROM (
+           SELECT item_a as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_a
+           UNION ALL
+           SELECT item_b as item_name, COUNT(*) as cnt FROM recipes GROUP BY item_b
+         )
+         GROUP BY item_name
+       ) as usage_stats ON usage_stats.item_name = i.name
+       LEFT JOIN (
+         -- 计算作为结果出现的次数
+         SELECT result as item_name, COUNT(*) as recipe_count
+         FROM recipes
+         GROUP BY result
+       ) as result_stats ON result_stats.item_name = i.name
+       WHERE i.name = ? AND i.is_public = 1`,
+      [name]
+    );
+
+    if (!item) {
+      throw new Error('物品不存在');
+    }
+
+    return this.truncateRecordEmojis(item);
+  }
+
+  /**
    * 递归构建冰柱树（内部方法，使用全局缓存）
    * 
    * 🚀 关键优化：

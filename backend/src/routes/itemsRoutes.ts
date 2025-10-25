@@ -40,20 +40,23 @@ router.get('/random', async (req: Request, res: Response) => {
 
 /**
  * GET /api/items/:id
- * 获取单个物品详情
+ * 获取单个物品详情（支持ID和物品名搜索）
  */
 router.get('/:id', async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
+    const idOrName = req.params.id;
     
-    if (isNaN(id)) {
-      return res.status(400).json({
-        code: 400,
-        message: '无效的物品ID'
-      });
+    // 判断是数字ID还是物品名
+    const id = parseInt(idOrName);
+    let item;
+    
+    if (!isNaN(id)) {
+      // 数字ID，按ID查找
+      item = await recipeService.getItemById(id);
+    } else {
+      // 物品名，按名称查找
+      item = await recipeService.getItemByName(idOrName);
     }
-
-    const item = await recipeService.getItemById(id);
 
     res.json({
       code: 200,

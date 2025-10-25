@@ -93,16 +93,22 @@
 
 ### GET /api/items/:id
 
-获取单个物品详情
+获取单个物品详情（支持ID和物品名搜索）
 
 #### 请求信息
 - **方法：** GET
 - **路径：** `/api/items/:id`
 - **认证：** 无需认证
-- **示例链接：** [http://localhost:19198/api/items/1](http://localhost:19198/api/items/1)
+- **示例链接：** 
+  - 按ID搜索：[http://localhost:19198/api/items/1](http://localhost:19198/api/items/1)
+  - 按名称搜索：[http://localhost:19198/api/items/水](http://localhost:19198/api/items/水)
 
 #### 路径参数
-- `id`: 物品ID
+- `id` (string): 物品ID（数字）或物品名称（字符串）
+
+#### 搜索方式
+1. **数字ID搜索**：`/api/items/1` - 通过物品ID查找
+2. **物品名搜索**：`/api/items/水` - 通过物品名称精确查找
 
 ---
 

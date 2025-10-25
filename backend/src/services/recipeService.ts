@@ -138,10 +138,272 @@ class DatabaseQueryHelper {
 
 // ============ RecipeService 主类 ============
 
+// ============ 最小堆实现（用于优先级队列） ============
+
+class MinHeap<T> {
+  private heap: T[];
+  private compare: (a: T, b: T) => number;
+
+  constructor(compare: (a: T, b: T) => number) {
+    this.heap = [];
+    this.compare = compare;
+  }
+
+  push(item: T): void {
+    this.heap.push(item);
+    this.bubbleUp(this.heap.length - 1);
+  }
+
+  pop(): T | undefined {
+    if (this.heap.length === 0) return undefined;
+    const min = this.heap[0];
+    const last = this.heap.pop();
+    if (this.heap.length > 0 && last !== undefined) {
+      this.heap[0] = last;
+      this.sinkDown(0);
+    }
+    return min;
+  }
+
+  size(): number {
+    return this.heap.length;
+  }
+
+  isEmpty(): boolean {
+    return this.heap.length === 0;
+  }
+
+  private bubbleUp(index: number): void {
+    const item = this.heap[index];
+    while (index > 0) {
+      const parentIndex = Math.floor((index - 1) / 2);
+      const parent = this.heap[parentIndex];
+      if (this.compare(item, parent) >= 0) break;
+      this.heap[parentIndex] = item;
+      this.heap[index] = parent;
+      index = parentIndex;
+    }
+  }
+
+  private sinkDown(index: number): void {
+    const length = this.heap.length;
+    const item = this.heap[index];
+    
+    while (true) {
+      let leftChildIndex = 2 * index + 1;
+      let rightChildIndex = 2 * index + 2;
+      let swap: number | null = null;
+      let leftChild: T, rightChild: T;
+
+      if (leftChildIndex < length) {
+        leftChild = this.heap[leftChildIndex];
+        if (this.compare(leftChild, item) < 0) {
+          swap = leftChildIndex;
+        }
+      }
+
+      if (rightChildIndex < length) {
+        rightChild = this.heap[rightChildIndex];
+        if (this.compare(rightChild, (swap === null ? item : this.heap[leftChildIndex])) < 0) {
+          swap = rightChildIndex;
+        }
+      }
+
+      if (swap === null) break;
+      this.heap[index] = this.heap[swap];
+      this.heap[swap] = item;
+      index = swap;
+    }
+  }
+}
+
+// ============ 改进的合成图算法（基于 algo.md） ============
+
+interface ItemInfo {
+  depth: number;
+  width: number;
+  recipe: Recipe | null;
+}
+
+class SynthesisGraph {
+  private items: Map<string, ItemInfo>;
+  private recipes: Recipe[];
+  private baseItems: Set<string>;
+  private itemToRecipes: Record<string, Recipe[]>;
+
+  constructor(recipes: Recipe[], baseItemNames: string[], itemToRecipes: Record<string, Recipe[]>) {
+    this.recipes = recipes;
+    this.baseItems = new Set(baseItemNames);
+    this.itemToRecipes = itemToRecipes;
+    this.items = new Map();
+    
+    // 初始化基础物品
+    for (const item of this.baseItems) {
+      this.items.set(item, { depth: 0, width: 1, recipe: null });
+    }
+  }
+
+  /**
+   * 查找最优合成路径（改进的 Dijkstra 算法）
+   */
+  findOptimalPath(target: string): ItemInfo | null {
+    if (this.items.has(target)) {
+      return this.items.get(target)!;
+    }
+
+    // 优先级队列：按 (depth, width, item_name) 排序
+    const heap = new MinHeap<[number, number, string, Recipe | null]>(
+      (a, b) => {
+        // 深度优先
+        if (a[0] !== b[0]) return a[0] - b[0];
+        // 宽度次之
+        if (a[1] !== b[1]) return a[1] - b[1];
+        // 字典序最后
+        return a[2].localeCompare(b[2]);
+      }
+    );
+
+    const visited = new Set<string>();
+
+    // 初始化基础物品
+    for (const item of this.baseItems) {
+      heap.push([0, 1, item, null]);
+    }
+
+    while (!heap.isEmpty()) {
+      const [currentDepth, currentWidth, currentItem, recipe] = heap.pop()!;
+
+      if (visited.has(currentItem)) continue;
+      visited.add(currentItem);
+
+      // 更新当前物品的最优值
+      this.items.set(currentItem, { depth: currentDepth, width: currentWidth, recipe });
+
+      if (currentItem === target) {
+        return this.items.get(currentItem)!;
+      }
+
+      // 查找所有以当前物品为素材的配方
+      const recipesUsingCurrent = this.getRecipesUsing(currentItem);
+      for (const recipe of recipesUsingCurrent) {
+        const otherItem = this.getOtherItem(recipe, currentItem);
+        const resultItem = recipe.result;
+
+        // 只有当另一个素材也有有效路径时才考虑
+        if (!this.items.has(otherItem)) continue;
+
+        const otherInfo = this.items.get(otherItem)!;
+        const newDepth = Math.max(currentDepth, otherInfo.depth) + 1;
+        const newWidth = currentWidth + otherInfo.width;
+
+        // 检查是否找到更优路径
+        if (this.isBetter(newDepth, newWidth, resultItem)) {
+          heap.push([newDepth, newWidth, resultItem, recipe]);
+        }
+      }
+    }
+
+    return null;
+  }
+
+  /**
+   * 获取使用指定物品作为材料的配方
+   */
+  private getRecipesUsing(item: string): Recipe[] {
+    const recipes: Recipe[] = [];
+    for (const recipe of this.recipes) {
+      if (recipe.item_a === item || recipe.item_b === item) {
+        recipes.push(recipe);
+      }
+    }
+    return recipes;
+  }
+
+  /**
+   * 获取配方中的另一个物品
+   */
+  private getOtherItem(recipe: Recipe, currentItem: string): string {
+    return recipe.item_a === currentItem ? recipe.item_b : recipe.item_a;
+  }
+
+  /**
+   * 比较路径是否更优
+   */
+  private isBetter(newDepth: number, newWidth: number, targetItem: string): boolean {
+    if (!this.items.has(targetItem)) return true;
+    
+    const current = this.items.get(targetItem)!;
+    
+    // 深度优先
+    if (newDepth < current.depth) return true;
+    if (newDepth > current.depth) return false;
+    
+    // 宽度次之
+    if (newWidth < current.width) return true;
+    if (newWidth > current.width) return false;
+    
+    // 字典序最后（这里简化处理，总是认为新路径更好）
+    return true;
+  }
+
+  /**
+   * 获取所有物品信息
+   */
+  getAllItems(): Map<string, ItemInfo> {
+    return this.items;
+  }
+
+  /**
+   * 增量更新：当添加新配方时
+   */
+  incrementalUpdate(newRecipe: Recipe): void {
+    const { item_a, item_b, result } = newRecipe;
+    
+    // 只有当两个素材都有有效路径时才考虑
+    if (!this.items.has(item_a) || !this.items.has(item_b)) return;
+    
+    const infoA = this.items.get(item_a)!;
+    const infoB = this.items.get(item_b)!;
+    const newDepth = Math.max(infoA.depth, infoB.depth) + 1;
+    const newWidth = infoA.width + infoB.width;
+    
+    // 检查是否更优
+    if (this.isBetter(newDepth, newWidth, result)) {
+      this.items.set(result, { depth: newDepth, width: newWidth, recipe: newRecipe });
+      // 传播更新到所有依赖此结果的配方
+      this.propagateUpdate(result);
+    }
+  }
+
+  /**
+   * 传播更新到依赖项
+   */
+  private propagateUpdate(item: string): void {
+    const recipesUsingResult = this.getRecipesUsing(item);
+    for (const recipe of recipesUsingResult) {
+      const otherItem = this.getOtherItem(recipe, item);
+      const resultItem = recipe.result;
+      
+      if (this.items.has(otherItem)) {
+        const otherInfo = this.items.get(otherItem)!;
+        const currentInfo = this.items.get(item)!;
+        const newDepth = Math.max(currentInfo.depth, otherInfo.depth) + 1;
+        const newWidth = currentInfo.width + otherInfo.width;
+        
+        if (this.isBetter(newDepth, newWidth, resultItem)) {
+          this.items.set(resultItem, { depth: newDepth, width: newWidth, recipe });
+          this.propagateUpdate(resultItem);
+        }
+      }
+    }
+  }
+}
+
 export class RecipeService {
   private graphCache: GraphCache | null = null;
   private graphCachePromise: Promise<GraphCache> | null = null;
   private readonly CACHE_TTL = 60 * 60 * 1000; // 60 分钟
+  private synthesisGraph: SynthesisGraph | null = null;
 
   /**
    * 处理记录中的 emoji 字段
@@ -226,7 +488,15 @@ export class RecipeService {
       };
 
       this.graphCache = newCache;
-      logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品`);
+      
+      // 5. 初始化 SynthesisGraph 以支持新的改进 Dijkstra 算法
+      this.synthesisGraph = new SynthesisGraph(
+        recipes,
+        baseItemNames,
+        itemToRecipes
+      );
+      
+      logger.info(`图缓存构建完成，包含 ${recipes.length} 个配方和 ${allItemNames.length} 个物品，已初始化 SynthesisGraph`);
 
       return newCache;
     } catch (err) {
@@ -792,15 +1062,30 @@ export class RecipeService {
   }
 
   /**
-   * 搜索合成路径（BFS 算法）- 使用缓存优化
+   * 搜索合成路径（改进的 Dijkstra 算法）- 使用 SynthesisGraph
    */
   async searchPath(targetItem: string): Promise<{ tree: CraftingTreeNode; stats: PathStats } | null> {
     // 使用缓存获取图数据
     const cache = await this.getGraphCache();
 
+    // 初始化 SynthesisGraph 如果不存在
+    if (!this.synthesisGraph) {
+      this.synthesisGraph = new SynthesisGraph(
+        cache.recipes,
+        cache.baseItemNames,
+        cache.itemToRecipes
+      );
+    }
+
+    // 使用改进的 Dijkstra 算法查找最优路径
+    const optimalPath = this.synthesisGraph.findOptimalPath(targetItem);
+
+    if (!optimalPath) {
+      return null;
+    }
+
     // 构建合成树
-    const memo: Record<string, CraftingTreeNode | null> = {};
-    const tree = this.buildCraftingTree(targetItem, cache.baseItemNames, cache.itemToRecipes, memo);
+    const tree = this.buildCraftingTreeFromOptimalPath(targetItem, optimalPath, cache.itemToRecipes, cache.baseItemNames);
 
     if (!tree) {
       return null;
@@ -875,7 +1160,7 @@ export class RecipeService {
         // 基础材料的广度：作为材料被使用的配方数量（两个素材都可达）
         // 对于基础材料，可达物品集合就是基础材料本身
         const baseItems = ['金', '木', '水', '火', '土'];
-        const breadth = this.calculateReachableBreadth(node.item, itemToRecipes, baseItems);
+        const breadth = this.calculateReachableBreadth(node.item, itemToRecipes, new Set(baseItems));
         breadthSum += breadth;
         materials[node.item] = (materials[node.item] || 0) + 1;
         return { maxDepth: depth, steps: 0 };
@@ -923,30 +1208,39 @@ export class RecipeService {
   }
 
   /**
-   * 获取单个物品的最短路径树 - 已改用全局 icicleChartCache
-   * 不再维护内部 LRU 缓存
+   * 获取单个物品的最短路径树 - 使用改进的 Dijkstra 算法
    */
   async getShortestPathTree(itemName: string): Promise<IcicleNode | null> {
     const cache = await this.getGraphCache();
 
-    // 检查物品是否可达
-    if (!cache.reachableItems.has(itemName)) {
+    // 初始化 SynthesisGraph 如果不存在
+    if (!this.synthesisGraph) {
+      this.synthesisGraph = new SynthesisGraph(
+        cache.recipes,
+        cache.baseItemNames,
+        cache.itemToRecipes
+      );
+    }
+
+    // 使用改进的 Dijkstra 算法查找最优路径
+    const optimalPath = this.synthesisGraph.findOptimalPath(itemName);
+
+    if (!optimalPath) {
       logger.info(`物品 ${itemName} 不可达，无法构建路径树`);
       return null;
     }
 
-    // 按需构建树
-    logger.info(`最短路径树：按需构建 ${itemName}`);
-    const globalTreeMemo = new Map<string, IcicleNode | null>();
-    const newTree = this.buildIcicleTreeWithCache(
-      itemName,
-      cache.baseItemNames,
-      cache.itemToRecipes,
-      cache.itemEmojiMap,
-      globalTreeMemo
-    );
+    // 构建合成树
+    const craftingTree = this.buildCraftingTreeFromOptimalPath(itemName, optimalPath, cache.itemToRecipes, cache.baseItemNames);
 
-    return newTree;
+    if (!craftingTree) {
+      return null;
+    }
+
+    // 转换为 IcicleNode 格式
+    const icicleTree = this.convertToIcicleNode(craftingTree, cache.itemEmojiMap);
+
+    return icicleTree;
   }
 
   /**
@@ -1129,6 +1423,107 @@ export class RecipeService {
     logger.info(`不可达物品: ${unreachableItems.size} 个`);
 
     return { reachableItems, unreachableItems };
+  }
+
+  /**
+   * 根据最优路径构建合成树
+   */
+  private buildCraftingTreeFromOptimalPath(
+    targetItem: string,
+    optimalPath: ItemInfo,
+    itemToRecipes: Record<string, Recipe[]>,
+    baseItemNames: string[],
+    visited: Set<string> = new Set()
+  ): CraftingTreeNode | null {
+    // 检测循环依赖
+    if (visited.has(targetItem)) {
+      logger.warn(`检测到循环依赖，跳过物品: ${targetItem}`);
+      return null;
+    }
+    
+    // 如果目标物品是基础材料，直接返回基础节点
+    if (baseItemNames.includes(targetItem)) {
+      return { item: targetItem, is_base: true };
+    }
+
+    // 获取用于合成目标物品的配方
+    const recipes = itemToRecipes[targetItem] || [];
+    if (recipes.length === 0 || !optimalPath.recipe) {
+      return null;
+    }
+
+    // 构建合成树 - 每个配方有两个输入，所以 children 是元组
+    const tree: CraftingTreeNode = {
+      item: targetItem,
+      is_base: false
+    };
+
+    // 使用最优配方构建子节点
+    const recipe = optimalPath.recipe;
+    
+    // 为子节点创建新的访问集合
+    const newVisited = new Set(visited);
+    newVisited.add(targetItem);
+    
+    // 递归构建子节点，但限制深度以防止无限递归
+    if (newVisited.size < 50) { // 设置最大递归深度限制
+      // 为子项查找各自的最优路径
+      if (!this.synthesisGraph) {
+        logger.warn(`SynthesisGraph 未初始化，无法为子项查找最优路径: ${recipe.item_a}, ${recipe.item_b}`);
+        return tree;
+      }
+      const optimalPathA = this.synthesisGraph.findOptimalPath(recipe.item_a);
+      const optimalPathB = this.synthesisGraph.findOptimalPath(recipe.item_b);
+      
+      if (optimalPathA && optimalPathB) {
+        const childA = this.buildCraftingTreeFromOptimalPath(recipe.item_a, optimalPathA, itemToRecipes, baseItemNames, newVisited);
+        const childB = this.buildCraftingTreeFromOptimalPath(recipe.item_b, optimalPathB, itemToRecipes, baseItemNames, newVisited);
+        
+        if (childA && childB) {
+          tree.children = [childA, childB];
+          tree.recipe = [recipe.item_a, recipe.item_b];
+        }
+      } else {
+        logger.warn(`无法为子项找到最优路径: ${recipe.item_a} 或 ${recipe.item_b}`);
+      }
+    } else {
+      logger.warn(`达到最大递归深度限制，跳过物品: ${targetItem}`);
+    }
+
+    return tree;
+  }
+
+  /**
+   * 将 CraftingTreeNode 转换为 IcicleNode
+   */
+  private convertToIcicleNode(
+    craftingTree: CraftingTreeNode,
+    itemEmojiMap: Record<string, string>
+  ): IcicleNode {
+    const node: IcicleNode = {
+      id: craftingTree.item, // 使用物品名称作为 ID
+      name: craftingTree.item,
+      isBase: craftingTree.is_base,
+      value: 1,
+      children: [] // 初始化 children 数组
+    };
+
+    // 添加表情符号
+    if (itemEmojiMap[craftingTree.item]) {
+      node.name = `${itemEmojiMap[craftingTree.item]} ${node.name}`;
+      node.emoji = itemEmojiMap[craftingTree.item];
+    }
+
+    // 递归转换子节点 - children 是元组，但 IcicleNode 的 children 是数组
+    if (craftingTree.children && craftingTree.children.length === 2) {
+      for (const child of craftingTree.children) {
+        if (child) {
+          node.children!.push(this.convertToIcicleNode(child, itemEmojiMap));
+        }
+      }
+    }
+
+    return node;
   }
 
   /**
@@ -1467,7 +1862,7 @@ export class RecipeService {
     if (baseItems.includes(startItem)) {
       // 基础材料的广度：作为材料被使用的配方数量（两个素材都可达）
       // 对于基础材料，可达物品集合就是基础材料本身
-      const breadth = this.calculateReachableBreadth(startItem, itemToRecipes, baseItems);
+      const breadth = this.calculateReachableBreadth(startItem, itemToRecipes, new Set(baseItems));
       const result = { depth: 0, width: 0, breadth };
       memo[startItem] = result;
       return result;
@@ -1517,7 +1912,7 @@ export class RecipeService {
         // 基础材料
         if (baseItems.includes(frame.itemName)) {
           // 基础材料的广度：作为材料被使用的配方数量（两个素材都可达）
-          const breadth = this.calculateReachableBreadth(frame.itemName, itemToRecipes, baseItems);
+          const breadth = this.calculateReachableBreadth(frame.itemName, itemToRecipes, new Set(baseItems));
           memo[frame.itemName] = { depth: 0, width: 0, breadth };
           stack.pop();
           continue;
@@ -1604,19 +1999,16 @@ export class RecipeService {
   private calculateReachableBreadth(
     itemName: string,
     itemToRecipes: Record<string, Recipe[]>,
-    reachableItems: string[] | Set<string>
+    reachableItems: Set<string>
   ): number {
     // 获取所有使用该物品作为产物的配方
     const recipes = itemToRecipes[itemName] || [];
     
-    // 将 reachableItems 转换为 Set 以便快速查找
-    const reachableSet = reachableItems instanceof Set ? reachableItems : new Set(reachableItems);
-    
     // 过滤出两个素材都可达的配方
     const reachableRecipes = recipes.filter(recipe => {
       // 检查配方是否可达：两个材料都必须可达
-      const isItemAReachable = reachableSet.has(recipe.item_a);
-      const isItemBReachable = reachableSet.has(recipe.item_b);
+      const isItemAReachable = reachableItems.has(recipe.item_a);
+      const isItemBReachable = reachableItems.has(recipe.item_b);
       return isItemAReachable && isItemBReachable;
     });
     
@@ -1810,7 +2202,10 @@ export class RecipeService {
         breadth: stats.breadth
       };
     } catch (error) {
-      logger.error(`获取元素 ${itemName} 的可达性统计失败:`, error);
+      logger.error(`获取元素 ${itemName} 的可达性统计失败:`, { 
+        errorMessage: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined
+      });
       throw error;
     }
   }
@@ -1942,7 +2337,7 @@ export class RecipeService {
 
   /**
    * 🔍 从图结构中提取子图并构建为树（核心方法）
-   * 这是按需生成的核心逻辑，直接从图的邻接表构建树
+   * 使用改进的 Dijkstra 算法构建最优路径树
    * 
    * @param itemName 目标物品
    * @param itemToRecipes 图的邻接表（物品 → 配方列表）
@@ -1950,8 +2345,6 @@ export class RecipeService {
    * @param itemEmojiMap 物品emoji映射
    * @param reachableItems 可达物品集合
    * @param maxDepth 最大深度限制
-   * @param currentDepth 当前深度（递归用）
-   * @param visited 已访问节点（防止循环）
    */
   private async extractSubgraphAsTreeAsync(
     itemName: string,
@@ -1961,227 +2354,40 @@ export class RecipeService {
     reachableItems: Set<string>,
     maxDepth?: number
   ): Promise<IcicleNode | null> {
-    // 异步迭代方式构建树，使用 setImmediate 分片让出事件循环
-    
-    interface WorkItem {
-      itemName: string;
-      depth: number;
-      visited: Set<string>;
-      state: 'initial' | 'fetching_children' | 'combining';
-      tryRecipeIndex: number;
-      childA?: IcicleNode | null;
-      childB?: IcicleNode | null;
-    }
-
-    const resultCache = new Map<string, IcicleNode | null>();
-    const stack: WorkItem[] = [];
-    let operationCount = 0; // 计数器，每 100 次操作让出一次事件循环
-
-    const yieldToEventLoop = (): Promise<void> => {
-      return new Promise(resolve => setImmediate(resolve));
-    };
-
-    stack.push({
-      itemName,
-      depth: 0,
-      visited: new Set(),
-      state: 'initial',
-      tryRecipeIndex: 0
-    });
-
-    while (stack.length > 0) {
-      // 每 100 次操作让出一次事件循环
-      operationCount++;
-      if (operationCount % 100 === 0) {
-        await yieldToEventLoop();
-      }
-
-      const work = stack[stack.length - 1];
-      const cacheKey = work.itemName;
-
-      // 状态1：初始处理
-      if (work.state === 'initial') {
-        // 深度限制检查
-        if (maxDepth !== undefined && work.depth >= maxDepth) {
-          stack.pop();
-          resultCache.set(cacheKey, null);
-          continue;
-        }
-
-        // 循环检测
-        if (work.visited.has(work.itemName)) {
-          stack.pop();
-          resultCache.set(cacheKey, null);
-          continue;
-        }
-
-        const isBase = baseItemNames.includes(work.itemName);
-        const emoji = itemEmojiMap[work.itemName];
-
-        // 基础材料节点
-        if (isBase) {
-          stack.pop();
-          resultCache.set(cacheKey, {
-            id: work.itemName,
-            name: work.itemName,
-            emoji,
-            isBase: true,
-            value: 1
-          });
-          continue;
-        }
-
-        // 获取配方
-        const recipes = itemToRecipes[work.itemName];
-
-        // 没有配方的节点
-        if (!recipes || recipes.length === 0) {
-          stack.pop();
-          resultCache.set(cacheKey, {
-            id: work.itemName,
-            name: work.itemName,
-            emoji: emoji ? truncateEmoji(emoji) : undefined,
-            isBase: false,
-            value: 1
-          });
-          continue;
-        }
-
-        // 转换到 fetching_children 状态
-        work.state = 'fetching_children';
-      }
-
-      // 状态2：获取子节点
-      if (work.state === 'fetching_children') {
-        const recipes = itemToRecipes[work.itemName];
-
-        // 🚀 关键优化：只尝试前 3 个配方，不枚举所有配方
-        // 原因：物品可能有数千个配方，枚举会导致内存爆炸（O(k^d)复杂度）
-        const MAX_RECIPES_TO_TRY = 3;
-
-        if (!recipes || work.tryRecipeIndex >= Math.min(recipes.length, MAX_RECIPES_TO_TRY)) {
-          // 前几个配方都尝试过了，返回 null
-          stack.pop();
-          resultCache.set(cacheKey, null);
-          continue;
-        }
-
-        const recipe = recipes[work.tryRecipeIndex];
-        const { item_a, item_b } = recipe;
-
-        const newVisited = new Set(work.visited);
-        newVisited.add(work.itemName);
-
-        // 检查子节点是否已在缓存中
-        const childACached = resultCache.has(item_a);
-        const childBCached = resultCache.has(item_b);
-
-        if (childACached && childBCached) {
-          // 两个子节点都已缓存，合并它们
-          const childA = resultCache.get(item_a)!;
-          const childB = resultCache.get(item_b)!;
-
-          if (childA && childB) {
-            // 两个子节点都成功，使用此配方
-            const value = childA.value + childB.value;
-            stack.pop();
-            resultCache.set(cacheKey, {
-              id: work.itemName,
-              name: work.itemName,
-              emoji: itemEmojiMap[work.itemName] ? truncateEmoji(itemEmojiMap[work.itemName]) : undefined,
-              isBase: false,
-              value,
-              children: [childA, childB],
-              recipe: { item_a, item_b }
-            });
-          } else {
-            // 此配方失败，尝试下一个
-            work.tryRecipeIndex++;
-          }
-        } else {
-          // 需要构建子节点，优先构建 childA
-          if (!childACached) {
-            // 先添加 childB 到栈（这样 childA 会先处理，栈是 LIFO）
-            stack.push({
-              itemName: item_b,
-              depth: work.depth + 1,
-              visited: new Set(newVisited),
-              state: 'initial',
-              tryRecipeIndex: 0
-            });
-
-            // 再添加 childA
-            stack.push({
-              itemName: item_a,
-              depth: work.depth + 1,
-              visited: new Set(newVisited),
-              state: 'initial',
-              tryRecipeIndex: 0
-            });
-
-            // 标记当前工作项为等待状态
-            work.state = 'combining';
-            work.childA = undefined;
-            work.childB = undefined;
-          } else if (!childBCached) {
-            // childA 已缓存，只需要 childB
-            work.childA = resultCache.get(item_a)!;
-
-            stack.push({
-              itemName: item_b,
-              depth: work.depth + 1,
-              visited: new Set(newVisited),
-              state: 'initial',
-              tryRecipeIndex: 0
-            });
-
-            work.state = 'combining';
-            work.childB = undefined;
-          }
-        }
-      }
-
-      // 状态3：合并子节点
-      if (work.state === 'combining') {
-        const recipes = itemToRecipes[work.itemName];
-        const recipe = recipes![work.tryRecipeIndex];
-        const { item_a, item_b } = recipe;
-
-        // 获取缓存中的子节点
-        const childA = work.childA ?? resultCache.get(item_a) ?? undefined;
-        const childB = work.childB ?? resultCache.get(item_b) ?? undefined;
-
-        if (childA !== undefined && childB !== undefined) {
-          if (childA && childB) {
-            // 两个子节点都成功，使用此配方
-            const value = childA.value + childB.value;
-            stack.pop();
-            resultCache.set(cacheKey, {
-              id: work.itemName,
-              name: work.itemName,
-              emoji: itemEmojiMap[work.itemName] ? truncateEmoji(itemEmojiMap[work.itemName]) : undefined,
-              isBase: false,
-              value,
-              children: [childA, childB],
-              recipe: { item_a, item_b }
-            });
-          } else {
-            // 此配方失败，尝试下一个
-            work.state = 'fetching_children';
-            work.tryRecipeIndex++;
-            work.childA = undefined;
-            work.childB = undefined;
-          }
-        }
+    // 使用 SynthesisGraph 改进的 Dijkstra 算法构建最优路径树
+    if (!this.synthesisGraph) {
+      // 如果没有初始化 SynthesisGraph，则使用图缓存数据初始化
+      const cache = await this.getGraphCache();
+      if (cache) {
+        this.synthesisGraph = new SynthesisGraph(
+          cache.recipes,
+          cache.baseItemNames,
+          cache.itemToRecipes
+        );
+      } else {
+        return null;
       }
     }
 
-    return resultCache.get(itemName) ?? null;
+    // 使用改进的 Dijkstra 算法找到最优路径
+    const optimalPath = this.synthesisGraph.findOptimalPath(itemName);
+    if (!optimalPath) {
+      return null;
+    }
+
+    // 使用最优路径构建合成树
+    const craftingTree = this.buildCraftingTreeFromOptimalPath(itemName, optimalPath, itemToRecipes, baseItemNames, new Set());
+    if (!craftingTree) {
+      return null;
+    }
+
+    // 将合成树转换为冰柱图节点格式
+    return this.convertToIcicleNode(craftingTree, itemEmojiMap);
   }
 
   /**
    * 🔍 从图结构中提取子图并构建为树（同步版本，用于其他场景）
-   * 这是按需生成的核心逻辑，直接从图的邻接表构建树
+   * 使用改进的 Dijkstra 算法构建最优路径树
    * 
    * @param itemName 目标物品
    * @param itemToRecipes 物品到配方的映射
@@ -2189,8 +2395,6 @@ export class RecipeService {
    * @param itemEmojiMap 物品到 emoji 的映射
    * @param reachableItems 可达物品集合
    * @param maxDepth 最大深度限制
-   * @param currentDepth 当前深度（递归用）
-   * @param visited 已访问节点（防止循环）
    */
   private extractSubgraphAsTree(
     itemName: string,
@@ -2200,211 +2404,26 @@ export class RecipeService {
     reachableItems: Set<string>,
     maxDepth?: number
   ): IcicleNode | null {
-    // 迭代方式构建树，避免递归栈溢出
-    
-    interface WorkItem {
-      itemName: string;
-      depth: number;
-      visited: Set<string>;
-      state: 'initial' | 'fetching_children' | 'combining';
-      tryRecipeIndex: number;
-      childA?: IcicleNode | null;
-      childB?: IcicleNode | null;
+    // 使用 SynthesisGraph 改进的 Dijkstra 算法构建最优路径树
+    if (!this.synthesisGraph) {
+      // 同步方法无法异步初始化，返回 null
+      return null;
     }
 
-    const resultCache = new Map<string, IcicleNode | null>();
-    const stack: WorkItem[] = [];
-
-    // 初始工作项
-    stack.push({
-      itemName,
-      depth: 0,
-      visited: new Set(),
-      state: 'initial',
-      tryRecipeIndex: 0
-    });
-
-    while (stack.length > 0) {
-      const work = stack[stack.length - 1];
-
-      // 生成缓存键（包含深度和visited状态，但为了简化，只用itemName作为键）
-      const cacheKey = work.itemName;
-
-      // 状态1：初始处理
-      if (work.state === 'initial') {
-        // 深度限制检查
-        if (maxDepth !== undefined && work.depth >= maxDepth) {
-          stack.pop();
-          resultCache.set(cacheKey, null);
-          continue;
-        }
-
-        // 循环检测
-        if (work.visited.has(work.itemName)) {
-          stack.pop();
-          resultCache.set(cacheKey, null);
-          continue;
-        }
-
-        const isBase = baseItemNames.includes(work.itemName);
-        const emoji = itemEmojiMap[work.itemName];
-
-        // 基础材料节点
-        if (isBase) {
-          stack.pop();
-          resultCache.set(cacheKey, {
-            id: work.itemName,
-            name: work.itemName,
-            emoji,
-            isBase: true,
-            value: 1
-          });
-          continue;
-        }
-
-        // 获取配方
-        const recipes = itemToRecipes[work.itemName];
-
-        // 没有配方的节点
-        if (!recipes || recipes.length === 0) {
-          stack.pop();
-          resultCache.set(cacheKey, {
-            id: work.itemName,
-            name: work.itemName,
-            emoji: emoji ? truncateEmoji(emoji) : undefined,
-            isBase: false,
-            value: 1
-          });
-          continue;
-        }
-
-        // 转换到 fetching_children 状态
-        work.state = 'fetching_children';
-        // 不 pop，继续处理
-      }
-
-      // 状态2：获取子节点
-      if (work.state === 'fetching_children') {
-        const recipes = itemToRecipes[work.itemName];
-
-        if (!recipes || work.tryRecipeIndex >= recipes.length) {
-          // 所有配方都尝试过了，返回 null
-          stack.pop();
-          resultCache.set(cacheKey, null);
-          continue;
-        }
-
-        const recipe = recipes[work.tryRecipeIndex];
-        const { item_a, item_b } = recipe;
-
-        const newVisited = new Set(work.visited);
-        newVisited.add(work.itemName);
-
-        // 检查子节点是否已在缓存中
-        const childACached = resultCache.has(item_a);
-        const childBCached = resultCache.has(item_b);
-
-        if (childACached && childBCached) {
-          // 两个子节点都已缓存，合并它们
-          const childA = resultCache.get(item_a)!;
-          const childB = resultCache.get(item_b)!;
-
-          if (childA && childB) {
-            // 两个子节点都成功，使用此配方
-            const value = childA.value + childB.value;
-            stack.pop();
-            resultCache.set(cacheKey, {
-              id: work.itemName,
-              name: work.itemName,
-              emoji: itemEmojiMap[work.itemName] ? truncateEmoji(itemEmojiMap[work.itemName]) : undefined,
-              isBase: false,
-              value,
-              children: [childA, childB],
-              recipe: { item_a, item_b }
-            });
-          } else {
-            // 此配方失败，尝试下一个
-            work.tryRecipeIndex++;
-          }
-        } else {
-          // 需要构建子节点，优先构建 childA
-          if (!childACached) {
-            // 先添加 childB 到栈（这样 childA 会先处理，栈是 LIFO）
-            stack.push({
-              itemName: item_b,
-              depth: work.depth + 1,
-              visited: new Set(newVisited),
-              state: 'initial',
-              tryRecipeIndex: 0
-            });
-
-            // 再添加 childA
-            stack.push({
-              itemName: item_a,
-              depth: work.depth + 1,
-              visited: new Set(newVisited),
-              state: 'initial',
-              tryRecipeIndex: 0
-            });
-
-            // 标记当前工作项为等待状态
-            work.state = 'combining';
-            work.childA = undefined; // 还未获取
-            work.childB = undefined;
-          } else if (!childBCached) {
-            // childA 已缓存，只需要 childB
-            work.childA = resultCache.get(item_a)!;
-
-            stack.push({
-              itemName: item_b,
-              depth: work.depth + 1,
-              visited: new Set(newVisited),
-              state: 'initial',
-              tryRecipeIndex: 0
-            });
-
-            work.state = 'combining';
-            work.childB = undefined;
-          }
-        }
-      }
-
-      // 状态3：合并子节点
-      if (work.state === 'combining') {
-        const recipes = itemToRecipes[work.itemName];
-        const recipe = recipes![work.tryRecipeIndex];
-        const { item_a, item_b } = recipe;
-
-        // 获取缓存中的子节点
-        const childA = work.childA ?? resultCache.get(item_a) ?? undefined;
-        const childB = work.childB ?? resultCache.get(item_b) ?? undefined;
-
-        if (childA !== undefined && childB !== undefined) {
-          if (childA && childB) {
-            // 两个子节点都成功，使用此配方
-            const value = childA.value + childB.value;
-            stack.pop();
-            resultCache.set(cacheKey, {
-              id: work.itemName,
-              name: work.itemName,
-              emoji: itemEmojiMap[work.itemName] ? truncateEmoji(itemEmojiMap[work.itemName]) : undefined,
-              isBase: false,
-              value,
-              children: [childA, childB],
-              recipe: { item_a, item_b }
-            });
-          } else {
-            // 此配方失败，尝试下一个
-            work.state = 'fetching_children';
-            work.tryRecipeIndex++;
-            work.childA = undefined;
-            work.childB = undefined;
-          }
-        }
-      }
+    // 使用改进的 Dijkstra 算法找到最优路径
+    const optimalPath = this.synthesisGraph.findOptimalPath(itemName);
+    if (!optimalPath) {
+      return null;
     }
 
-    return resultCache.get(itemName) ?? null;
+    // 使用最优路径构建合成树
+    const craftingTree = this.buildCraftingTreeFromOptimalPath(itemName, optimalPath, itemToRecipes, baseItemNames);
+    if (!craftingTree) {
+      return null;
+    }
+
+    // 将合成树转换为冰柱图节点格式
+    return this.convertToIcicleNode(craftingTree, itemEmojiMap);
   }
 }
 

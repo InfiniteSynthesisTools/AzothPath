@@ -113,7 +113,7 @@
             v-for="notification in unarchivedNotifications" 
             :key="notification.id" 
             class="notification-item"
-            :class="{ 'notification-unread': !notification.read }"
+            :class="{ 'notification-unread': notification.is_read === 0 }"
           >
             <div class="notification-icon">
               <el-icon :color="getNotificationColor(notification.type)">
@@ -123,13 +123,13 @@
             
             <div class="notification-content">
               <div class="notification-title">{{ notification.title }}</div>
-              <div class="notification-message">{{ notification.message }}</div>
+              <div class="notification-message">{{ notification.content }}</div>
               <div class="notification-time">{{ formatDateTime(notification.created_at) }}</div>
             </div>
             
             <div class="notification-actions">
               <el-button 
-                v-if="!notification.read" 
+                v-if="notification.is_read === 0" 
                 text 
                 size="small" 
                 @click="markAsRead(notification.id)"
@@ -137,7 +137,7 @@
                 标记已读
               </el-button>
               <el-button 
-                v-if="notification.read && !notification.archived" 
+                v-if="notification.is_read === 1 && notification.is_active === 1" 
                 text 
                 size="small" 
                 @click="archiveNotification(notification.id)"
@@ -162,6 +162,7 @@ import { ElMessage } from 'element-plus';
 import { Bell, ChatDotRound, Close, SuccessFilled, WarningFilled, InfoFilled } from '@element-plus/icons-vue';
 import { useImportStore } from '@/stores/import';
 import { formatDateTime } from '@/utils/format';
+import { notificationApi } from '@/api';
 
 // 侧边栏状态
 const isOpen = ref(false);
@@ -169,43 +170,39 @@ const isOpen = ref(false);
 // 导入任务存储
 const importStore = useImportStore();
 
-// 通知数据 - 从本地存储加载或使用默认数据
-const loadNotifications = () => {
-  const saved = localStorage.getItem('azoth_notifications');
-  if (saved) {
-    return JSON.parse(saved);
+// 通知数据 - 从API加载
+const notifications = ref<any[]>([]);
+const loadingNotifications = ref(false);
+
+// 加载通知数据
+const loadNotifications = async () => {
+  try {
+    loadingNotifications.value = true;
+    const result = await notificationApi.getNotifications({
+      page: 1,
+      limit: 50
+    });
+    notifications.value = result.notifications || [];
+  } catch (error) {
+    console.error('加载通知失败:', error);
+    // 如果API失败，使用默认数据
+    notifications.value = [
+      {
+        id: 1,
+        type: 'info',
+        title: '欢迎使用 Azoth Path',
+        content: '感谢您使用我们的合成路径搜索工具！',
+        is_read: 1,
+        is_active: 1,
+        created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      }
+    ];
+  } finally {
+    loadingNotifications.value = false;
   }
-  return [
-    {
-      id: 1,
-      type: 'info',
-      title: '欢迎使用 Azoth Path',
-      message: '感谢您使用我们的合成路径搜索工具！',
-      read: true,
-      archived: false,
-      created_at: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-    },
-    {
-      id: 2,
-      type: 'success',
-      title: '系统更新',
-      message: '新增了最简路径排序功能',
-      read: false,
-      archived: false,
-      created_at: new Date(Date.now() - 1 * 60 * 60 * 1000).toISOString()
-    }
-  ];
 };
 
-const notifications = ref(loadNotifications());
-
-// 保存通知到本地存储
-const saveNotifications = () => {
-  localStorage.setItem('azoth_notifications', JSON.stringify(notifications.value));
-};
-
-// 监听通知变化并保存
-watch(notifications, saveNotifications, { deep: true });
+// 移除本地存储相关代码，现在使用API
 
 // 上传任务数据 - 使用实际的导入任务数据
 const uploadTasks = computed(() => {
@@ -225,11 +222,11 @@ const uploadTasks = computed(() => {
 
 // 计算属性
 const unarchivedNotifications = computed(() => {
-  return notifications.value.filter((n: any) => !n.archived);
+  return notifications.value.filter((n: any) => n.is_active === 1);
 });
 
 const hasNotifications = computed(() => {
-  return unarchivedNotifications.value.some((n: any) => !n.read) || uploadTasks.value.some((t: any) => t.status === 'processing');
+  return unarchivedNotifications.value.some((n: any) => n.is_read === 0) || uploadTasks.value.some((t: any) => t.status === 'processing');
 });
 
 const hasCompletedTasks = computed(() => {
@@ -241,9 +238,10 @@ const toggleSidebar = () => {
   const willOpen = !isOpen.value;
   isOpen.value = willOpen;
   
-  // 打开侧边栏时加载任务数据
+  // 打开侧边栏时加载任务数据和通知数据
   if (willOpen) {
     importStore.fetchImportTasks();
+    loadNotifications();
   }
 };
 
@@ -289,19 +287,37 @@ const getNotificationColor = (type: string) => {
 };
 
 
-const markAsRead = (notificationId: number) => {
-  const notification = notifications.value.find((n: any) => n.id === notificationId);
-  if (notification) {
-    notification.read = true;
+const markAsRead = async (notificationId: number) => {
+  try {
+    await notificationApi.markAsRead(notificationId);
+    const notification = notifications.value.find((n: any) => n.id === notificationId);
+    if (notification) {
+      notification.is_read = 1;
+    }
     ElMessage.success('标记为已读');
+  } catch (error) {
+    console.error('标记已读失败:', error);
+    ElMessage.error('标记已读失败');
   }
 };
 
-const archiveNotification = (notificationId: number) => {
-  const notification = notifications.value.find((n: any) => n.id === notificationId);
-  if (notification) {
-    notification.archived = true;
+const archiveNotification = async (notificationId: number) => {
+  try {
+    // 归档：只设置本地状态，不调用API（避免重复计数）
+    const notification = notifications.value.find((n: any) => n.id === notificationId);
+    if (notification) {
+      // 如果还没有标记为已读，先标记为已读
+      if (notification.is_read === 0) {
+        await notificationApi.markAsRead(notificationId);
+        notification.is_read = 1;
+      }
+      // 然后设置为非活跃状态，从侧边栏隐藏
+      notification.is_active = 0;
+    }
     ElMessage.success('已归档');
+  } catch (error) {
+    console.error('归档失败:', error);
+    ElMessage.error('归档失败');
   }
 };
 
@@ -319,8 +335,9 @@ const clearCompletedTasks = async () => {
   }
 };
 
-// 轮询更新处理中的任务状态
+// 轮询更新处理中的任务状态和通知
 let progressInterval: number | null = null;
+let notificationInterval: number | null = null;
 
 const pollProcessingTasks = () => {
   // 只在侧边栏打开时才轮询
@@ -333,10 +350,22 @@ const pollProcessingTasks = () => {
   }
 };
 
+// 轮询通知数据
+const pollNotifications = () => {
+  // 定期刷新通知数据，不管侧边栏是否打开
+  loadNotifications();
+};
+
 // 启动轮询
 const startPolling = () => {
   if (progressInterval) return; // 避免重复启动
   progressInterval = window.setInterval(pollProcessingTasks, 5000);
+};
+
+// 启动通知轮询
+const startNotificationPolling = () => {
+  if (notificationInterval) return; // 避免重复启动
+  notificationInterval = window.setInterval(pollNotifications, 30000); // 30秒刷新一次通知
 };
 
 // 停止轮询
@@ -344,6 +373,14 @@ const stopPolling = () => {
   if (progressInterval) {
     clearInterval(progressInterval);
     progressInterval = null;
+  }
+};
+
+// 停止通知轮询
+const stopNotificationPolling = () => {
+  if (notificationInterval) {
+    clearInterval(notificationInterval);
+    notificationInterval = null;
   }
 };
 
@@ -359,10 +396,15 @@ watch(isOpen, (newVal) => {
 });
 
 onMounted(() => {
+  // 页面加载时就获取通知数据
+  loadNotifications();
+  // 启动通知轮询
+  startNotificationPolling();
 });
 
 onUnmounted(() => {
   stopPolling();
+  stopNotificationPolling();
 });
 </script>
 

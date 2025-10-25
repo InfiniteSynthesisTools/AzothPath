@@ -251,6 +251,35 @@ CREATE INDEX IF NOT EXISTS idx_item_tags_tag_id ON item_tags(tag_id);
 CREATE INDEX IF NOT EXISTS idx_item_tags_item_tag ON item_tags(item_id, tag_id);
 
 -- ====================================
+-- 9. notifications 表 (系统通知)
+-- ====================================
+CREATE TABLE IF NOT EXISTS notifications (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  title TEXT NOT NULL,  -- 通知标题
+  content TEXT NOT NULL,  -- 通知内容
+  type TEXT DEFAULT 'info',  -- 通知类型: info, warning, success, error
+  target_user_id INTEGER,  -- 目标用户ID，NULL表示全体用户
+  is_read INTEGER DEFAULT 0,  -- 是否已读 (0=未读, 1=已读) - 保留用于单个用户通知
+  is_active INTEGER DEFAULT 1,  -- 是否激活 (0=已删除, 1=激活)
+  created_by_user_id INTEGER NOT NULL,  -- 创建者用户ID
+  read_count INTEGER DEFAULT 0,  -- 已读用户数量
+  total_target_count INTEGER DEFAULT 0,  -- 目标用户总数 (NULL表示全体用户时，需要动态计算)
+  created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+  updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_notifications_target_user_id ON notifications(target_user_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_is_active ON notifications(is_active);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_at ON notifications(created_at);
+CREATE INDEX IF NOT EXISTS idx_notifications_created_by_user_id ON notifications(created_by_user_id);
+
+-- 复合索引：用户通知查询
+CREATE INDEX IF NOT EXISTS idx_notifications_user_active_created ON notifications(target_user_id, is_active, created_at DESC);
+
+-- 复合索引：全体通知查询
+CREATE INDEX IF NOT EXISTS idx_notifications_global_active_created ON notifications(is_active, created_at DESC) WHERE target_user_id IS NULL;
+
+-- ====================================
 -- 初始化完成
 -- ====================================
 SELECT 'Database initialized successfully!' AS message;

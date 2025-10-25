@@ -58,6 +58,10 @@ router.get('/info', async (req: Request, res: Response) => {
         version: process.version,
         uptime: process.uptime()
       },
+      app: {
+        version: process.env.APP_VERSION || '1.0.0',
+        buildTime: process.env.BUILD_TIME || new Date().toISOString()
+      },
       uptime: Math.round(os.uptime() / 3600 * 10) / 10,
       startTime: new Date(Date.now() - os.uptime() * 1000).toISOString()
     };

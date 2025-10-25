@@ -96,6 +96,14 @@
                 <el-tag type="success" size="small">{{ systemInfo.node.version }}</el-tag>
               </div>
               <div class="info-item">
+                <span class="info-label">应用版本</span>
+                <el-tag type="primary" size="small">{{ systemInfo.app.version }}</el-tag>
+              </div>
+              <div class="info-item">
+                <span class="info-label">构建时间</span>
+                <span class="info-value">{{ systemInfo.app.buildTime }}</span>
+              </div>
+              <div class="info-item">
                 <span class="info-label">启动时间</span>
                 <span class="info-value">{{ formatDateTime(systemInfo.startTime) }}</span>
               </div>
@@ -249,6 +257,10 @@ const systemInfo = ref({
   node: {
     version: '',
     uptime: 0
+  },
+  app: {
+    version: '',
+    buildTime: ''
   },
   uptime: 0,
   startTime: ''

@@ -81,6 +81,7 @@ import taskRoutes from './routes/taskRoutes';
 import itemsRoutes from './routes/itemsRoutes';
 import systemRoutes from './routes/systemRoutes';
 import tagRoutes from './routes/tagRoutes';
+import notificationRoutes from './routes/notificationRoutes';
 
 // 导入启动初始化服务
 import { startupService } from './services/startupService';
@@ -110,6 +111,7 @@ app.use('/api/tasks', taskRoutes);
 app.use('/api/items', itemsRoutes);
 app.use('/api/system', systemRoutes);
 app.use('/api/tags', tagRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // 错误处理中间件
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {

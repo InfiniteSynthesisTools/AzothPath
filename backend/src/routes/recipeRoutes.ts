@@ -1,10 +1,12 @@
 import { Router, Request, Response } from 'express';
 import * as jwt from 'jsonwebtoken';
 import { recipeService } from '../services/recipeService';
+import { importService } from '../services/importService';
 import { authMiddleware, AuthRequest } from '../middlewares/auth';
 import { userService } from '../services/userService';
 import { logger } from '../utils/logger';
 import { rateLimits } from '../middlewares/rateLimiter';
+import { database } from '../database/connection';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'development_secret_key';
 
@@ -160,7 +162,13 @@ router.post('/submit', authMiddleware, rateLimits.strict, async (req: AuthReques
       });
     }
 
+    // 创建单个配方导入任务用于跟踪
+    const taskId = await importService.createSingleImportTask(req.userId!, item_a, item_b, result);
+
     const recipeId = await recipeService.submitRecipe(item_a, item_b, result, req.userId!);
+
+    // 更新导入任务状态为成功
+    await importService.markSingleTaskAsSuccess(taskId, recipeId);
 
     // 注意：贡献分增加已经在 recipeService.submitRecipe 中处理了，包括任务自动完成奖励
 
@@ -353,5 +361,82 @@ router.get('/reachability/:item', async (req: Request, res: Response) => {
   }
 });
 
+/**
+ * PUT /api/recipes/:id/creator
+ * 修改配方发现者（管理员权限）
+ */
+router.put('/:id/creator', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const recipeId = parseInt(req.params.id);
+    const { creator_id } = req.body;
+
+    if (isNaN(recipeId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的配方 ID'
+      });
+    }
+
+    if (!creator_id) {
+      return res.status(400).json({
+        code: 400,
+        message: '缺少发现者 ID'
+      });
+    }
+
+    // 检查管理员权限
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({
+        code: 403,
+        message: '需要管理员权限'
+      });
+    }
+
+    // 检查配方是否存在
+    const recipe = await database.get(
+      'SELECT * FROM recipes WHERE id = ?',
+      [recipeId]
+    );
+
+    if (!recipe) {
+      return res.status(404).json({
+        code: 404,
+        message: '配方不存在'
+      });
+    }
+
+    // 检查用户是否存在
+    const user = await database.get(
+      'SELECT * FROM user WHERE id = ?',
+      [creator_id]
+    );
+
+    if (!user) {
+      return res.status(400).json({
+        code: 400,
+        message: '用户不存在'
+      });
+    }
+
+    // 更新配方的发现者
+    await database.run(
+      'UPDATE recipes SET user_id = ? WHERE id = ?',
+      [creator_id, recipeId]
+    );
+
+    logger.info(`管理员 ${req.userId} 修改了配方 ${recipeId} 的发现者为用户 ${creator_id}`);
+
+    res.json({
+      code: 200,
+      message: '发现者修改成功'
+    });
+  } catch (error: any) {
+    logger.error('修改配方发现者失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '修改失败'
+    });
+  }
+});
 
 export default router;

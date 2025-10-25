@@ -66,7 +66,37 @@
             </div>
           </template>
         </el-table-column>
-        <el-table-column prop="creator_name" label="创建者" width="120" />
+        <el-table-column prop="creator_name" label="创建者" width="120">
+          <template #default="{ row }">
+            <div class="creator-cell">
+              <span v-if="!row.editing_creator">{{ row.creator_name }}</span>
+              <el-select 
+                v-else
+                v-model="row.creator_id" 
+                placeholder="选择发现者"
+                size="small"
+                style="width: 100px"
+                @change="saveCreatorChange(row)"
+                @blur="cancelCreatorEdit(row)"
+              >
+                <el-option 
+                  v-for="user in userList" 
+                  :key="user.id" 
+                  :label="user.name" 
+                  :value="user.id" 
+                />
+              </el-select>
+              <el-button 
+                v-if="!row.editing_creator"
+                size="small" 
+                text 
+                @click="startCreatorEdit(row)"
+              >
+                编辑
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="likes" label="点赞数" width="100" sortable>
           <template #default="{ row }">
             <el-tag type="success">{{ row.likes }}</el-tag>
@@ -145,7 +175,7 @@
 import { ref, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh } from '@element-plus/icons-vue';
-import { recipeApi } from '@/api';
+import { recipeApi, userApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
 import { useUserStore } from '@/stores';
 
@@ -161,6 +191,7 @@ const totalRecipes = ref(0);
 const detailDialogVisible = ref(false);
 const selectedRecipe = ref<any>(null);
 const userStore = useUserStore();
+const userList = ref<any[]>([]);
 
 // 方法
 const loadRecipes = async () => {
@@ -246,9 +277,51 @@ const updateRecipePublic = async (row: any, val: boolean) => {
   }
 };
 
+// 发现者编辑相关方法
+const startCreatorEdit = (row: any) => {
+  row.editing_creator = true;
+  row.original_creator_id = row.creator_id;
+};
+
+const cancelCreatorEdit = (row: any) => {
+  row.editing_creator = false;
+  row.creator_id = row.original_creator_id;
+};
+
+const saveCreatorChange = async (row: any) => {
+  try {
+    const { api } = await import('@/utils/request');
+    await api.put(`/recipes/${row.id}/creator`, { creator_id: row.creator_id });
+    
+    // 更新显示名称
+    const selectedUser = userList.value.find(user => user.id === row.creator_id);
+    if (selectedUser) {
+      row.creator_name = selectedUser.name;
+    }
+    
+    row.editing_creator = false;
+    ElMessage.success('发现者更新成功');
+  } catch (error: any) {
+    ElMessage.error(error.message || '更新失败');
+    // 恢复原值
+    row.creator_id = row.original_creator_id;
+    row.editing_creator = false;
+  }
+};
+
+const loadUserList = async () => {
+  try {
+    const result = await userApi.getAllUsers({ page: 1, limit: 1000 });
+    userList.value = result.users;
+  } catch (error) {
+    console.error('加载用户列表失败:', error);
+  }
+};
+
 // 生命周期
 onMounted(() => {
   loadRecipes();
+  loadUserList();
 });
 </script>
 
@@ -301,6 +374,12 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   margin-top: 20px;
+}
+
+.creator-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .recipe-display {

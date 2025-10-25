@@ -178,13 +178,19 @@ export class ImportService {
     page?: number;
     limit?: number;
     status?: string;
+    showDeleted?: boolean; // 是否显示已删除通知的任务
   } = {}): Promise<{ tasks: ImportTask[]; total: number }> {
-    const { page = 1, limit = 20, status } = params;
+    const { page = 1, limit = 20, status, showDeleted = false } = params;
     const offset = (page - 1) * limit;
 
-    // 查询任务汇总表 - 只显示未删除通知的任务
-    let sql = 'SELECT * FROM import_tasks WHERE user_id = ? AND notification_deleted = 0';
+    // 查询任务汇总表
+    let sql = 'SELECT * FROM import_tasks WHERE user_id = ?';
     const sqlParams: any[] = [userId];
+
+    // 如果不显示已删除的任务，则过滤掉已删除通知的任务
+    if (!showDeleted) {
+      sql += ' AND notification_deleted = 0';
+    }
 
     if (status !== undefined) {
       sql += ' AND status = ?';
@@ -197,8 +203,13 @@ export class ImportService {
     const tasks = await database.all<ImportTask>(sql, sqlParams);
 
     // 获取总数
-    let countSql = 'SELECT COUNT(*) as count FROM import_tasks WHERE user_id = ? AND notification_deleted = 0';
+    let countSql = 'SELECT COUNT(*) as count FROM import_tasks WHERE user_id = ?';
     const countParams: any[] = [userId];
+    
+    if (!showDeleted) {
+      countSql += ' AND notification_deleted = 0';
+    }
+    
     if (status !== undefined) {
       countSql += ' AND status = ?';
       countParams.push(status);
@@ -210,6 +221,150 @@ export class ImportService {
       tasks,
       total: totalResult?.count || 0
     };
+  }
+
+  /**
+   * 获取所有导入任务（管理员用）
+   */
+  async getAllImportTasks(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    userId?: number;
+  } = {}): Promise<{ tasks: ImportTask[]; total: number }> {
+    const { page = 1, limit = 20, status, userId } = params;
+    const offset = (page - 1) * limit;
+
+    // 查询所有任务汇总表
+    let sql = 'SELECT * FROM import_tasks WHERE 1=1';
+    const sqlParams: any[] = [];
+
+    if (userId !== undefined) {
+      sql += ' AND user_id = ?';
+      sqlParams.push(userId);
+    }
+
+    if (status !== undefined) {
+      sql += ' AND status = ?';
+      sqlParams.push(status);
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    sqlParams.push(limit, offset);
+
+    const tasks = await database.all<ImportTask>(sql, sqlParams);
+
+    // 获取总数
+    let countSql = 'SELECT COUNT(*) as count FROM import_tasks WHERE 1=1';
+    const countParams: any[] = [];
+    
+    if (userId !== undefined) {
+      countSql += ' AND user_id = ?';
+      countParams.push(userId);
+    }
+    
+    if (status !== undefined) {
+      countSql += ' AND status = ?';
+      countParams.push(status);
+    }
+
+    const totalResult = await database.get<{ count: number }>(countSql, countParams);
+
+    return {
+      tasks,
+      total: totalResult?.count || 0
+    };
+  }
+
+  /**
+   * 创建单个配方导入任务（用于跟踪非批量上传）
+   */
+  async createSingleImportTask(userId: number, itemA: string, itemB: string, result: string): Promise<number> {
+    // 创建任务汇总记录
+    const taskResult = await database.run(
+      'INSERT INTO import_tasks (user_id, total_count, success_count, failed_count, duplicate_count, status, notification_deleted, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [userId, 1, 0, 0, 0, 'processing', 0, getCurrentUTC8TimeForDB(), getCurrentUTC8TimeForDB()]
+    );
+
+    const taskId = taskResult.lastID!;
+
+    // 创建任务明细记录
+    await database.run(
+      'INSERT INTO import_tasks_content (task_id, item_a, item_b, result, status, retry_count, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [taskId, itemA, itemB, result, 'pending', 0, getCurrentUTC8TimeForDB(), getCurrentUTC8TimeForDB()]
+    );
+
+    return taskId;
+  }
+
+  /**
+   * 获取所有导入任务（包括单个配方上传）
+   */
+  async getAllImportTasksWithSingle(params: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    userId?: number;
+  } = {}): Promise<{ tasks: ImportTask[]; total: number }> {
+    const { page = 1, limit = 20, status, userId } = params;
+    const offset = (page - 1) * limit;
+
+    // 查询所有任务汇总表
+    let sql = 'SELECT * FROM import_tasks WHERE 1=1';
+    const sqlParams: any[] = [];
+
+    if (userId !== undefined) {
+      sql += ' AND user_id = ?';
+      sqlParams.push(userId);
+    }
+
+    if (status !== undefined) {
+      sql += ' AND status = ?';
+      sqlParams.push(status);
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    sqlParams.push(limit, offset);
+
+    const tasks = await database.all<ImportTask>(sql, sqlParams);
+
+    // 获取总数
+    let countSql = 'SELECT COUNT(*) as count FROM import_tasks WHERE 1=1';
+    const countParams: any[] = [];
+    
+    if (userId !== undefined) {
+      countSql += ' AND user_id = ?';
+      countParams.push(userId);
+    }
+    
+    if (status !== undefined) {
+      countSql += ' AND status = ?';
+      countParams.push(status);
+    }
+
+    const totalResult = await database.get<{ count: number }>(countSql, countParams);
+
+    return {
+      tasks,
+      total: totalResult?.count || 0
+    };
+  }
+
+  /**
+   * 标记单个任务为成功
+   */
+  async markSingleTaskAsSuccess(taskId: number, recipeId: number): Promise<void> {
+    // 更新任务汇总表
+    await database.run(
+      'UPDATE import_tasks SET status = ?, success_count = 1, updated_at = ? WHERE id = ?',
+      ['completed', getCurrentUTC8TimeForDB(), taskId]
+    );
+
+    // 更新任务明细表
+    await database.run(
+      'UPDATE import_tasks_content SET status = ?, recipe_id = ?, updated_at = ? WHERE task_id = ?',
+      ['success', recipeId, getCurrentUTC8TimeForDB(), taskId]
+    );
   }
 
   /**

@@ -4,6 +4,8 @@ import { authMiddleware, AuthRequest } from '../middlewares/auth';
 import { logger } from '../utils/logger';
 import { rateLimits } from '../middlewares/rateLimiter';
 import { validationLimiter } from '../utils/validationLimiter';
+import { getCurrentUTC8TimeForDB } from '../utils/timezone';
+import { database } from '../database/connection';
 
 const router = Router();
 
@@ -75,12 +77,30 @@ router.get('/', authMiddleware, async (req: AuthRequest, res: Response) => {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 20;
     const status = req.query.status as string | undefined;
+    const showDeleted = req.query.showDeleted === 'true';
 
-    const result = await importService.getUserImportTasks(req.userId!, {
-      page,
-      limit,
-      status
-    });
+    // 检查是否为管理员
+    const isAdmin = req.userRole === 'admin';
+    
+    let result;
+    if (isAdmin) {
+      // 管理员可以查看所有任务（包括单个配方上传）
+      const userId = req.query.userId ? parseInt(req.query.userId as string) : undefined;
+      result = await importService.getAllImportTasksWithSingle({
+        page,
+        limit,
+        status,
+        userId
+      });
+    } else {
+      // 普通用户只能查看自己的任务
+      result = await importService.getUserImportTasks(req.userId!, {
+        page,
+        limit,
+        status,
+        showDeleted
+      });
+    }
 
     res.json({
       code: 200,
@@ -237,6 +257,108 @@ router.get('/unread-completed', authMiddleware, async (req: AuthRequest, res: Re
     res.status(500).json({
       code: 500,
       message: error.message || '获取未读任务失败'
+    });
+  }
+});
+
+/**
+ * DELETE /api/import-tasks/:id
+ * 删除导入任务（管理员权限）
+ */
+router.delete('/:id', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.id);
+
+    if (isNaN(taskId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的任务 ID'
+      });
+    }
+
+    // 检查管理员权限
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({
+        code: 403,
+        message: '需要管理员权限'
+      });
+    }
+
+    // 删除任务及其相关内容
+    await database.run('DELETE FROM import_tasks_content WHERE task_id = ?', [taskId]);
+    await database.run('DELETE FROM import_tasks WHERE id = ?', [taskId]);
+
+    res.json({
+      code: 200,
+      message: '任务删除成功'
+    });
+  } catch (error: any) {
+    logger.error('删除导入任务失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '删除任务失败'
+    });
+  }
+});
+
+/**
+ * POST /api/import-tasks/:id/retry
+ * 重试导入任务（管理员权限）
+ */
+router.post('/:id/retry', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.id);
+
+    if (isNaN(taskId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的任务 ID'
+      });
+    }
+
+    // 检查管理员权限
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({
+        code: 403,
+        message: '需要管理员权限'
+      });
+    }
+
+    // 检查任务是否存在
+    const task = await importService.getImportTask(taskId);
+    if (!task) {
+      return res.status(404).json({
+        code: 404,
+        message: '任务不存在'
+      });
+    }
+
+    // 重置任务状态
+    await database.run(
+      'UPDATE import_tasks SET status = ?, success_count = 0, failed_count = 0, duplicate_count = 0, error_details = NULL, updated_at = ? WHERE id = ?',
+      ['processing', getCurrentUTC8TimeForDB(), taskId]
+    );
+
+    // 重置所有失败的任务内容为待处理
+    await database.run(
+      'UPDATE import_tasks_content SET status = ?, retry_count = 0, error_message = NULL, updated_at = ? WHERE task_id = ? AND status = ?',
+      ['pending', getCurrentUTC8TimeForDB(), taskId, 'failed']
+    );
+
+    // 异步重新开始处理
+    importService.processImportTask(taskId).catch(error => {
+      logger.error(`重试任务失败 (${taskId}):`, error);
+    });
+
+    res.json({
+      code: 200,
+      message: '任务重试已开始'
+    });
+  } catch (error: any) {
+    logger.error('重试导入任务失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '重试任务失败'
     });
   }
 });

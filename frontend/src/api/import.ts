@@ -79,5 +79,15 @@ export const importApi = {
   // 获取未读的已完成任务
   getUnreadCompletedTasks(): Promise<ImportTask[]> {
     return api.get<ImportTask[]>('/import-tasks/unread-completed');
+  },
+
+  // 删除导入任务（管理员）
+  deleteImportTask(id: number): Promise<void> {
+    return api.delete<void>(`/import-tasks/${id}`);
+  },
+
+  // 重试导入任务（管理员）
+  retryImportTask(id: number): Promise<void> {
+    return api.post<void>(`/import-tasks/${id}/retry`);
   }
 };

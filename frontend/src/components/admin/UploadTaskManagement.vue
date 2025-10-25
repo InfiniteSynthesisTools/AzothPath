@@ -155,12 +155,12 @@ const retryTask = async (row: any) => {
       type: 'warning',
     });
     
-    // 这里需要实现重试任务的API
+    await importApi.retryImportTask(row.id);
     ElMessage.success('重试成功');
     loadUploadTasks();
-  } catch (error) {
+  } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error('重试失败');
+      ElMessage.error(error.message || '重试失败');
     }
   }
 };
@@ -173,12 +173,12 @@ const deleteTask = async (row: any) => {
       type: 'error',
     });
     
-    // 这里需要实现删除任务的API
+    await importApi.deleteImportTask(row.id);
     ElMessage.success('删除成功');
     loadUploadTasks();
-  } catch (error) {
+  } catch (error: any) {
     if (error !== 'cancel') {
-      ElMessage.error('删除失败');
+      ElMessage.error(error.message || '删除失败');
     }
   }
 };

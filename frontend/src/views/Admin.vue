@@ -75,17 +75,22 @@
           <RecipeManagement />
         </el-tab-pane>
         
-        <el-tab-pane label="📊 任务管理" name="tasks">
-          <TaskManagement />
+        <el-tab-pane label="🧪 元素管理" name="elements">
+          <ElementManagement />
         </el-tab-pane>
         
         <el-tab-pane label="🏷️ 标签管理" name="tags">
           <TagManagement />
         </el-tab-pane>
         
-        <el-tab-pane label="🧪 元素列表" name="elements">
-          <ElementManagement />
+        <el-tab-pane label="📊 任务管理" name="tasks">
+          <TaskManagement />
         </el-tab-pane>
+        
+        <el-tab-pane label="📢 通知管理" name="notifications">
+          <NotificationManagement />
+        </el-tab-pane>
+        
         <el-tab-pane label="⚙️ 系统详情" name="system">
           <SystemDetails />
         </el-tab-pane>
@@ -106,6 +111,7 @@ import TaskManagement from '@/components/admin/TaskManagement.vue';
 import TagManagement from '@/components/admin/TagManagement.vue';
 import ElementManagement from '@/components/admin/ElementManagement.vue';
 import SystemDetails from '@/components/admin/SystemDetails.vue';
+import NotificationManagement from '@/components/admin/NotificationManagement.vue';
 
 // 响应式数据
 const activeTab = ref('users'); // 默认显示用户管理

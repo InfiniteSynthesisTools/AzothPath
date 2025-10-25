@@ -69,6 +69,28 @@
             <el-tag type="warning">{{ row.recipe_count || 0 }}</el-tag>
           </template>
         </el-table-column>
+        <el-table-column label="标签" min-width="200">
+          <template #default="{ row }">
+            <div class="tags-cell">
+              <el-tag 
+                v-for="tag in row.tags" 
+                :key="tag.id"
+                :color="tag.color"
+                size="small"
+                style="color: white; margin-right: 4px; margin-bottom: 2px;"
+              >
+                {{ tag.name }}
+              </el-tag>
+              <el-button 
+                size="small" 
+                text 
+                @click="showTagDialog(row)"
+              >
+                管理标签
+              </el-button>
+            </div>
+          </template>
+        </el-table-column>
         <el-table-column prop="is_public" label="公开" width="100">
           <template #default="{ row }">
             <el-switch
@@ -134,6 +156,55 @@
         </el-descriptions>
       </div>
     </el-dialog>
+
+    <!-- 标签管理对话框 -->
+    <el-dialog
+      v-model="tagDialogVisible"
+      title="管理标签"
+      width="600px"
+    >
+      <div v-if="selectedElement" class="tag-management">
+        <div class="current-tags">
+          <h4>当前标签：</h4>
+          <div class="tag-list">
+            <el-tag 
+              v-for="tag in selectedElement.tags" 
+              :key="tag.id"
+              :color="tag.color"
+              closable
+              @close="removeTag(tag)"
+              style="color: white; margin-right: 8px; margin-bottom: 8px;"
+            >
+              {{ tag.name }}
+            </el-tag>
+          </div>
+        </div>
+        
+        <div class="add-tags">
+          <h4>添加标签：</h4>
+          <el-select
+            v-model="selectedTagId"
+            placeholder="选择标签"
+            filterable
+            @change="addTag"
+          >
+            <el-option 
+              v-for="tag in availableTags" 
+              :key="tag.id" 
+              :label="tag.name" 
+              :value="tag.id"
+            >
+              <el-tag :color="tag.color" style="color: white; margin-right: 8px;">
+                {{ tag.name }}
+              </el-tag>
+            </el-option>
+          </el-select>
+        </div>
+      </div>
+      <template #footer>
+        <el-button @click="tagDialogVisible = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -141,7 +212,7 @@
 import { ref, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import { Search, Refresh } from '@element-plus/icons-vue';
-import { recipeApi } from '@/api';
+import { recipeApi, tagApi } from '@/api';
 import { useUserStore } from '@/stores';
 
 // 响应式数据
@@ -156,6 +227,9 @@ const totalElements = ref(0);
 const detailDialogVisible = ref(false);
 const selectedElement = ref<any>(null);
 const userStore = useUserStore();
+const tagDialogVisible = ref(false);
+const availableTags = ref<any[]>([]);
+const selectedTagId = ref<number | null>(null);
 
 // 计算属性 - 现在直接使用elements，过滤和排序由后端处理
 const filteredElements = computed(() => elements.value);
@@ -251,6 +325,60 @@ const updateItemPublic = async (row: any, val: boolean) => {
   }
 };
 
+// 标签管理方法
+const showTagDialog = async (element: any) => {
+  selectedElement.value = element;
+  await loadAvailableTags();
+  tagDialogVisible.value = true;
+};
+
+const loadAvailableTags = async () => {
+  try {
+    const result = await tagApi.getTags({ page: 1, limit: 1000 });
+    availableTags.value = result.tags;
+  } catch (error) {
+    console.error('加载标签列表失败:', error);
+    ElMessage.error('加载标签列表失败');
+  }
+};
+
+const addTag = async (tagId: number) => {
+  if (!selectedElement.value || !tagId) return;
+  
+  try {
+    await tagApi.addTagToItem(selectedElement.value.id, tagId);
+    
+    // 更新本地数据
+    const tag = availableTags.value.find(t => t.id === tagId);
+    if (tag && !selectedElement.value.tags.find((t: any) => t.id === tagId)) {
+      selectedElement.value.tags.push(tag);
+    }
+    
+    selectedTagId.value = null;
+    ElMessage.success('标签添加成功');
+  } catch (error: any) {
+    ElMessage.error(error.message || '添加标签失败');
+  }
+};
+
+const removeTag = async (tag: any) => {
+  if (!selectedElement.value) return;
+  
+  try {
+    await tagApi.removeTagFromItem(selectedElement.value.id, tag.id);
+    
+    // 更新本地数据
+    const index = selectedElement.value.tags.findIndex((t: any) => t.id === tag.id);
+    if (index > -1) {
+      selectedElement.value.tags.splice(index, 1);
+    }
+    
+    ElMessage.success('标签移除成功');
+  } catch (error: any) {
+    ElMessage.error(error.message || '移除标签失败');
+  }
+};
+
 // 生命周期
 onMounted(() => {
   loadElements();
@@ -293,5 +421,36 @@ onMounted(() => {
 .emoji {
   font-size: 16px;
   margin-right: 4px;
+}
+
+.tags-cell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+}
+
+.tag-management {
+  padding: 20px 0;
+}
+
+.current-tags {
+  margin-bottom: 20px;
+}
+
+.current-tags h4 {
+  margin: 0 0 10px 0;
+  color: #303133;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.add-tags h4 {
+  margin: 0 0 10px 0;
+  color: #303133;
 }
 </style>

@@ -15,7 +15,6 @@
 
 **Key Files to Understand**:
 - `prd.md` - Complete product requirements and technical specs
-- `recipe_calculator.py` - Python reference for path search algorithms (917 lines)
 - `backend/src/` - TypeScript backend with Express and async processing
 - `frontend/src/` - Vue 3 SPA with TypeScript and Pinia stores
 - `API_DOCUMENTATION.md` - Complete API interface documentation with examples
@@ -157,9 +156,6 @@ const useRecipeStore = defineStore('recipe', () => {
 /frontend - Vue 3 SPA with Composition API
 /backend - RESTful API server with async task processing
 /database - SQLite file (azothpath.db) with WAL mode enabled
-recipe_calculator.py - Python reference implementation for graph algorithms (917 lines)
-                       Contains RecipeGraph class with BFS, memoization, cycle detection
-                       To be ported to TypeScript backend for production use
 ```
 
 ## Database Design Philosophy
@@ -461,7 +457,7 @@ class RecipeGraph:
     item_to_recipes: Dict[str, List]   # item → recipes that can craft it
     reachable_items: Set[str]          # Items craftable from base materials
     valid_recipes: Set[Recipe]         # Recipes with reachable materials
-    base_items: Set[str]               # {"金", "木", "水", "火", "土", "宝石"}
+    base_items: Set[str]               # {"金", "木", "水", "火", "土"}
     self_loop_recipes: Set[Recipe]     # Circular recipes (A+A=A)
     circular_items: Set[str]           # Items involved in cycles
 ```
@@ -595,17 +591,7 @@ def build_all_crafting_trees(item, memo={}):
 
 #### Tree Analysis & Ranking
 
-**Calculate Statistics:**
-```python
-def analyze_tree_stats(tree):
-    return {
-        "depth": max_depth,              # Tree height (合成深度)
-        "steps": total_steps,            # Non-leaf nodes (合成步骤)
-        "total_materials": sum(counts),  # Total base materials needed
-        "material_types": len(materials), # Unique material types
-        "materials": {material: count}    # Material distribution
-    }
-```
+
 
 **"最简路径" Ranking Criteria (in order):**
 1. **深度最小** (`depth` ascending) - Fewest synthesis layers
@@ -623,27 +609,6 @@ paths.sort((a, b) => {
 });
 ```
 
-#### Query Methods
-
-```python
-# Filter recipes by material or result
-query_recipes(material="火", result="凤凰", exact=True, limit=10, offset=0)
-
-# Get all recipes that craft an item
-get_recipes_for_item("剑") → [("铁", "木"), ("钢", "火"), ...]
-
-# Check if recipe exists
-recipe_exists("金", "木", "合金") → bool
-
-# Graph statistics
-get_graph_stats() → {
-    "total_recipes": 1000,
-    "reachable_items": 850,
-    "unreachable_items": 150,
-    "circular_recipes": 5,
-    ...
-}
-```
 
 #### Integration with TypeScript Backend
 
@@ -1134,12 +1099,6 @@ API 文档包含完整的前端 TypeScript 类型定义，确保前后端数据�
 
 ## File References
 - `prd.md` - Complete product requirements and technical specifications
-- `recipe_calculator.py` - Python reference implementation (917 lines) with RecipeGraph class
-  - Implements BFS reachability analysis (O(V+E) complexity)
-  - Multi-path enumeration with memoization (O(k^d) worst case)
-  - Circular dependency detection for A+A=A patterns
-  - Tree analysis with depth/steps/materials statistics
-  - **Status**: Reference implementation, needs TypeScript port for production
 - `API_DOCUMENTATION.md` - Complete API interface documentation with request/response examples and error codes
 - Section 3.2.1 in prd.md - Complete algorithm design with complexity analysis
 - Section 4.2.4 in prd.md - Complete SQL schema with indexes

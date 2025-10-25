@@ -70,13 +70,37 @@ jobs:
         # Create simple startup script
         cat > release/start.sh << 'EOF'
         #!/bin/bash
+        
+        # 加载环境变量（确保 node 在 PATH 中）
+        export PATH="/usr/local/bin:/usr/bin:/bin:$PATH"
+        [ -f "$HOME/.bashrc" ] && source "$HOME/.bashrc"
+        [ -f "$HOME/.profile" ] && source "$HOME/.profile"
+        
+        # 尝试找到 node 可执行文件
+        NODE_BIN=$(which node 2>/dev/null || command -v node 2>/dev/null || echo "/usr/bin/node")
+        
+        if [ ! -x "$NODE_BIN" ]; then
+          echo "❌ 错误: 找不到 node 可执行文件"
+          echo "请确保 Node.js 已安装并在 PATH 中"
+          exit 1
+        fi
+        
         echo "🚀 Starting Azoth Path..."
+        echo "📍 Node.js: $NODE_BIN ($(${NODE_BIN} --version))"
+        
         cd backend
         npm install --verbose --progress=true --production
+        
+        mkdir -p ../logs
         LOGFILE="../logs/backend_$(date +%Y%m%d_%H%M%S).log"
-        nohup node dist/index.js > "$LOGFILE" 2>&1 &
+        
+        nohup "$NODE_BIN" dist/index.js > "$LOGFILE" 2>&1 &
+        PID=$!
+        
         echo ""
-        echo "✅ 后端已启动，日志文件: $LOGFILE"
+        echo "✅ 后端已启动"
+        echo "   PID: $PID"
+        echo "   日志: $LOGFILE"
         echo "📝 前端静态文件位于 frontend 目录"
         echo "💡 请使用 Nginx 或其他 Web 服务器托管前端文件"
         EOF
@@ -233,9 +257,10 @@ jobs:
             chmod +x AzothPath/start.sh
           fi
           
-          # package.json 应该在 backend/dist/ 里
-          if [ -f "AzothPath/backend/package.json" ]; then
-            cp AzothPath/backend/package.json AzothPath/backend/package.json
+          # package.json 应该在 backend/dist/ 里，复制到 backend/ 根目录
+          if [ -f "AzothPath/backend/dist/package.json" ]; then
+            cp AzothPath/backend/dist/package.json AzothPath/backend/package.json
+            echo "  ✅ package.json 已就位"
           fi
           
           # 6. 清理临时文件

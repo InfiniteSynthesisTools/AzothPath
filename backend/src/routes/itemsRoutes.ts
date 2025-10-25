@@ -39,12 +39,12 @@ router.get('/random', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/items/:id
+ * GET /api/items/:identifier
  * 获取单个物品详情（支持ID和物品名搜索）
  */
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:identifier', async (req: Request, res: Response) => {
   try {
-    const idOrName = req.params.id;
+    const idOrName = req.params.identifier;
     
     // 判断是数字ID还是物品名
     const id = parseInt(idOrName);

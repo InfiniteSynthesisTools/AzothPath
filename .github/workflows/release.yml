@@ -212,7 +212,7 @@ jobs:
           # 5. 移动文件到正确位置
           echo "📂 移动文件..."
           [ -d "azoth-path/frontend" ] && mv azoth-path/frontend AzothPath/frontend
-          [ -d "azoth-path/backend/dist" ] && mv azoth-path/backend/dist AzothPath/backend/dist
+          [ -d "azoth-path/backend" ] && mv azoth-path/backend AzothPath/backend/dist
           
           # 6. 清理临时文件
           echo "🧹 清理临时文件..."

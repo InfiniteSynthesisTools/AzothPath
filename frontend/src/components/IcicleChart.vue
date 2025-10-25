@@ -84,7 +84,8 @@ const visibleNodes = computed(() => {
     }
 
     chartHeight.value = Math.max(maxY + 100, 300)
-    chartWidth.value = Math.max(maxX + 100, props.width)
+    // 优化宽度计算：确保图表宽度足够显示所有内容，但不超过实际需要的宽度
+    chartWidth.value = Math.max(maxX, props.width)
   } else {
     chartHeight.value = 200
     chartWidth.value = props.width

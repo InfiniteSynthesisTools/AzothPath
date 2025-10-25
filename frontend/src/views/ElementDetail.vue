@@ -1007,8 +1007,10 @@ onMounted(() => {
   padding: 24px;
   min-height: 300px;
   display: flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  justify-content: flex-start;
+  overflow-x: auto;
+  width: 100%;
 }
 
 .chart-loading {

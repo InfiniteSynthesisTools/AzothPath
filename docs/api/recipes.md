@@ -55,18 +55,24 @@
 
 ## 获取配方详情
 
-### GET /api/recipes/:id
+### GET /api/recipes/:identifier
 
-获取配方详情
+获取配方详情（支持ID和结果物品名搜索）
 
 #### 请求信息
 - **方法：** GET
-- **路径：** `/api/recipes/:id`
+- **路径：** `/api/recipes/:identifier`
 - **认证：** 无需认证
-- **示例链接：** [http://localhost:19198/api/recipes/1](http://localhost:19198/api/recipes/1)
+- **示例链接：** 
+  - 按ID搜索：[http://localhost:19198/api/recipes/1](http://localhost:19198/api/recipes/1)
+  - 按结果物品名搜索：[http://localhost:19198/api/recipes/蒸汽](http://localhost:19198/api/recipes/蒸汽)
 
 #### 路径参数
-- `id`: 配方ID
+- `identifier` (string): 配方ID（数字）或结果物品名称（字符串）
+
+#### 搜索方式
+1. **数字ID搜索**：`/api/recipes/1` - 通过配方ID查找
+2. **结果物品名搜索**：`/api/recipes/蒸汽` - 通过结果物品名称查找（返回最受欢迎的配方）
 
 #### 响应示例
 ```json

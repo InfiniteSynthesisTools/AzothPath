@@ -597,6 +597,33 @@ export class RecipeService {
   }
 
   /**
+   * 根据配方结果物品名称获取配方详情
+   */
+  async getRecipeByResultName(resultName: string) {
+    const recipe = await databaseAdapter.get(
+      `SELECT r.*, u.name as creator_name,
+              ia.emoji as item_a_emoji,
+              ib.emoji as item_b_emoji,
+              ir.emoji as result_emoji
+       FROM recipes r
+       LEFT JOIN user u ON r.user_id = u.id
+       LEFT JOIN items ia ON ia.name = r.item_a
+       LEFT JOIN items ib ON ib.name = r.item_b  
+       LEFT JOIN items ir ON ir.name = r.result
+       WHERE r.result = ? AND r.is_public = 1
+       ORDER BY r.likes DESC, r.created_at DESC
+       LIMIT 1`,
+      [resultName]
+    );
+
+    if (!recipe) {
+      throw new Error('配方不存在');
+    }
+
+    return this.truncateRecordEmojis(recipe);
+  }
+
+  /**
    * 提交配方（含验证和去重）
    */
   async submitRecipe(itemA: string, itemB: string, result: string, creatorId: number) {

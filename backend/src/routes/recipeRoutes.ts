@@ -94,13 +94,24 @@ router.get('/shortest-path/:item', async (req: Request, res: Response) => {
 });
 
 /**
- * GET /api/recipes/:id
- * 获取配方详情
+ * GET /api/recipes/:identifier
+ * 获取配方详情（支持ID和结果物品名搜索）
  */
-router.get('/:id', async (req: Request, res: Response) => {
+router.get('/:identifier', async (req: Request, res: Response) => {
   try {
-    const id = parseInt(req.params.id);
-    const recipe = await recipeService.getRecipeById(id);
+    const idOrName = req.params.identifier;
+    
+    // 判断是数字ID还是结果物品名
+    const id = parseInt(idOrName);
+    let recipe;
+    
+    if (!isNaN(id)) {
+      // 数字ID，按ID查找
+      recipe = await recipeService.getRecipeById(id);
+    } else {
+      // 结果物品名，按结果物品名称查找
+      recipe = await recipeService.getRecipeByResultName(idOrName);
+    }
 
     res.json({
       code: 200,

@@ -2,8 +2,7 @@ name: Build Release
 
 on:
   push:
-    tags:
-      - 'v*'
+    branches: main
   workflow_dispatch:
 
 jobs:
@@ -75,9 +74,9 @@ jobs:
         
     - name: Create release archive
       run: |
-        cd release
-        tar -czf ../azoth-path-release.tar.gz .
-        zip -r ../azoth-path-release.zip .
+        # Create flat archive structure (no nested directories)
+        tar -czf azoth-path-release.tar.gz -C release .
+        cd release && zip -r ../azoth-path-release.zip . -x "*.git*"
         
     - name: Upload release artifacts
       uses: actions/upload-artifact@v4

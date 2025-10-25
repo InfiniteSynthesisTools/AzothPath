@@ -7,7 +7,7 @@
 ### Build Release (`release.yml`)
 
 **触发条件：**
-- 推送标签（如 `v1.0.0`）
+- 推送到 `main` 或 `develop` 分支
 - 手动触发
 
 **功能：**
@@ -20,25 +20,28 @@
 
 ## 使用方法
 
-### 发布版本
+### 自动构建
 
-1. **创建标签发布**：
-   ```bash
-   git tag v1.0.0
-   git push origin v1.0.0
-   ```
+每次推送到 `main` 或 `develop` 分支都会自动触发构建：
 
-2. **手动触发发布**：
-   - 进入 GitHub Actions 页面
-   - 选择 "Build Release" 工作流
-   - 点击 "Run workflow"
+```bash
+git push origin main
+# 或
+git push origin develop
+```
+
+### 手动触发构建
+
+- 进入 GitHub Actions 页面
+- 选择 "Build Release" 工作流
+- 点击 "Run workflow"
 
 ## 构建产物
 
 ### Release 产物
 
-- `azoth-path-release.tar.gz` - Linux/macOS 发布包
-- `azoth-path-release.zip` - Windows 发布包
+- `azoth-path-release.tar.gz` - Linux/macOS 发布包（扁平结构）
+- `azoth-path-release.zip` - Windows 发布包（扁平结构）
 - GitHub Release 页面
 
 ## 部署说明
@@ -51,9 +54,13 @@
 
 2. **解压并启动**：
    ```bash
+   # Linux/macOS
    tar -xzf azoth-path-release.tar.gz
-   cd azoth-path-release
    ./start.sh
+   
+   # Windows
+   unzip azoth-path-release.zip
+   start.sh
    ```
 
 ### 访问地址

@@ -33,7 +33,6 @@ export interface PathStats {
   depth: number;
   width: number;
   total_materials: number;
-  breadth: number;
   materials: Record<string, number>;
 }
 
@@ -51,7 +50,6 @@ export interface IcicleNode {
   stats?: {
     depth: number;
     width: number;
-    breadth: number;
   };
 }
 
@@ -617,8 +615,7 @@ export class RecipeService {
             return {
               ...recipe,
               depth: pathStats.depth,
-              width: pathStats.width,
-              breadth: pathStats.breadth
+              width: pathStats.width
             };
           } catch (error) {
             logger.error(`计算配方 ${recipe.id} 的统计信息失败:`, error);
@@ -1149,30 +1146,21 @@ export class RecipeService {
    */
   private calculateTreeStats(tree: CraftingTreeNode, itemToRecipes: Record<string, Recipe[]>): PathStats {
     const materials: Record<string, number> = {};
-    let breadthSum = 0;
 
     const traverse = (node: CraftingTreeNode, depth: number, isRoot: boolean = true): { maxDepth: number; steps: number } => {
-      // 计算该节点的广度（该物品作为产物被使用的直接配方数量，且配方的两个素材都确保可达）
       const recipes = itemToRecipes[node.item] || [];
 
-      // 如果是基础材料，广度是作为材料被使用的配方数量（两个素材都可达）
       if (node.is_base) {
-        // 基础材料的广度：作为材料被使用的配方数量（两个素材都可达）
         // 对于基础材料，可达物品集合就是基础材料本身
         const baseItems = ['金', '木', '水', '火', '土'];
-        const breadth = this.calculateReachableBreadth(node.item, itemToRecipes, new Set(baseItems));
-        breadthSum += breadth;
         materials[node.item] = (materials[node.item] || 0) + 1;
         return { maxDepth: depth, steps: 0 };
       }
 
-      // 对于合成材料，广度是能合成该材料的配方数量（两个素材都确保可达）
       if (!isRoot) {
         // 构建可达物品集合
         const baseItems = ['金', '木', '水', '火', '土'];
         const reachableItems = this.buildReachableItemsSet(baseItems, itemToRecipes);
-        const breadth = this.calculateReachableBreadth(node.item, itemToRecipes, reachableItems);
-        breadthSum += breadth;
       }
 
       // 确保子节点不为null才进行递归遍历
@@ -1202,7 +1190,6 @@ export class RecipeService {
       depth: maxDepth,
       width: steps,
       total_materials: totalMaterials,
-      breadth: breadthSum,
       materials
     };
   }
@@ -1323,8 +1310,6 @@ export class RecipeService {
           if (statsA.depth !== statsB.depth) return statsA.depth - statsB.depth;
           // 宽度最小优先
           if (statsA.width !== statsB.width) return statsA.width - statsB.width;
-          // 广度最大优先
-          if (statsA.breadth !== statsB.breadth) return statsB.breadth - statsA.breadth;
           // 字典序
           return a.item_a.localeCompare(b.item_a) || a.item_b.localeCompare(b.item_b);
         });
@@ -1785,14 +1770,10 @@ export class RecipeService {
 
     const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);
 
-    // 广度定义为：该物品作为产物被使用的直接配方数量，且配方的两个素材都确保可达
-    const breadth = this.calculateReachableBreadth(node.name, itemToRecipes, reachableItems);
-
     return {
       depth: maxDepth,
       width: totalSteps,
       total_materials: totalMaterials,
-      breadth: breadth,
       materials
     };
   }
@@ -1804,8 +1785,8 @@ export class RecipeService {
     recipe: Recipe,
     baseItems: string[],
     itemToRecipes: Record<string, Recipe[]>,
-    memo: Record<string, { depth: number; width: number; breadth: number }> = {}
-  ): { depth: number; width: number; breadth: number } {
+    memo: Record<string, { depth: number; width: number }> = {}
+  ): { depth: number; width: number } {
     const cacheKey = `${recipe.item_a}_${recipe.item_b}_${recipe.result}`;
     if (memo[cacheKey]) {
       return memo[cacheKey];
@@ -1820,10 +1801,8 @@ export class RecipeService {
     const depth = Math.max(statsA.depth, statsB.depth);
     // 宽度：两个素材的宽度总和
     const width = statsA.width + statsB.width;
-    // 广度：两个素材的广度总和
-    const breadth = statsA.breadth + statsB.breadth;
 
-    const result = { depth, width, breadth };
+    const result = { depth, width };
     memo[cacheKey] = result;
     return result;
   }
@@ -1852,18 +1831,15 @@ export class RecipeService {
     startItem: string,
     baseItems: string[],
     itemToRecipes: Record<string, Recipe[]>,
-    memo: Record<string, { depth: number; width: number; breadth: number }> = {}
-  ): { depth: number; width: number; breadth: number } {
+    memo: Record<string, { depth: number; width: number }> = {}
+  ): { depth: number; width: number } {
     if (memo[startItem]) {
       return memo[startItem];
     }
 
     // 快速检查基础材料
     if (baseItems.includes(startItem)) {
-      // 基础材料的广度：作为材料被使用的配方数量（两个素材都可达）
-      // 对于基础材料，可达物品集合就是基础材料本身
-      const breadth = this.calculateReachableBreadth(startItem, itemToRecipes, new Set(baseItems));
-      const result = { depth: 0, width: 0, breadth };
+      const result = { depth: 0, width: 0 };
       memo[startItem] = result;
       return result;
     }
@@ -1871,8 +1847,7 @@ export class RecipeService {
     // 快速检查是否有配方
     const recipes = itemToRecipes[startItem];
     if (!recipes || recipes.length === 0) {
-      // 没有配方的物品不可及，广度不计算
-      const result = { depth: 0, width: 0, breadth: 0 };
+      const result = { depth: 0, width: 0 };
       memo[startItem] = result;
       return result;
     }
@@ -1884,8 +1859,8 @@ export class RecipeService {
       itemName: string;
       stage: 'process' | 'combine';
       recipe?: Recipe;
-      statsA?: { depth: number; width: number; breadth: number };
-      statsB?: { depth: number; width: number; breadth: number };
+      statsA?: { depth: number; width: number };
+      statsB?: { depth: number; width: number };
     }
 
     const stack: StackFrame[] = [{ itemName: startItem, stage: 'process' }];
@@ -1903,17 +1878,15 @@ export class RecipeService {
 
         // 检测循环依赖
         if (processing.has(frame.itemName)) {
-          // 循环依赖的物品不可及，广度不计算
-          memo[frame.itemName] = { depth: 0, width: 0, breadth: 0 };
+          // 循环依赖的物品不可及
+          memo[frame.itemName] = { depth: 0, width: 0};
           stack.pop();
           continue;
         }
 
         // 基础材料
         if (baseItems.includes(frame.itemName)) {
-          // 基础材料的广度：作为材料被使用的配方数量（两个素材都可达）
-          const breadth = this.calculateReachableBreadth(frame.itemName, itemToRecipes, new Set(baseItems));
-          memo[frame.itemName] = { depth: 0, width: 0, breadth };
+          memo[frame.itemName] = { depth: 0, width: 0 };
           stack.pop();
           continue;
         }
@@ -1921,8 +1894,7 @@ export class RecipeService {
         // 没有配方
         const itemRecipes = itemToRecipes[frame.itemName];
         if (!itemRecipes || itemRecipes.length === 0) {
-          // 没有配方的物品不可及，广度不计算
-          memo[frame.itemName] = { depth: 0, width: 0, breadth: 0 };
+          memo[frame.itemName] = { depth: 0, width: 0 };
           stack.pop();
           continue;
         }
@@ -1946,22 +1918,19 @@ export class RecipeService {
       } else if (frame.stage === 'combine') {
         // 依赖已处理，合并结果
         const recipe = frame.recipe!;
-        const statsA = memo[recipe.item_a] || { depth: 0, width: 0, breadth: 0 };
-        const statsB = memo[recipe.item_b] || { depth: 0, width: 0, breadth: 0 };
+        const statsA = memo[recipe.item_a] || { depth: 0, width: 0 };
+        const statsB = memo[recipe.item_b] || { depth: 0, width: 0 };
 
-        // 广度：该物品作为产物被使用的直接配方数量，且配方的两个素材都确保可达
-        const reachableItems = this.buildReachableItemsSet(baseItems, itemToRecipes);
-        const breadth = this.calculateReachableBreadth(frame.itemName, itemToRecipes, reachableItems);
         const depth = Math.max(statsA.depth, statsB.depth) + 1;
         const width = statsA.width + statsB.width + 1;
 
-        memo[frame.itemName] = { depth, width, breadth };
+        memo[frame.itemName] = { depth, width };
         processing.delete(frame.itemName);
         stack.pop();
       }
     }
 
-    return memo[startItem] || { depth: 0, width: 0, breadth: 0 };
+    return memo[startItem] || { depth: 0, width: 0 };
   }
 
   /**
@@ -1993,27 +1962,7 @@ export class RecipeService {
     return reachableItems;
   }
 
-  /**
-   * 计算物品的可达广度：该物品作为产物被使用的直接配方数量，且配方的两个素材都确保可达
-   */
-  private calculateReachableBreadth(
-    itemName: string,
-    itemToRecipes: Record<string, Recipe[]>,
-    reachableItems: Set<string>
-  ): number {
-    // 获取所有使用该物品作为产物的配方
-    const recipes = itemToRecipes[itemName] || [];
-    
-    // 过滤出两个素材都可达的配方
-    const reachableRecipes = recipes.filter(recipe => {
-      // 检查配方是否可达：两个材料都必须可达
-      const isItemAReachable = reachableItems.has(recipe.item_a);
-      const isItemBReachable = reachableItems.has(recipe.item_b);
-      return isItemAReachable && isItemBReachable;
-    });
-    
-    return reachableRecipes.length;
-  }
+
 
   /**
    * 获取随机物品
@@ -2174,7 +2123,6 @@ export class RecipeService {
     reachable: boolean;
     depth?: number;
     width?: number;
-    breadth?: number;
   }> {
     try {
       const cache = await this.getGraphCache();
@@ -2198,8 +2146,7 @@ export class RecipeService {
       return {
         reachable: true,
         depth: stats.depth,
-        width: stats.width,
-        breadth: stats.breadth
+        width: stats.width
       };
     } catch (error) {
       logger.error(`获取元素 ${itemName} 的可达性统计失败:`, { 
@@ -2311,8 +2258,7 @@ export class RecipeService {
         const stats = this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
         tree.stats = {
           depth: stats.depth,
-          width: stats.width,
-          breadth: stats.breadth
+          width: stats.width
         };
       }
 

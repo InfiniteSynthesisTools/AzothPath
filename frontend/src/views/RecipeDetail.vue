@@ -139,18 +139,7 @@
               </div>
             </div>
           </el-col>
-          <el-col :xs="12" :sm="8">
-            <div class="difficulty-card">
-              <div class="difficulty-label">广度</div>
-              <div class="difficulty-value">{{ recipe.breadth || 0 }}</div>
-              <div class="difficulty-bar">
-                <el-progress 
-                  :percentage="Math.min((recipe.breadth || 0) * 10, 100)" 
-                  :color="getDifficultyColor(Math.min((recipe.breadth || 0) * 10, 100))"
-                />
-              </div>
-            </div>
-          </el-col>
+
         </el-row>
       </div>
 

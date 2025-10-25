@@ -137,13 +137,7 @@
             </div>
           </el-col>
           <el-col :xs="12" :sm="4">
-            <div class="stat-card">
-              <div class="stat-icon">🌐</div>
-              <div class="stat-content">
-                <div class="stat-value">{{ reachabilityStats.breadth || 0 }}</div>
-                <div class="stat-label">广度</div>
-              </div>
-            </div>
+
           </el-col>
         </el-row>
       </div>

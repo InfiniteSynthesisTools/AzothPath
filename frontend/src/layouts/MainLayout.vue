@@ -13,7 +13,7 @@
         </el-button>
         
         <div class="logo" @click="router.push('/')">
-          <h1>✨ Azoth Path</h1>
+          <h1>Azoth Path</h1>
           <span class="subtitle">无尽合成工具站</span>
         </div>
         

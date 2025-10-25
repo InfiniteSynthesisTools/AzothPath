@@ -93,7 +93,7 @@
           </el-col>
           <el-col :xs="12" :sm="6">
             <div class="stat-card">
-              <div class="stat-icon">👤</div>
+              <div class="stat-icon">{{ element.discoverer_emoji || '👤' }}</div>
               <div class="stat-content">
                 <div class="stat-value">{{ element.discoverer_name || '-' }}</div>
                 <div class="stat-label">发现者</div>

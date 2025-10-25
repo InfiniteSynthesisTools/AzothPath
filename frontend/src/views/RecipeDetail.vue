@@ -74,7 +74,7 @@
         <el-row :gutter="20">
           <el-col :xs="12" :sm="6">
             <div class="stat-card">
-              <div class="stat-icon">👤</div>
+              <div class="stat-icon">{{ recipe.creator_emoji || '👤' }}</div>
               <div class="stat-content">
                 <div class="stat-value">{{ recipe.creator_name || '未知用户' }}</div>
                 <div class="stat-label">发现者</div>

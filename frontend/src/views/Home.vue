@@ -2,8 +2,8 @@
   <div class="home">
     <!-- Hero 横幅 -->
     <div class="hero-section">
-      <h2>🎮 探索无尽合成的奥秘</h2>
-      <p>收集、分享、发现 - 社区驱动的合成配方数据库</p>
+      <h2>Azoth Path</h2>
+      <p>无尽合成工具站</p>
     </div>
 
     <!-- 统计信息 -->

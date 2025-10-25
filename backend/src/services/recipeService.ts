@@ -843,7 +843,7 @@ export class RecipeService {
    */
   async getRecipeById(id: number) {
     const recipe = await databaseAdapter.get(
-      `SELECT r.*, u.name as creator_name,
+      `SELECT r.*, u.name as creator_name, u.emoji as creator_emoji,
               ia.emoji as item_a_emoji,
               ib.emoji as item_b_emoji,
               ir.emoji as result_emoji
@@ -868,7 +868,7 @@ export class RecipeService {
    */
   async getRecipeByResultName(resultName: string) {
     const recipe = await databaseAdapter.get(
-      `SELECT r.*, u.name as creator_name,
+      `SELECT r.*, u.name as creator_name, u.emoji as creator_emoji,
               ia.emoji as item_a_emoji,
               ib.emoji as item_b_emoji,
               ir.emoji as result_emoji
@@ -1515,12 +1515,13 @@ export class RecipeService {
    * 获取单个物品详情
    */
   async getItemById(id: number) {
-    const item = await databaseAdapter.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string }>(
+    const item = await databaseAdapter.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string; discoverer_emoji?: string }>(
       `SELECT 
          i.*,
          COALESCE(usage_stats.usage_count, 0) as usage_count,
          COALESCE(result_stats.recipe_count, 0) as recipe_count,
-         u.name as discoverer_name
+         u.name as discoverer_name,
+         u.emoji as discoverer_emoji
        FROM items i
        LEFT JOIN user u ON i.user_id = u.id
        LEFT JOIN (
@@ -1554,12 +1555,13 @@ export class RecipeService {
    * 根据物品名称获取物品详情
    */
   async getItemByName(name: string) {
-    const item = await databaseAdapter.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string }>(
+    const item = await databaseAdapter.get<Item & { usage_count: number; recipe_count: number; discoverer_name?: string; discoverer_emoji?: string }>(
       `SELECT 
          i.*,
          COALESCE(usage_stats.usage_count, 0) as usage_count,
          COALESCE(result_stats.recipe_count, 0) as recipe_count,
-         u.name as discoverer_name
+         u.name as discoverer_name,
+         u.emoji as discoverer_emoji
        FROM items i
        LEFT JOIN user u ON i.user_id = u.id
        LEFT JOIN (

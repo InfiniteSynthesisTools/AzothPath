@@ -1243,64 +1243,41 @@ export class RecipeService {
         return null;
       }
 
-      // 尝试第一个配方（优先使用排序后的最优配方）
-      const recipe = recipes[0];
-      const childA = build(recipe.item_a, depth + 1);
-      const childB = build(recipe.item_b, depth + 1);
+      // 🚀 关键优化：只尝试前 3 个配方，不枚举所有配方
+      // 原因：物品可能有数千个配方，枚举会导致递归爆炸（O(k^d)复杂度）
+      // 配方已按"最简路径"排序，前 3 个最有代表性
+      const MAX_RECIPES_TO_TRY = 3;
+      const recipesToTry = recipes.slice(0, MAX_RECIPES_TO_TRY);
 
-      if (!childA || !childB) {
-        // 第一个配方失败，尝试其他配方
-        for (let i = 1; i < recipes.length; i++) {
-          const nextRecipe = recipes[i];
-          const nextChildA = build(nextRecipe.item_a, depth + 1);
-          const nextChildB = build(nextRecipe.item_b, depth + 1);
+      for (const recipe of recipesToTry) {
+        const childA = build(recipe.item_a, depth + 1);
+        const childB = build(recipe.item_b, depth + 1);
 
-          if (nextChildA && nextChildB) {
-            // 找到可行的配方
-            const value = nextChildA.value + nextChildB.value;
-            const emoji = itemEmojiMap[itemName];
+        if (childA && childB) {
+          // 找到可行的配方
+          const value = childA.value + childB.value;
+          const emoji = itemEmojiMap[itemName];
 
-            const node: IcicleNode = {
-              id: `synthetic_${itemName}_${i}`,
-              name: itemName,
-              emoji: emoji ? truncateEmoji(emoji) : undefined,
-              isBase: false,
-              value,
-              children: [nextChildA, nextChildB],
-              recipe: {
-                item_a: nextRecipe.item_a,
-                item_b: nextRecipe.item_b
-              }
-            };
+          const node: IcicleNode = {
+            id: `synthetic_${itemName}`,
+            name: itemName,
+            emoji: emoji ? truncateEmoji(emoji) : undefined,
+            isBase: false,
+            value,
+            children: [childA, childB],
+            recipe: {
+              item_a: recipe.item_a,
+              item_b: recipe.item_b
+            }
+          };
 
-            globalMemo.set(itemName, node);
-            return node;
-          }
+          globalMemo.set(itemName, node);
+          return node;
         }
-
-        // 所有配方都失败
-        return null;
       }
 
-      // 构建节点
-      const value = childA.value + childB.value;
-      const emoji = itemEmojiMap[itemName];
-
-      const node: IcicleNode = {
-        id: `synthetic_${itemName}`,
-        name: itemName,
-        emoji: emoji ? truncateEmoji(emoji) : undefined,
-        isBase: false,
-        value,
-        children: [childA, childB],
-        recipe: {
-          item_a: recipe.item_a,
-          item_b: recipe.item_b
-        }
-      };
-
-      globalMemo.set(itemName, node);
-      return node;
+      // 前几个配方都失败
+      return null;
     };
 
     return build(startItem);
@@ -1862,14 +1839,31 @@ export class RecipeService {
       logger.info(`按需生成物品 "${itemName}" 的冰柱图，最大深度: ${maxDepth ?? '无限制'}, 包含统计: ${includeStats}, 可达性: ${isReachable}`);
 
       // 异步调用，避免阻塞事件循环
-      const tree = await this.extractSubgraphAsTreeAsync(
-        itemName,
-        cache.itemToRecipes,
-        cache.baseItemNames,
-        cache.itemEmojiMap,
-        cache.reachableItems,
-        maxDepth
-      );
+      // 添加 5 秒硬超时，防止单个查询耗时过长
+      const tree = await Promise.race([
+        this.extractSubgraphAsTreeAsync(
+          itemName,
+          cache.itemToRecipes,
+          cache.baseItemNames,
+          cache.itemEmojiMap,
+          cache.reachableItems,
+          maxDepth
+        ),
+        new Promise<IcicleNode | null>((_, reject) =>
+          setTimeout(() => reject(new Error(`冰柱图生成超时：物品 "${itemName}" 耗时超过 5 秒`)), 5000)
+        )
+      ]).catch(error => {
+        logger.warn(`冰柱图生成超时或失败：${error.message}`, { itemName });
+        // 返回一个简单的叶子节点作为降级方案
+        const emoji = cache.itemEmojiMap[itemName];
+        return {
+          id: `leaf_${itemName}`,
+          name: itemName,
+          emoji: emoji ? truncateEmoji(emoji) : undefined,
+          isBase: false,
+          value: 1
+        } as IcicleNode;
+      });
 
       logger.info(`提取物品 "${itemName}" 的冰柱图树成功`, {
         maxDepth,
@@ -1877,6 +1871,7 @@ export class RecipeService {
         isReachable
       });
 
+      // 检查树是否生成成功
       if (!tree) {
         logger.warn(`无法为物品 "${itemName}" 生成冰柱图树`, {
           reason: '提取子图失败，可能是无法找到有效配方',
@@ -2033,8 +2028,12 @@ export class RecipeService {
       if (work.state === 'fetching_children') {
         const recipes = itemToRecipes[work.itemName];
 
-        if (!recipes || work.tryRecipeIndex >= recipes.length) {
-          // 所有配方都尝试过了，返回 null
+        // 🚀 关键优化：只尝试前 3 个配方，不枚举所有配方
+        // 原因：物品可能有数千个配方，枚举会导致内存爆炸（O(k^d)复杂度）
+        const MAX_RECIPES_TO_TRY = 3;
+
+        if (!recipes || work.tryRecipeIndex >= Math.min(recipes.length, MAX_RECIPES_TO_TRY)) {
+          // 前几个配方都尝试过了，返回 null
           stack.pop();
           resultCache.set(cacheKey, null);
           continue;

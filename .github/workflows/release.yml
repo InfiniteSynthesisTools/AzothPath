@@ -1,0 +1,198 @@
+name: Release Build
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version'
+        required: true
+        default: '1.0.0'
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        cd ../frontend
+        npm ci
+        
+    - name: Build backend
+      run: |
+        cd backend
+        npm run build
+        
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: Create release package
+      run: |
+        # Create release directory
+        mkdir -p release
+        mkdir -p release/frontend
+        mkdir -p release/backend
+        mkdir -p release/backend/database
+        
+        # Copy backend build
+        cp -r backend/dist/* release/backend/
+        cp backend/package.json release/backend/
+        cp backend/package-lock.json release/backend/ 2>/dev/null || true
+        
+        # Copy frontend build
+        cp -r frontend/dist/* release/frontend/
+        
+        # Copy database files
+        cp -r backend/database/* release/backend/database/ 2>/dev/null || true
+        
+        # Copy documentation
+        cp README.md release/
+        cp prd.md release/
+        cp todo.md release/
+        cp -r docs release/ 2>/dev/null || true
+        
+        # Create release startup script
+        cat > release/start.sh << 'EOF'
+        #!/bin/bash
+        echo "🚀 Azoth Path - Starting..."
+        echo "📦 Installing production dependencies..."
+        cd backend
+        npm install --production --silent
+        echo "✅ Dependencies installed"
+        echo "🌐 Starting server on port 19198..."
+        echo "📊 Health check: http://localhost:19198/api/health"
+        echo "📚 API docs: http://localhost:19198/api"
+        node dist/index.js
+        EOF
+        chmod +x release/start.sh
+        
+        # Create release package.json
+        cat > release/package.json << 'EOF'
+        {
+          "name": "azoth-path",
+          "version": "1.0.0",
+          "description": "Azoth Path - 无尽合成工具站",
+          "main": "backend/dist/index.js",
+          "scripts": {
+            "start": "./start.sh",
+            "install-deps": "cd backend && npm install --production"
+          },
+          "engines": {
+            "node": ">=18.0.0",
+            "npm": ">=8.0.0"
+          },
+          "keywords": [
+            "recipe",
+            "crafting",
+            "synthesis",
+            "path-finding"
+          ],
+          "author": "Azoth Path Team",
+          "license": "MIT"
+        }
+        EOF
+        
+        # Create deployment instructions
+        cat > release/DEPLOYMENT.md << 'EOF'
+        # Azoth Path 部署指南
+        
+        ## 快速开始
+        
+        1. 确保已安装 Node.js 18+ 和 npm 8+
+        2. 运行启动脚本：
+           ```bash
+           ./start.sh
+           ```
+        
+        3. 访问应用：
+           - 前端: http://localhost:19198
+           - API: http://localhost:19198/api
+           - 健康检查: http://localhost:19198/api/health
+        
+        ## 环境变量
+        
+        创建 `.env` 文件：
+        ```
+        JWT_SECRET=your-secret-key
+        PORT=19198
+        NODE_ENV=production
+        ```
+        
+        ## 数据库
+        
+        数据库文件位于 `backend/database/azothpath.db`
+        首次运行会自动初始化数据库。
+        
+        ## 默认账号
+        
+        - 管理员: admin / admin123
+        
+        ## 故障排查
+        
+        1. 检查端口 19198 是否被占用
+        2. 检查数据库文件权限
+        3. 查看服务器日志输出
+        EOF
+        
+    - name: Create release archive
+      run: |
+        cd release
+        tar -czf ../azoth-path-release.tar.gz .
+        zip -r ../azoth-path-release.zip .
+        
+    - name: Upload release artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: azoth-path-release
+        path: |
+          azoth-path-release.tar.gz
+          azoth-path-release.zip
+        retention-days: 30
+        
+    - name: Create GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
+      uses: softprops/action-gh-release@v1
+      with:
+        files: |
+          azoth-path-release.tar.gz
+          azoth-path-release.zip
+        body: |
+          # Azoth Path Release
+          
+          ## 安装说明
+          
+          1. 下载对应的压缩包
+          2. 解压到目标目录
+          3. 运行 `./start.sh` 启动服务
+          
+          ## 访问地址
+          
+          - 前端: http://localhost:19198
+          - API: http://localhost:19198/api
+          - 健康检查: http://localhost:19198/api/health
+          
+          ## 系统要求
+          
+          - Node.js 18+
+          - npm 8+
+          - 端口 19198 可用
+        draft: false
+        prerelease: false
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

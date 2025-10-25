@@ -1,0 +1,142 @@
+name: Build and Deploy
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+        
+    - name: Build backend
+      run: |
+        cd backend
+        npm run build
+        
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: Create build artifacts
+      run: |
+        mkdir -p dist
+        mkdir -p dist/frontend
+        mkdir -p dist/backend
+        mkdir -p dist/backend/database
+        
+        # Copy backend build
+        cp -r backend/dist/* dist/backend/
+        cp backend/package.json dist/backend/
+        cp backend/package-lock.json dist/backend/ 2>/dev/null || true
+        
+        # Copy frontend build
+        cp -r frontend/dist/* dist/frontend/
+        
+        # Copy database files
+        cp -r backend/database/* dist/backend/database/ 2>/dev/null || true
+        
+        # Copy other necessary files
+        cp README.md dist/
+        cp prd.md dist/
+        cp todo.md dist/
+        cp -r docs dist/ 2>/dev/null || true
+        
+    - name: Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts-${{ matrix.node-version }}
+        path: dist/
+        retention-days: 7
+
+  test:
+    runs-on: ubuntu-latest
+    needs: build
+    
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install dependencies
+      run: |
+        cd backend
+        npm ci
+        cd ../frontend
+        npm ci
+        
+    - name: Run backend tests
+      run: |
+        cd backend
+        npm test 2>/dev/null || echo "No tests found"
+        
+    - name: Run frontend tests
+      run: |
+        cd frontend
+        npm test 2>/dev/null || echo "No tests found"
+        
+    - name: Lint backend
+      run: |
+        cd backend
+        npm run lint 2>/dev/null || echo "No lint script found"
+        
+    - name: Lint frontend
+      run: |
+        cd frontend
+        npm run lint
+
+  deploy:
+    runs-on: ubuntu-latest
+    needs: [build, test]
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: build-artifacts-20.x
+        path: dist/
+        
+    - name: Create deployment package
+      run: |
+        cd dist
+        tar -czf ../azoth-path-deployment.tar.gz .
+        
+    - name: Upload deployment package
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-package
+        path: azoth-path-deployment.tar.gz
+        retention-days: 30

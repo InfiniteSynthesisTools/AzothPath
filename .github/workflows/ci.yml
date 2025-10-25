@@ -1,0 +1,116 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        
+    - name: Install backend dependencies
+      run: |
+        cd backend
+        npm ci
+        
+    - name: Install frontend dependencies
+      run: |
+        cd frontend
+        npm ci
+        
+    - name: Build backend
+      run: |
+        cd backend
+        npm run build
+        
+    - name: Build frontend
+      run: |
+        cd frontend
+        npm run build
+        
+    - name: Create production build
+      run: |
+        # Create production directory structure
+        mkdir -p production
+        mkdir -p production/frontend
+        mkdir -p production/backend
+        mkdir -p production/backend/database
+        
+        # Copy backend build
+        cp -r backend/dist/* production/backend/
+        cp backend/package.json production/backend/
+        cp backend/package-lock.json production/backend/ 2>/dev/null || true
+        
+        # Copy frontend build
+        cp -r frontend/dist/* production/frontend/
+        
+        # Copy database files
+        cp -r backend/database/* production/backend/database/ 2>/dev/null || true
+        
+        # Copy documentation
+        cp README.md production/
+        cp prd.md production/
+        cp todo.md production/
+        cp -r docs production/ 2>/dev/null || true
+        
+        # Create production startup script
+        cat > production/start.sh << 'EOF'
+        #!/bin/bash
+        echo "🚀 Starting Azoth Path..."
+        echo "📦 Installing production dependencies..."
+        cd backend
+        npm install --production --silent
+        echo "✅ Dependencies installed"
+        echo "🌐 Starting server..."
+        node dist/index.js
+        EOF
+        chmod +x production/start.sh
+        
+        # Create production package.json
+        cat > production/package.json << 'EOF'
+        {
+          "name": "azoth-path-production",
+          "version": "1.0.0",
+          "description": "Azoth Path - Production Build",
+          "scripts": {
+            "start": "./start.sh",
+            "install-deps": "cd backend && npm install --production"
+          },
+          "engines": {
+            "node": ">=18.0.0",
+            "npm": ">=8.0.0"
+          }
+        }
+        EOF
+        
+    - name: Upload production build
+      uses: actions/upload-artifact@v4
+      with:
+        name: azoth-path-production
+        path: production/
+        retention-days: 7
+        
+    - name: Create deployment archive
+      run: |
+        cd production
+        tar -czf ../azoth-path-$(date +%Y%m%d-%H%M%S).tar.gz .
+        
+    - name: Upload deployment archive
+      uses: actions/upload-artifact@v4
+      with:
+        name: azoth-path-deployment
+        path: azoth-path-*.tar.gz
+        retention-days: 30

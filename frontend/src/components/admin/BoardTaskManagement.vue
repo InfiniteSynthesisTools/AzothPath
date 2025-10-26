@@ -223,11 +223,57 @@ onMounted(() => {
 .section-header h3 {
   margin: 0;
   font-size: 1.2rem;
+  color: var(--color-text-primary);
 }
 
 .pagination {
   display: flex;
   justify-content: center;
   margin-top: 20px;
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .board-task-management {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] .el-card {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .el-card .el-card__body {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table th) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table td) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table tr) {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary);
 }
 </style>

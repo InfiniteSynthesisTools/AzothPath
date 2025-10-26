@@ -151,6 +151,38 @@
   --theme-name: 'dark';
 }
 
+/* ===== 全局表格深色模式样式 ===== */
+[data-theme="dark"] :deep(.el-table) {
+  background: var(--color-bg-surface) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table th) {
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table td) {
+  background: var(--color-bg-surface) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table tr) {
+  background: var(--color-bg-surface) !important;
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary) !important;
+}
+
 /* ===== 全局样式重置 ===== */
 * {
   box-sizing: border-box;

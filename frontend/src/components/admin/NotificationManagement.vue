@@ -443,6 +443,8 @@ onMounted(() => {
 <style scoped>
 .notification-management {
   padding: 20px;
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
 }
 
 .section-header {
@@ -454,13 +456,15 @@ onMounted(() => {
 .section-header h3 {
   margin: 0;
   font-size: 1.2rem;
+  color: var(--color-text-primary);
 }
 
 .filter-section {
   margin-bottom: 20px;
   padding: 20px;
-  background-color: #f5f7fa;
+  background-color: var(--color-bg-tertiary);
   border-radius: 8px;
+  border: 1px solid var(--color-border-primary);
 }
 
 .pagination {
@@ -472,18 +476,64 @@ onMounted(() => {
 .notification-content {
   margin-top: 20px;
   padding: 15px;
-  background-color: #f5f7fa;
+  background-color: var(--color-bg-tertiary);
   border-radius: 8px;
+  border: 1px solid var(--color-border-primary);
 }
 
 .notification-content h4 {
   margin: 0 0 10px 0;
-  color: #303133;
+  color: var(--color-text-primary);
 }
 
 .notification-content p {
   margin: 0;
   line-height: 1.6;
-  color: #606266;
+  color: var(--color-text-secondary);
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .notification-management {
+  background: var(--color-bg-primary);
+}
+
+[data-theme="dark"] .el-card {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .el-card .el-card__body {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table th) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table td) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table tr) {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary);
 }
 </style>

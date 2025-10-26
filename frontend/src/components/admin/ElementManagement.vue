@@ -388,6 +388,8 @@ onMounted(() => {
 <style scoped>
 .element-management {
   padding: 20px;
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
 }
 
 .search-section {
@@ -440,7 +442,7 @@ onMounted(() => {
 
 .current-tags h4 {
   margin: 0 0 10px 0;
-  color: #303133;
+  color: var(--color-text-primary);
 }
 
 .tag-list {
@@ -451,6 +453,51 @@ onMounted(() => {
 
 .add-tags h4 {
   margin: 0 0 10px 0;
-  color: #303133;
+  color: var(--color-text-primary);
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .element-management {
+  background: var(--color-bg-primary);
+}
+
+[data-theme="dark"] .el-card {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .el-card .el-card__body {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table th) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table td) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table tr) {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary);
 }
 </style>

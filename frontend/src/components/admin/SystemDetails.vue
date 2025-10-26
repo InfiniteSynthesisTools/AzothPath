@@ -327,9 +327,9 @@ const formatBytes = (bytes: number): string => {
 };
 
 const getUsageColor = (usage: number) => {
-  if (usage < 50) return '#67c23a';
-  if (usage < 80) return '#e6a23c';
-  return '#f56c6c';
+  if (usage < 50) return 'var(--color-success)';
+  if (usage < 80) return 'var(--color-warning)';
+  return 'var(--color-error)';
 };
 
 // 生命周期
@@ -342,6 +342,8 @@ onMounted(() => {
 <style scoped>
 .system-details {
   padding: 20px;
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
 }
 
 .system-overview {
@@ -361,6 +363,7 @@ onMounted(() => {
 .section-header h3 {
   margin: 0;
   font-size: 1.2rem;
+  color: var(--color-text-primary);
 }
 
 /* 卡片头部样式 */
@@ -373,8 +376,8 @@ onMounted(() => {
 
 .header-icon {
   font-size: 20px;
-  color: #409eff;
-  background: linear-gradient(135deg, #409eff, #67c23a);
+  color: var(--color-primary-500);
+  background: linear-gradient(135deg, var(--color-primary-500), var(--color-success));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -383,13 +386,15 @@ onMounted(() => {
 .header-title {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   letter-spacing: 0.5px;
 }
 
 /* 信息卡片样式 */
 .info-card {
   height: 100%;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
 }
 
 .info-card .el-card__body {
@@ -399,30 +404,30 @@ onMounted(() => {
 /* 响应时间样式 */
 .response-time {
   font-weight: 600;
-  color: #67c23a;
+  color: var(--color-success);
 }
 
 /* 内存和磁盘数值样式 */
 .memory-value, .disk-value {
   font-weight: 600;
-  color: #409eff;
+  color: var(--color-primary-500);
 }
 
 .memory-used, .disk-used {
   font-weight: 600;
-  color: #e6a23c;
+  color: var(--color-warning);
 }
 
 .memory-free, .disk-free {
   font-weight: 600;
-  color: #67c23a;
+  color: var(--color-success);
 }
 
 .disk-path {
   font-family: 'Courier New', monospace;
   font-size: 12px;
-  color: #909399;
-  background-color: #f5f7fa;
+  color: var(--color-text-tertiary);
+  background-color: var(--color-bg-tertiary);
   padding: 2px 6px;
   border-radius: 4px;
 }
@@ -442,17 +447,45 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 10px 0;
+  border-bottom: 1px solid var(--color-border-primary);
+}
+
+.info-item:last-child {
+  border-bottom: none;
 }
 
 .info-label {
   font-weight: 600;
-  color: #606266;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
 .info-value {
-  color: #303133;
+  color: var(--color-text-primary);
   font-weight: 500;
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .system-details {
+  background: var(--color-bg-primary);
+}
+
+[data-theme="dark"] .info-card {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .info-card .el-card__body {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] .info-item {
+  border-bottom-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .disk-path {
+  background-color: var(--color-bg-tertiary);
+  color: var(--color-text-tertiary);
 }
 
 </style>

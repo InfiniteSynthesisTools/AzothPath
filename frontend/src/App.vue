@@ -47,7 +47,12 @@ onMounted(() => {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   min-height: 100vh;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] #app {
+  background: linear-gradient(135deg, var(--color-bg-primary) 0%, var(--color-bg-secondary) 100%);
 }
 
 /* 统一滚动条样式 - 防止页面切换时闪动 */
@@ -99,5 +104,37 @@ html {
 
 body {
   overflow-y: auto;
+}
+
+/* 全局表格深色模式样式覆盖 */
+[data-theme="dark"] :deep(.el-table) {
+  background: var(--color-bg-surface) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table th) {
+  background: var(--color-bg-tertiary) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table td) {
+  background: var(--color-bg-surface) !important;
+  color: var(--color-text-primary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table tr) {
+  background: var(--color-bg-surface) !important;
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary) !important;
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary) !important;
 }
 </style>

@@ -132,7 +132,7 @@
                   :percentage="Math.round(((selectedTask.success_count + selectedTask.failed_count + selectedTask.duplicate_count) / selectedTask.total_count) * 100)"
                   :stroke-width="6"
                   :show-text="false"
-                  color="#409eff"
+                  color="var(--color-primary-500)"
                 />
               </div>
             </div>
@@ -199,10 +199,10 @@
                 v-loading="contentsLoading"
                 style="width: 100%"
                 :header-cell-style="{ 
-                  background: '#fafbfc', 
-                  color: '#606266', 
+                  background: 'var(--color-bg-secondary)', 
+                  color: 'var(--color-text-secondary)', 
                   fontWeight: '600',
-                  borderBottom: '2px solid #e4e7ed'
+                  borderBottom: '2px solid var(--color-border-primary)'
                 }"
                 :row-style="{ height: '56px' }"
                 empty-text="暂无配方明细"
@@ -461,7 +461,7 @@ onMounted(() => {
 <style scoped>
 .import-tasks-page {
   min-height: calc(100vh - 200px);
-  background: linear-gradient(135deg, #f5f7fa 0%, #f0f2f5 100%);
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
 }
 
 .page-container {
@@ -521,24 +521,24 @@ onMounted(() => {
   background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
   border: none;
   color: white;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+  box-shadow: 0 2px 8px var(--color-primary-300);
 }
 
 .primary-btn:hover {
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.4);
+  box-shadow: 0 4px 12px var(--color-primary-400);
 }
 
 .secondary-btn {
-  background: white;
+  background: var(--color-bg-surface);
   border: 1px solid var(--color-border-primary);
   color: var(--color-text-primary);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
 .secondary-btn:hover {
   background: var(--color-bg-secondary);
   border-color: var(--color-primary-300);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-md);
 }
 
 .btn-text {
@@ -578,11 +578,11 @@ onMounted(() => {
   .el-dialog {
     border-radius: 16px;
     overflow: hidden;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
+    box-shadow: var(--shadow-2xl);
   }
   
   .el-dialog__header {
-    background: linear-gradient(135deg, #409eff 0%, #66b3ff 100%);
+    background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-400) 100%);
     color: white;
     padding: 24px 32px;
     margin: 0;
@@ -600,18 +600,19 @@ onMounted(() => {
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.1);
+    background: var(--color-bg-overlay);
     transition: all 0.3s ease;
   }
   
   .el-dialog__headerbtn .el-dialog__close:hover {
-    background: rgba(255, 255, 255, 0.2);
+    background: var(--color-bg-overlay);
+    filter: brightness(1.2);
     transform: scale(1.1);
   }
   
   .el-dialog__body {
     padding: 0;
-    background: #f8f9fa;
+    background: var(--color-bg-secondary);
   }
 }
 
@@ -633,12 +634,12 @@ onMounted(() => {
 
 /* 任务概览 */
 .task-overview {
-  background: white;
+  background: var(--color-bg-surface);
   border-radius: 12px;
   padding: 24px;
   margin-bottom: 24px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  border: 1px solid #e4e7ed;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-primary);
 }
 
 .overview-header {
@@ -658,7 +659,7 @@ onMounted(() => {
 .overview-title {
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -679,7 +680,7 @@ onMounted(() => {
 
 .progress-text {
   font-size: 13px;
-  color: #606266;
+  color: var(--color-text-secondary);
   margin-bottom: 8px;
 }
 
@@ -691,68 +692,68 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: #f8f9fa;
+  background: var(--color-bg-secondary);
   border-radius: 8px;
   padding: 20px 16px;
   text-align: center;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--color-border-primary);
   transition: all 0.2s ease;
 }
 
 .stat-card:hover {
-  background: #f0f2f5;
-  border-color: #d0d7de;
+  background: var(--color-bg-tertiary);
+  border-color: var(--color-border-secondary);
 }
 
 .stat-card.success {
-  background: #f0f9ff;
-  border-color: #bae6fd;
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
 .stat-card.success:hover {
-  background: #e0f2fe;
+  background: rgba(34, 197, 94, 0.15);
 }
 
 .stat-card.failed {
-  background: #fef2f2;
-  border-color: #fecaca;
+  background: rgba(239, 68, 68, 0.1);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .stat-card.failed:hover {
-  background: #fee2e2;
+  background: rgba(239, 68, 68, 0.15);
 }
 
 .stat-card.duplicate {
-  background: #fffbeb;
-  border-color: #fed7aa;
+  background: rgba(245, 158, 11, 0.1);
+  border-color: rgba(245, 158, 11, 0.3);
 }
 
 .stat-card.duplicate:hover {
-  background: #fef3c7;
+  background: rgba(245, 158, 11, 0.15);
 }
 
 .stat-number {
   font-size: 24px;
   font-weight: 700;
-  color: #303133;
+  color: var(--color-text-primary);
   line-height: 1;
   margin-bottom: 6px;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #606266;
+  color: var(--color-text-secondary);
   font-weight: 500;
 }
 
 /* 任务信息 */
 .task-info {
-  background: white;
+  background: var(--color-bg-surface);
   border-radius: 16px;
   padding: 28px;
   margin-bottom: 24px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-primary);
 }
 
 .info-header {
@@ -765,10 +766,10 @@ onMounted(() => {
   gap: 12px;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0;
   padding-bottom: 16px;
-  border-bottom: 2px solid #f0f2f5;
+  border-bottom: 2px solid var(--color-border-primary);
 }
 
 .info-content {
@@ -782,20 +783,20 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  background: #f8f9fa;
+  background: var(--color-bg-secondary);
   border-radius: 12px;
-  border: 1px solid rgba(0, 0, 0, 0.05);
+  border: 1px solid var(--color-border-primary);
 }
 
 .info-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-tertiary);
   font-weight: 500;
 }
 
 .info-value {
   font-size: 14px;
-  color: #303133;
+  color: var(--color-text-primary);
   font-weight: 600;
   font-family: 'Monaco', 'Consolas', monospace;
 }
@@ -810,11 +811,11 @@ onMounted(() => {
 
 /* 配方明细 */
 .task-contents {
-  background: white;
+  background: var(--color-bg-surface);
   border-radius: 16px;
   padding: 28px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-primary);
 }
 
 .contents-header {
@@ -830,7 +831,7 @@ onMounted(() => {
   gap: 12px;
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -843,13 +844,13 @@ onMounted(() => {
 .table-wrapper {
   border-radius: 12px;
   overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 /* 表格单元格样式 */
 .item-name {
   font-size: 14px;
-  color: #303133;
+  color: var(--color-text-primary);
   font-weight: 500;
   word-break: break-all;
   line-height: 1.4;
@@ -857,14 +858,14 @@ onMounted(() => {
 }
 
 .item-name.result {
-  color: #67c23a;
+  color: var(--color-success);
   font-weight: 600;
 }
 
 .error-message {
-  color: #f56c6c;
+  color: var(--color-error);
   font-size: 12px;
-  background: #fef0f0;
+  background: rgba(239, 68, 68, 0.1);
   padding: 4px 8px;
   border-radius: 4px;
   word-break: break-all;
@@ -872,7 +873,7 @@ onMounted(() => {
 }
 
 .no-error {
-  color: #c0c4cc;
+  color: var(--color-text-tertiary);
   font-style: italic;
 }
 

@@ -4,7 +4,7 @@
       <!-- 页面标题 -->
       <div class="page-header">
         <h1 class="page-title">
-          <span class="title-emoji">🧪</span>
+          <img src="/icon.png" alt="Azoth Path" class="title-icon" />
           Azoth Path
         </h1>
         <p class="page-subtitle">无尽合成工具站</p>
@@ -556,13 +556,20 @@ onUnmounted(() => {
   background-clip: text;
 }
 
-.title-emoji {
-  font-size: 36px;
-  margin-right: 12px;
+.title-icon {
+  width: 48px;
+  height: 48px;
+  margin-right: 16px;
   display: inline-block;
-  -webkit-text-fill-color: initial !important;
-  background: none !important;
-  background-clip: initial !important;
+  vertical-align: middle;
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+.title-icon:hover {
+  transform: scale(1.15) rotate(5deg);
+  box-shadow: var(--shadow-xl);
 }
 
 .page-subtitle {

@@ -415,6 +415,8 @@ onMounted(() => {
 <style scoped>
 .user-management {
   padding: 20px;
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
 }
 
 .search-section {
@@ -442,8 +444,8 @@ onMounted(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
-  box-shadow: inset 0 0 0 1px #e4e7ed;
+  background: var(--color-bg-secondary);
+  box-shadow: inset 0 0 0 1px var(--color-border-primary);
   font-size: 20px;
   line-height: 1;
 }
@@ -461,8 +463,9 @@ onMounted(() => {
 .user-info-header {
   margin-bottom: 30px;
   padding: 15px;
-  background-color: #f8f9fa;
+  background-color: var(--color-bg-secondary);
   border-radius: 8px;
+  border: 1px solid var(--color-border-primary);
 }
 
 .edit-form {
@@ -479,9 +482,10 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   padding: 20px;
-  background: #f8f9fa;
+  background: var(--color-bg-secondary);
   border-radius: 8px;
   margin-bottom: 16px;
+  border: 1px solid var(--color-border-primary);
 }
 
 .current-emoji {
@@ -491,8 +495,8 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  box-shadow: inset 0 0 0 2px #e4e7ed;
+  background: var(--color-bg-surface);
+  box-shadow: inset 0 0 0 2px var(--color-border-primary);
   font-size: 44px;
   line-height: 1;
   margin-bottom: 8px;
@@ -500,7 +504,7 @@ onMounted(() => {
 
 .emoji-hint {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-tertiary);
 }
 
 .emoji-grid {
@@ -510,9 +514,9 @@ onMounted(() => {
   max-height: 200px;
   overflow-y: auto;
   padding: 12px;
-  background: #fafafa;
+  background: var(--color-bg-secondary);
   border-radius: 8px;
-  border: 1px solid #e4e7ed;
+  border: 1px solid var(--color-border-primary);
 }
 
 .emoji-option {
@@ -525,19 +529,19 @@ onMounted(() => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  background: white;
+  background: var(--color-bg-surface);
   border: 2px solid transparent;
 }
 
 .emoji-option:hover {
-  background: #f0f2f5;
+  background: var(--color-bg-tertiary);
   transform: scale(1.1);
 }
 
 .emoji-option.selected {
-  background: #409eff;
-  border-color: #409eff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.3);
+  background: var(--color-primary-500);
+  border-color: var(--color-primary-500);
+  box-shadow: 0 2px 8px var(--color-primary-300);
 }
 
 .dialog-footer {
@@ -545,25 +549,25 @@ onMounted(() => {
   justify-content: flex-end;
   gap: 10px;
   padding-top: 20px;
-  border-top: 1px solid #ebeef5;
+  border-top: 1px solid var(--color-border-primary);
 }
 
 :deep(.el-form-item__label) {
   font-weight: 500;
-  color: #606266;
+  color: var(--color-text-secondary);
 }
 
 :deep(.el-descriptions__label) {
   font-weight: 500;
-  color: #606266;
+  color: var(--color-text-secondary);
 }
 
 :deep(.el-descriptions__content) {
-  color: #303133;
+  color: var(--color-text-primary);
 }
 
 :deep(.el-descriptions__body) {
-  background-color: #fafafa;
+  background-color: var(--color-bg-secondary);
 }
 
 :deep(.el-descriptions__table .el-descriptions__cell) {
@@ -572,7 +576,7 @@ onMounted(() => {
 
 :deep(.el-dialog__header) {
   padding-bottom: 20px;
-  border-bottom: 1px solid #ebeef5;
+  border-bottom: 1px solid var(--color-border-primary);
 }
 
 :deep(.el-dialog__body) {
@@ -581,17 +585,74 @@ onMounted(() => {
 
 :deep(.el-dialog__footer) {
   padding: 20px;
-  background-color: #f8f9fa;
+  background-color: var(--color-bg-secondary);
 }
 
 /* 基础表格样式 */
 :deep(.el-table__header th) {
-  background-color: #f5f7fa;
-  color: #606266;
+  background-color: var(--color-bg-secondary);
+  color: var(--color-text-secondary);
   font-weight: 600;
 }
 
 :deep(.el-table__body tr:hover > td) {
-  background-color: #f5f7fa;
+  background-color: var(--color-bg-secondary);
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .user-management {
+  background: var(--color-bg-primary);
+}
+
+[data-theme="dark"] .el-card {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .el-card .el-card__body {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table th) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table td) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table tr) {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary);
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary);
 }
 </style>

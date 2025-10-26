@@ -4,56 +4,36 @@
     <div class="task-stats">
       <el-row :gutter="20">
         <el-col :span="6">
-          <el-card shadow="hover">
-            <el-statistic 
-              :value="taskStats.total" 
-              title="总任务数"
-              :precision="0"
-            >
-              <template #prefix>
-                <el-icon><Document /></el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            emoji="📋"
+            :value="taskStats.total"
+            label="总任务数"
+            type="primary"
+          />
         </el-col>
         <el-col :span="6">
-          <el-card shadow="hover">
-            <el-statistic 
-              :value="taskStats.active" 
-              title="活跃任务"
-              :precision="0"
-            >
-              <template #prefix>
-                <el-icon><Clock /></el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            emoji="⏰"
+            :value="taskStats.active"
+            label="活跃任务"
+            type="warning"
+          />
         </el-col>
         <el-col :span="6">
-          <el-card shadow="hover">
-            <el-statistic 
-              :value="taskStats.completed" 
-              title="已完成"
-              :precision="0"
-            >
-              <template #prefix>
-                <el-icon><CircleCheck /></el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            emoji="✅"
+            :value="taskStats.completed"
+            label="已完成"
+            type="success"
+          />
         </el-col>
         <el-col :span="6">
-          <el-card shadow="hover">
-            <el-statistic 
-              :value="taskStats.total_prize" 
-              title="总奖励"
-              :precision="0"
-            >
-              <template #prefix>
-                <el-icon><Star /></el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            emoji="💰"
+            :value="taskStats.total_prize"
+            label="总奖励"
+            type="info"
+          />
         </el-col>
       </el-row>
     </div>
@@ -75,9 +55,8 @@
 
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
-import { ElMessage } from 'element-plus';
-import { Document, Clock, CircleCheck, Star } from '@element-plus/icons-vue';
 import { taskApi } from '@/api';
+import StatCard from '@/components/StatCard.vue';
 import UploadTaskManagement from './UploadTaskManagement.vue';
 import BoardTaskManagement from './BoardTaskManagement.vue';
 
@@ -116,6 +95,8 @@ onMounted(() => {
 <style scoped>
 .task-management {
   padding: 20px;
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
 }
 
 .task-stats {
@@ -132,5 +113,40 @@ onMounted(() => {
 
 :deep(.el-tabs__content) {
   padding: 20px 0;
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .task-management {
+  background: var(--color-bg-primary);
+}
+
+[data-theme="dark"] .el-card {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .el-card .el-card__body {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] .el-tabs {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] .el-tabs__header {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .el-tabs__item {
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] .el-tabs__item.is-active {
+  color: var(--color-primary-500);
+}
+
+[data-theme="dark"] .el-tabs__nav-wrap::after {
+  background-color: var(--color-border-primary);
 }
 </style>

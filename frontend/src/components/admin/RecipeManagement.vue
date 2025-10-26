@@ -328,6 +328,8 @@ onMounted(() => {
 <style scoped>
 .recipe-management {
   padding: 20px;
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
 }
 
 .search-section {
@@ -347,27 +349,29 @@ onMounted(() => {
 
 .material {
   padding: 2px 8px;
-  background: #f0f2f5;
+  background: var(--color-bg-secondary);
   border-radius: 4px;
-  color: #606266;
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-primary);
 }
 
 .plus {
-  color: #909399;
+  color: var(--color-text-tertiary);
   font-weight: bold;
 }
 
 .arrow {
-  color: #409eff;
+  color: var(--color-primary-500);
   font-weight: bold;
 }
 
 .result {
   padding: 2px 8px;
-  background: #e1f3d8;
+  background: rgba(34, 197, 94, 0.1);
   border-radius: 4px;
-  color: #67c23a;
+  color: var(--color-success);
   font-weight: 500;
+  border: 1px solid rgba(34, 197, 94, 0.3);
 }
 
 .pagination {
@@ -395,7 +399,8 @@ onMounted(() => {
   gap: 4px;
   padding: 2px 6px;
   border-radius: 4px;
-  background-color: #f5f7fa;
+  background-color: var(--color-bg-secondary);
+  border: 1px solid var(--color-border-primary);
 }
 
 .emoji {
@@ -404,11 +409,56 @@ onMounted(() => {
 }
 
 .plus, .arrow {
-  color: #909399;
+  color: var(--color-text-tertiary);
   font-weight: bold;
 }
 
 .recipe-detail {
   padding: 20px 0;
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .recipe-management {
+  background: var(--color-bg-primary);
+}
+
+[data-theme="dark"] .el-card {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .el-card .el-card__body {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table th) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table td) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table tr) {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary);
 }
 </style>

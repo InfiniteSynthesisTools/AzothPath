@@ -4,43 +4,28 @@
     <div class="tag-stats">
       <el-row :gutter="20">
         <el-col :span="8">
-          <el-card shadow="hover">
-            <el-statistic 
-              :value="allTags.length" 
-              title="标签总数"
-              :precision="0"
-            >
-              <template #prefix>
-                <el-icon><CollectionTag /></el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            emoji="🏷️"
+            :value="allTags.length"
+            label="标签总数"
+            type="primary"
+          />
         </el-col>
         <el-col :span="8">
-          <el-card shadow="hover">
-            <el-statistic 
-              :value="taggedItemsCount" 
-              title="已标记元素"
-              :precision="0"
-            >
-              <template #prefix>
-                <el-icon><PriceTag /></el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            emoji="📌"
+            :value="taggedItemsCount"
+            label="已标记元素"
+            type="success"
+          />
         </el-col>
         <el-col :span="8">
-          <el-card shadow="hover">
-            <el-statistic 
-              :value="avgTagsPerItem" 
-              title="平均标签数"
-              :precision="1"
-            >
-              <template #prefix>
-                <el-icon><DataAnalysis /></el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            emoji="📊"
+            :value="avgTagsPerItem"
+            label="平均标签数"
+            type="info"
+          />
         </el-col>
       </el-row>
     </div>
@@ -142,9 +127,10 @@
 <script setup lang="ts">
 import { ref, onMounted, computed } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
-import { CollectionTag, PriceTag, DataAnalysis, Plus } from '@element-plus/icons-vue';
+import { Plus } from '@element-plus/icons-vue';
 import { tagApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
+import StatCard from '@/components/StatCard.vue';
 
 interface Tag {
   id: number;
@@ -164,7 +150,7 @@ const formData = ref({
   id: 0,
   name: '',
   description: '',
-  color: '#409EFF'
+  color: 'var(--color-primary-500)'
 });
 
 // 计算属性
@@ -198,7 +184,7 @@ const showCreateDialog = () => {
     id: 0,
     name: '',
     description: '',
-    color: '#409EFF'
+    color: 'var(--color-primary-500)'
   };
   dialogVisible.value = true;
 };
@@ -209,7 +195,7 @@ const showEditDialog = (tag: Tag) => {
     id: tag.id,
     name: tag.name,
     description: tag.description || '',
-    color: tag.color || '#409EFF'
+    color: tag.color || 'var(--color-primary-500)'
   };
   dialogVisible.value = true;
 };
@@ -277,6 +263,8 @@ onMounted(() => {
 <style scoped>
 .tag-management {
   padding: 20px;
+  background: var(--color-bg-secondary);
+  min-height: 100vh;
 }
 
 .tag-stats {
@@ -292,6 +280,7 @@ onMounted(() => {
 .section-header h3 {
   margin: 0;
   font-size: 1.2rem;
+  color: var(--color-text-primary);
 }
 
 .color-preview {
@@ -300,5 +289,50 @@ onMounted(() => {
   color: white;
   font-size: 12px;
   text-align: center;
+}
+
+/* 深色模式适配 */
+[data-theme="dark"] .tag-management {
+  background: var(--color-bg-primary);
+}
+
+[data-theme="dark"] .el-card {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-primary);
+}
+
+[data-theme="dark"] .el-card .el-card__body {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table th) {
+  background: var(--color-bg-tertiary);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table td) {
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+}
+
+[data-theme="dark"] :deep(.el-table tr) {
+  background: var(--color-bg-surface);
+}
+
+[data-theme="dark"] :deep(.el-table tr:hover) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped) {
+  background: var(--color-bg-tertiary);
+}
+
+[data-theme="dark"] :deep(.el-table--striped .el-table__body tr.el-table__row--striped:hover) {
+  background: var(--color-bg-secondary);
 }
 </style>

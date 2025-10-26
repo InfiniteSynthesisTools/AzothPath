@@ -145,9 +145,9 @@ const progressPercentage = computed(() => {
 // 计算进度条颜色
 const progressColor = computed(() => {
   const percentage = progressPercentage.value;
-  if (percentage < 30) return '#e6a23c';
-  if (percentage < 70) return '#409eff';
-  return '#67c23a';
+  if (percentage < 30) return 'var(--color-warning)';
+  if (percentage < 70) return 'var(--color-primary-500)';
+  return 'var(--color-success)';
 });
 
 // 获取状态类型
@@ -195,15 +195,15 @@ const formatDate = (dateStr: string) => {
   height: 100%;
   transition: all 0.3s ease;
   border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.9);
-  backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--color-border-primary);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--shadow-lg);
 }
 
 .import-task-card:hover {
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-  background: rgba(255, 255, 255, 0.95);
+  box-shadow: var(--shadow-xl);
+  background: var(--color-bg-surface);
 }
 
 .card-header {
@@ -212,13 +212,13 @@ const formatDate = (dateStr: string) => {
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+  border-bottom: 1px solid var(--color-border-primary);
 }
 
 .task-id {
   font-size: 14px;
   font-weight: 600;
-  color: #606266;
+  color: var(--color-text-secondary);
   background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
@@ -249,7 +249,7 @@ const formatDate = (dateStr: string) => {
   align-items: center;
   margin-bottom: 8px;
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-tertiary);
 }
 
 /* 时间信息 */
@@ -266,11 +266,11 @@ const formatDate = (dateStr: string) => {
 }
 
 .time-label {
-  color: #909399;
+  color: var(--color-text-tertiary);
 }
 
 .time-value {
-  color: #606266;
+  color: var(--color-text-secondary);
   font-family: 'Monaco', 'Consolas', monospace;
 }
 

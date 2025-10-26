@@ -230,7 +230,6 @@
               <div class="recipe-meta">
                 <span class="recipe-depth">深度: {{ recipe.depth || 0 }}</span>
                 <span class="recipe-width">宽度: {{ recipe.width || 0 }}</span>
-                <span class="recipe-breadth">广度: {{ recipe.breadth || 0 }}</span>
               </div>
             </div>
           </div>
@@ -303,7 +302,6 @@
               <div class="recipe-meta">
                 <span class="recipe-depth">深度: {{ recipe.depth || 0 }}</span>
                 <span class="recipe-width">宽度: {{ recipe.width || 0 }}</span>
-                <span class="recipe-breadth">广度: {{ recipe.breadth || 0 }}</span>
               </div>
             </div>
           </div>
@@ -1590,3 +1588,4 @@ onMounted(() => {
   }
 }
 </style>
+

@@ -39,14 +39,24 @@
       <div class="section" v-if="uploadTasks.length > 0">
         <div class="section-header">
           <h4>上传任务</h4>
-          <el-button 
-            text 
-            size="small" 
-            @click="clearCompletedTasks"
-            :disabled="!hasCompletedTasks"
-          >
-            清除已完成
-          </el-button>
+          <div class="section-actions">
+            <el-button 
+              text 
+              size="small" 
+              @click="refreshTaskStatus"
+              :loading="loadingNotifications"
+            >
+              刷新
+            </el-button>
+            <el-button 
+              text 
+              size="small" 
+              @click="clearCompletedTasks"
+              :disabled="!hasCompletedTasks"
+            >
+              清除已完成
+            </el-button>
+          </div>
         </div>
         
         <div class="task-list">
@@ -321,17 +331,22 @@ const markAsRead = async (notificationId: number) => {
 
 const archiveNotification = async (notificationId: number) => {
   try {
-    // 归档：只设置本地状态，不调用API（避免重复计数）
+    // 先标记为已读（如果还没有）
     const notification = notifications.value.find((n: any) => n.id === notificationId);
-    if (notification) {
-      // 如果还没有标记为已读，先标记为已读
-      if (notification.is_read === 0) {
-        await notificationApi.markAsRead(notificationId);
-        notification.is_read = 1;
-      }
-      // 然后设置为非活跃状态，从侧边栏隐藏
-      notification.is_active = 0;
+    if (notification && notification.is_read === 0) {
+      await notificationApi.markAsRead(notificationId);
+      notification.is_read = 1;
     }
+    
+    // 删除通知（实现归档效果）
+    await notificationApi.deleteNotification(notificationId);
+    
+    // 从本地列表中移除
+    const index = notifications.value.findIndex((n: any) => n.id === notificationId);
+    if (index > -1) {
+      notifications.value.splice(index, 1);
+    }
+    
     ElMessage.success('已归档');
   } catch (error) {
     console.error('归档失败:', error);
@@ -341,15 +356,41 @@ const archiveNotification = async (notificationId: number) => {
 
 const clearCompletedTasks = async () => {
   try {
-    const clearedCount = await importStore.clearAllCompletedNotifications();
-    if (clearedCount > 0) {
-      ElMessage.success(`已清理 ${clearedCount} 个已完成任务的通知`);
-    } else {
+    // 获取所有已完成的任务
+    const completedTasks = uploadTasks.value.filter(task => 
+      task.status === 'completed' || task.status === 'failed'
+    );
+    
+    if (completedTasks.length === 0) {
       ElMessage.info('没有需要清理的已完成任务');
+      return;
     }
+    
+    // 批量删除已完成任务的通知
+    const deletePromises = completedTasks.map(task => 
+      importStore.deleteNotification(task.id)
+    );
+    
+    await Promise.all(deletePromises);
+    
+    // 重新获取任务列表
+    await importStore.fetchImportTasks();
+    
+    ElMessage.success(`已清理 ${completedTasks.length} 个已完成任务的通知`);
   } catch (error) {
     console.error('清理已完成任务失败:', error);
     ElMessage.error('清理任务失败，请稍后重试');
+  }
+};
+
+// 手动刷新任务状态
+const refreshTaskStatus = async () => {
+  try {
+    await importStore.fetchImportTasks();
+    ElMessage.success('任务状态已刷新');
+  } catch (error) {
+    console.error('刷新任务状态失败:', error);
+    ElMessage.error('刷新失败');
   }
 };
 
@@ -529,6 +570,12 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: 12px;
+}
+
+.section-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
 }
 
 .section-header h4 {

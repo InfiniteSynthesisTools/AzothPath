@@ -500,6 +500,9 @@ class ImportTaskQueue {
       [getCurrentUTC8TimeForDB(), task.task_id]
     );
 
+    // 重新计算任务状态
+    await this.updateTaskStats(task.task_id);
+
     logger.info(`任务${task.id}标记为重复 (recipe_id: ${existingRecipeId})`);
   }
 

@@ -76,6 +76,15 @@
         查看详情
       </el-button>
       <el-button 
+        type="warning" 
+        size="small" 
+        @click="$emit('fix-status', task)"
+        v-if="task.status === 'processing' && task.success_count + task.failed_count + task.duplicate_count >= task.total_count"
+        :loading="fixing"
+      >
+        修复状态
+      </el-button>
+      <el-button 
         type="danger" 
         size="small" 
         @click="$emit('delete', task)"
@@ -88,7 +97,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import type { ImportTask } from '@/types';
 
 interface Props {
@@ -99,7 +108,10 @@ const props = defineProps<Props>();
 defineEmits<{
   detail: [task: ImportTask];
   delete: [task: ImportTask];
+  'fix-status': [task: ImportTask];
 }>();
+
+const fixing = ref(false);
 
 // 计算进度百分比
 const progressPercentage = computed(() => {
@@ -151,12 +163,17 @@ const formatDate = (dateStr: string) => {
 <style scoped>
 .import-task-card {
   height: 100%;
-  transition: all 0.3s;
-  border-radius: 12px;
+  transition: all 0.3s ease;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
 }
 
 .import-task-card:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+  background: rgba(255, 255, 255, 0.95);
 }
 
 .card-header {
@@ -165,13 +182,17 @@ const formatDate = (dateStr: string) => {
   align-items: center;
   margin-bottom: 16px;
   padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .task-id {
   font-size: 14px;
   font-weight: 600;
   color: #606266;
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 /* 任务统计 */
@@ -184,20 +205,27 @@ const formatDate = (dateStr: string) => {
 
 .stat-item {
   text-align: center;
-  padding: 8px;
-  background: #f8f9fa;
-  border-radius: 6px;
+  padding: 12px 8px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .stat-label {
   font-size: 12px;
   color: #909399;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  font-weight: 500;
 }
 
 .stat-value {
-  font-size: 16px;
-  font-weight: bold;
+  font-size: 18px;
+  font-weight: 700;
   color: #303133;
 }
 
@@ -259,5 +287,143 @@ const formatDate = (dateStr: string) => {
   display: flex;
   gap: 8px;
   justify-content: flex-end;
+  flex-wrap: wrap;
+}
+
+/* 移动端适配 */
+@media (max-width: 768px) {
+  .import-task-card {
+    margin-bottom: 16px;
+  }
+  
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 8px;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+  }
+  
+  .task-id {
+    font-size: 13px;
+  }
+  
+  /* 任务统计移动端优化 */
+  .task-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  
+  .stat-item {
+    padding: 6px;
+  }
+  
+  .stat-label {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  
+  .stat-value {
+    font-size: 14px;
+  }
+  
+  /* 进度条移动端优化 */
+  .progress-section {
+    margin-bottom: 12px;
+  }
+  
+  .progress-info {
+    font-size: 11px;
+    margin-bottom: 6px;
+  }
+  
+  /* 时间信息移动端优化 */
+  .time-info {
+    margin-bottom: 12px;
+  }
+  
+  .time-item {
+    font-size: 11px;
+    margin-bottom: 2px;
+  }
+  
+  /* 操作按钮移动端优化 */
+  .card-actions {
+    flex-direction: column;
+    gap: 6px;
+  }
+  
+  .card-actions .el-button {
+    width: 100%;
+    font-size: 12px;
+    padding: 8px 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .import-task-card {
+    margin-bottom: 12px;
+  }
+  
+  .card-header {
+    gap: 6px;
+    margin-bottom: 10px;
+    padding-bottom: 6px;
+  }
+  
+  .task-id {
+    font-size: 12px;
+  }
+  
+  /* 任务统计小屏幕优化 */
+  .task-stats {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+    margin-bottom: 10px;
+  }
+  
+  .stat-item {
+    padding: 4px;
+  }
+  
+  .stat-label {
+    font-size: 10px;
+    margin-bottom: 1px;
+  }
+  
+  .stat-value {
+    font-size: 13px;
+  }
+  
+  /* 进度条小屏幕优化 */
+  .progress-section {
+    margin-bottom: 10px;
+  }
+  
+  .progress-info {
+    font-size: 10px;
+    margin-bottom: 4px;
+  }
+  
+  /* 时间信息小屏幕优化 */
+  .time-info {
+    margin-bottom: 10px;
+  }
+  
+  .time-item {
+    font-size: 10px;
+    margin-bottom: 1px;
+  }
+  
+  /* 操作按钮小屏幕优化 */
+  .card-actions {
+    gap: 4px;
+  }
+  
+  .card-actions .el-button {
+    font-size: 11px;
+    padding: 6px 10px;
+  }
 }
 </style>

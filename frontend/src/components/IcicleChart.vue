@@ -19,7 +19,6 @@
       >
         <!-- 节点内容 -->
         <div class="node-content">
-          <span v-if="node.emoji" class="node-emoji">{{ truncateEmoji(node.emoji) }}</span>
           <span class="node-label">{{ node.name }}</span>
         </div>
       </div>
@@ -30,7 +29,6 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { IcicleNode } from '@/types'
-import { truncateEmoji } from '@/utils/emoji'
 
 interface Props {
   data: IcicleNode[]
@@ -233,56 +231,54 @@ const onNodeClick = (node: IcicleNode) => {
 <style scoped>
 .icicle-chart {
   width: 100%;
-  min-height: 300px;
-  background: #f5f7fa;
-  border-radius: 8px;
+  min-height: 350px;
+  background: transparent;
+  border-radius: var(--radius-lg);
   overflow: auto;
   display: flex;
   justify-content: center;
   align-items: flex-start;
-  padding: 20px;
+  padding: 0;
   box-sizing: border-box;
 }
 
 .chart-container {
   position: relative;
-  background: #fafbfc;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  background: transparent;
+  border-radius: var(--radius-lg);
   overflow: visible;
   margin: 0 auto;
+  min-width: 100%;
+  min-height: 300px;
 }
 
 .icicle-node {
   position: absolute;
-  border: 1.5px solid rgba(100, 150, 180, 0.4);
-  border-radius: 4px;
+  border: 2px solid var(--color-primary-300);
+  border-radius: var(--radius-base);
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
   z-index: 1;
+  background: var(--color-bg-surface);
 }
 
 .icicle-node:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-  border-color: rgba(100, 150, 180, 0.7);
+  transform: scale(1.02);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-500);
   z-index: 100;
+  background: var(--color-primary-50);
 }
 
 .node-content {
-  padding: 4px 8px;
+  padding: 8px 12px;
   display: flex;
   align-items: center;
-  gap: 6px;
   height: 100%;
-  color: #333;
-  font-size: 12px;
+  color: var(--color-text-primary);
+  font-size: 13px;
   font-weight: 500;
-}
-
-.node-emoji {
-  font-size: 14px;
 }
 
 .node-label {
@@ -290,5 +286,72 @@ const onNodeClick = (node: IcicleNode) => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+/* 移动端优化 */
+@media (max-width: 768px) {
+  .icicle-chart {
+    padding: 0;
+    min-height: 300px;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    /* 确保内容可以完全显示 */
+    justify-content: flex-start;
+  }
+  
+  .chart-container {
+    min-width: 100%;
+    min-height: 250px;
+    /* 确保容器宽度适应内容 */
+    width: max-content;
+  }
+  
+  .icicle-node {
+    border-width: 1px;
+    border-radius: var(--radius-sm);
+    min-height: 28px;
+  }
+  
+  .node-content {
+    padding: 6px 10px;
+    font-size: 12px;
+  }
+  
+  .node-label {
+    font-size: 12px;
+    font-weight: 600;
+  }
+}
+
+@media (max-width: 480px) {
+  .icicle-chart {
+    padding: 0;
+    min-height: 250px;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+  }
+  
+  .chart-container {
+    min-width: 100%;
+    min-height: 220px;
+    width: max-content;
+  }
+  
+  .node-content {
+    padding: 4px 8px;
+    font-size: 11px;
+  }
+  
+  .node-label {
+    font-size: 11px;
+  }
+  
+  .icicle-node {
+    min-height: 24px;
+  }
 }
 </style>

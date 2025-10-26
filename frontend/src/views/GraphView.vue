@@ -372,8 +372,7 @@ onUnmounted(() => {
 }
 
 .stats-section :deep(.stat-card:hover) {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
   border-color: var(--color-border-accent);
 }
 

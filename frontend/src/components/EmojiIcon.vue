@@ -86,7 +86,7 @@ onMounted(() => {
   width: 1.2em;
   height: 1.2em;
   border-radius: 50%;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
   color: white;
   font-weight: 600;
   font-size: 0.8em;

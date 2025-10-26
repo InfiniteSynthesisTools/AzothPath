@@ -242,7 +242,7 @@
             v-model:page-size="pageSize"
             :page-sizes="[5, 10, 20, 50]"
             :total="recipes.length"
-            layout="total, sizes, prev, pager, next, jumper"
+            :layout="isMobile ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
             @size-change="handleSizeChange"
             @current-change="handleCurrentChange"
           />
@@ -314,7 +314,7 @@
             v-model:page-size="materialPageSize"
             :page-sizes="[5, 10, 20, 50]"
             :total="materialRecipes.length"
-            layout="total, sizes, prev, pager, next, jumper"
+            :layout="isMobile ? 'total, sizes, prev, pager, next' : 'total, sizes, prev, pager, next, jumper'"
             @size-change="handleMaterialSizeChange"
             @current-change="handleMaterialCurrentChange"
           />
@@ -416,6 +416,9 @@ interface NavigationItem {
 
 const navigationHistory = ref<NavigationItem[]>([]);
 const showAllHistory = ref(false);
+
+// 移动端检测
+const isMobile = ref(false);
 
 // 计算显示的历史记录
 const displayedHistory = computed(() => {
@@ -812,8 +815,15 @@ watch(
   }
 );
 
+// 检测移动端
+const checkMobile = () => {
+  isMobile.value = window.innerWidth <= 768;
+};
+
 // 组件挂载时获取数据
 onMounted(() => {
+  checkMobile();
+  window.addEventListener('resize', checkMobile);
   loadNavigationHistory();
   fetchElementDetail();
 });
@@ -974,8 +984,7 @@ onMounted(() => {
 
 .stat-card:hover {
   background: var(--color-bg-surface);
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
   border-color: var(--color-border-accent);
 }
 
@@ -1011,21 +1020,27 @@ onMounted(() => {
 /* 冰柱图可视化板块样式 */
 .icicle-chart-section {
   margin-top: 40px;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
+  border: 1px solid var(--color-border-primary);
 }
 
 .icicle-chart-container {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
   border-radius: var(--radius-lg);
-  padding: 24px;
-  min-height: 300px;
+  padding: 20px;
+  min-height: 400px;
   display: flex;
   align-items: flex-start;
   justify-content: flex-start;
   overflow-x: auto;
+  overflow-y: visible;
   width: 100%;
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
+  -webkit-overflow-scrolling: touch;
 }
 
 .chart-loading {
@@ -1093,26 +1108,27 @@ onMounted(() => {
 }
 
 /* 配方列表样式 */
-.recipes-section {
+.recipes-section,
+.material-recipes-section {
   margin-top: 40px;
 }
 
 .section-header {
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 1px solid var(--color-border-primary);
 }
 
 .section-title {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0 0 8px 0;
 }
 
 .section-subtitle {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-secondary);
 }
 
 .recipes-list {
@@ -1122,27 +1138,27 @@ onMounted(() => {
 }
 
 .recipe-card {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
   border-radius: var(--radius-lg);
-  padding: 16px;
+  padding: 20px;
   transition: all var(--transition-base);
   box-shadow: var(--shadow-sm);
+  margin-bottom: 16px;
 }
 
 .recipe-card:hover {
-  background: var(--color-bg-surface);
+  background: var(--color-bg-secondary);
   border-color: var(--color-border-accent);
-  box-shadow: var(--shadow-xl);
-  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
 }
 
 .recipe-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
-  margin-bottom: 12px;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 16px;
 }
 
 .recipe-left {
@@ -1154,7 +1170,7 @@ onMounted(() => {
 .recipe-formula {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   flex: 1;
   margin-right: 16px;
 }
@@ -1169,21 +1185,21 @@ onMounted(() => {
 .ingredient-card {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
+  gap: 8px;
+  padding: 8px 12px;
   background: var(--color-bg-primary);
   border: 1px solid var(--color-border-primary);
   border-radius: var(--radius-base);
   cursor: pointer;
   transition: all var(--transition-base);
-  min-width: 100px;
+  min-width: 110px;
+  box-shadow: var(--shadow-xs);
 }
 
 .ingredient-card:hover {
   background: var(--color-bg-secondary);
   border-color: var(--color-border-accent);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .ingredient-emoji {
@@ -1211,12 +1227,21 @@ onMounted(() => {
 .result-card {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: linear-gradient(135deg, var(--color-primary-100) 0%, var(--color-primary-200) 100%);
-  border: 1px solid var(--color-primary-300);
+  gap: 8px;
+  padding: 8px 12px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
   border-radius: var(--radius-base);
-  min-width: 100px;
+  min-width: 110px;
+  box-shadow: var(--shadow-xs);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.result-card:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .result-emoji {
@@ -1235,11 +1260,11 @@ onMounted(() => {
 }
 
 .like-btn {
-  border: 1px solid #e0e3e7;
-  background: #ffffff;
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-bg-surface);
   color: #f85149;
-  border-radius: 12px;
-  padding: 3px 8px;
+  border-radius: var(--radius-base);
+  padding: 6px 10px;
   line-height: 1;
   font-size: 12px;
   cursor: pointer;
@@ -1247,40 +1272,41 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
   min-width: 40px;
-  height: 28px;
+  height: 32px;
+  box-shadow: var(--shadow-xs);
 }
+
 .like-btn:hover:not(:disabled) {
   background: #fff5f5;
   border-color: #f85149;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(248, 81, 73, 0.15);
+  box-shadow: var(--shadow-sm);
 }
+
 .like-btn.liked {
   background: #ffe4e4;
   border-color: #ffc2c2;
   color: #f85149;
 }
+
 .like-btn.liked:hover:not(:disabled) {
   background: #ffd4d0;
   border-color: #f85149;
-  box-shadow: 0 2px 8px rgba(248, 81, 73, 0.2);
+  box-shadow: var(--shadow-sm);
 }
+
 .like-btn:disabled {
   opacity: 0.6;
   cursor: not-allowed;
 }
-.like-btn:active {
-  transform: translateY(0);
-}
 
 .copy-btn {
-  border: 1px solid #e0e3e7;
-  background: #ffffff;
-  color: #606266;
-  border-radius: 12px;
-  padding: 4px 8px;
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-base);
+  padding: 6px 10px;
   line-height: 1;
   font-size: 12px;
   cursor: pointer;
@@ -1288,27 +1314,25 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  transition: all 0.3s ease;
-  width: 28px;
-  height: 28px;
+  transition: all var(--transition-base);
+  width: 32px;
+  height: 32px;
+  box-shadow: var(--shadow-xs);
 }
+
 .copy-btn:hover {
   background: #f0f9ff;
   border-color: #409eff;
   color: #409eff;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
-}
-.copy-btn:active {
-  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 .detail-btn {
-  border: 1px solid #e0e3e7;
-  background: #ffffff;
-  color: #606266;
-  border-radius: 12px;
-  padding: 4px 8px;
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-bg-surface);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-base);
+  padding: 6px 10px;
   line-height: 1;
   font-size: 14px;
   cursor: pointer;
@@ -1316,32 +1340,31 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  transition: all 0.3s ease;
-  width: 28px;
-  height: 28px;
+  transition: all var(--transition-base);
+  width: 32px;
+  height: 32px;
+  box-shadow: var(--shadow-xs);
 }
+
 .detail-btn:hover {
   background: #f0f9ff;
   border-color: #409eff;
   color: #409eff;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
-}
-.detail-btn:active {
-  transform: translateY(0);
+  box-shadow: var(--shadow-sm);
 }
 
 .recipe-footer {
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid #e9ecef;
+  margin-top: 16px;
+  padding-top: 16px;
+  border-top: 1px solid var(--color-border-primary);
 }
 
 .recipe-meta {
   display: flex;
-  gap: 12px;
-  font-size: 11px;
-  color: #909399;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--color-text-secondary);
+  flex-wrap: wrap;
 }
 
 .recipe-depth,
@@ -1355,6 +1378,124 @@ onMounted(() => {
   margin-top: 24px;
   display: flex;
   justify-content: center;
+  padding: 16px 0;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-primary);
+}
+
+/* 分页组件移动端优化 */
+.pagination-section :deep(.el-pagination) {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination-section :deep(.el-pagination__total) {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin-right: 8px;
+  font-weight: 500;
+}
+
+.pagination-section :deep(.el-pagination__sizes) {
+  margin-right: 8px;
+}
+
+.pagination-section :deep(.el-pagination__sizes .el-select) {
+  width: 80px;
+}
+
+.pagination-section :deep(.el-pagination__sizes .el-input__inner) {
+  font-size: 12px;
+  padding: 4px 8px;
+  height: 28px;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border-primary);
+}
+
+.pagination-section :deep(.el-pagination__sizes .el-input__suffix) {
+  display: flex;
+  align-items: center;
+}
+
+.pagination-section :deep(.el-pagination__sizes .el-select__caret) {
+  font-size: 12px;
+  color: var(--color-text-secondary);
+}
+
+.pagination-section :deep(.el-pagination__prev),
+.pagination-section :deep(.el-pagination__next) {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  margin: 0 4px;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all var(--transition-base);
+}
+
+.pagination-section :deep(.el-pagination__prev:hover),
+.pagination-section :deep(.el-pagination__next:hover) {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
+  color: var(--color-text-primary);
+}
+
+.pagination-section :deep(.el-pagination__prev.is-disabled),
+.pagination-section :deep(.el-pagination__next.is-disabled) {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-primary);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.pagination-section :deep(.el-pagination__jump) {
+  margin-left: 8px;
+  font-size: 14px;
+}
+
+.pagination-section :deep(.el-pagination__jump .el-input) {
+  width: 50px;
+}
+
+.pagination-section :deep(.el-pagination__pager) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-section :deep(.el-pager) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-section :deep(.el-pager li) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.pagination-section :deep(.el-pager li:hover) {
+  background: var(--color-bg-secondary);
+}
+
+.pagination-section :deep(.el-pager li.is-active) {
+  background: var(--color-primary-500);
+  color: white;
 }
 
 .no-recipes {
@@ -1370,60 +1511,150 @@ onMounted(() => {
 /* 响应式设计 */
 @media (max-width: 768px) {
   .element-detail-page {
-    padding: 12px;
+    padding: 8px;
   }
   
   .element-content {
-    padding: 20px;
-    border-radius: 10px;
+    padding: 16px;
+    border-radius: 8px;
+  }
+  
+  .back-button {
+    font-size: 14px;
+    margin-bottom: 12px;
   }
 
   .element-header {
     flex-direction: column;
     text-align: center;
-    gap: 16px;
-    margin-bottom: 24px;
-    padding-bottom: 20px;
+    gap: 12px;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
   }
 
   .element-emoji {
-    font-size: 48px;
-    width: 80px;
-    height: 80px;
-    border-radius: 12px;
+    font-size: 40px;
+    width: 70px;
+    height: 70px;
+    border-radius: 10px;
   }
 
   .element-name {
-    font-size: 28px;
+    font-size: 24px;
+    margin-bottom: 8px;
   }
 
   .element-meta {
     justify-content: center;
+    flex-direction: column;
+    gap: 8px;
+  }
+  
+  .element-type {
+    font-size: 12px;
+    padding: 4px 12px;
+  }
+  
+  .element-id {
+    font-size: 12px;
   }
 
   .element-stats-section {
-    margin-bottom: 32px;
+    margin-bottom: 24px;
   }
-
+  
+  /* Element Plus 栅格系统移动端优化 */
+  .element-stats-section .el-row {
+    margin: 0 -6px;
+  }
+  
+  .element-stats-section .el-col {
+    padding: 0 6px;
+    margin-bottom: 12px;
+  }
+  
   .stat-card {
     flex-direction: column;
     text-align: center;
-    gap: 12px;
-    padding: 16px;
+    gap: 8px;
+    padding: 12px;
+    min-height: 80px;
   }
   
   .stat-icon {
-    width: 40px;
-    height: 40px;
-    font-size: 20px;
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
   }
   
   .stat-value {
-    font-size: 20px;
+    font-size: 18px;
+    font-weight: 700;
   }
   
   .stat-label {
-    font-size: 13px;
+    font-size: 12px;
+    line-height: 1.2;
+  }
+  
+  /* 浏览历史移动端优化 */
+  .browsing-history {
+    margin-bottom: 20px;
+  }
+  
+  .history-title {
+    font-size: 14px;
+    margin-bottom: 8px;
+  }
+  
+  .history-tags {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  .history-tag {
+    font-size: 12px;
+    padding: 4px 8px;
+    border-radius: 12px;
+    margin-bottom: 4px;
+  }
+  
+  .history-tag .tag-emoji {
+    font-size: 12px;
+    margin-right: 4px;
+  }
+  
+  .history-tag .tag-name {
+    font-size: 11px;
+  }
+  
+  .history-tag .tag-remove {
+    width: 14px;
+    height: 14px;
+    font-size: 10px;
+    margin-left: 4px;
+  }
+  
+  /* 冰柱图移动端优化 */
+  .icicle-chart-section {
+    padding: 16px;
+    margin-top: 32px;
+  }
+  
+  .icicle-chart-container {
+    padding: 16px;
+    min-height: 300px;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    /* 确保内容可以完全显示 */
+    justify-content: flex-start;
+  }
+  
+  /* 冰柱图内容区域优化 */
+  .chart-content {
+    min-width: 100%;
+    width: max-content;
   }
   
   /* 配方列表移动端优化 */
@@ -1445,19 +1676,20 @@ onMounted(() => {
   }
   
   .recipes-list {
-    gap: 10px;
+    gap: 12px;
   }
   
   .recipe-card {
-    padding: 12px;
-    border-radius: 8px;
+    padding: 16px;
+    border-radius: var(--radius-lg);
+    margin-bottom: 0;
   }
   
   .recipe-header {
     flex-direction: column;
     align-items: flex-start;
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 12px;
+    margin-bottom: 12px;
   }
   
   .recipe-left {
@@ -1472,14 +1704,17 @@ onMounted(() => {
   }
   
   .ingredient-cards {
-    gap: 6px;
+    gap: 8px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
   
   .ingredient-card,
   .result-card {
-    padding: 5px 8px;
-    min-width: 80px;
-    border-radius: 5px;
+    padding: 6px 10px;
+    min-width: 90px;
+    border-radius: var(--radius-sm);
+    flex-shrink: 0;
   }
   
   .ingredient-emoji,
@@ -1492,32 +1727,110 @@ onMounted(() => {
   .ingredient-name,
   .result-name {
     font-size: 12px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 70px;
   }
   
   .operator {
     font-size: 13px;
-    padding: 0 1px;
+    padding: 0 2px;
+  }
+  
+  .like-btn,
+  .copy-btn,
+  .detail-btn {
+    padding: 4px 8px;
+    font-size: 12px;
+    min-width: 32px;
+    height: 28px;
   }
   
   .recipe-footer {
-    margin-top: 10px;
-    padding-top: 10px;
+    margin-top: 12px;
+    padding-top: 12px;
   }
   
   .recipe-meta {
-    gap: 10px;
-    font-size: 10px;
+    gap: 12px;
+    font-size: 11px;
     flex-wrap: wrap;
+  }
+  
+  /* 分页组件移动端优化 */
+  .pagination-section {
+    margin-top: 20px;
+  }
+  
+  .pagination-section :deep(.el-pagination) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+  }
+  
+  .pagination-section :deep(.el-pagination__total) {
+    font-size: 13px;
+    margin-right: 8px;
+    margin-bottom: 0;
+    font-weight: 500;
+  }
+  
+  .pagination-section :deep(.el-pagination__sizes) {
+    margin-right: 8px;
+    margin-bottom: 0;
+  }
+  
+  .pagination-section :deep(.el-pagination__sizes .el-select) {
+    width: 70px;
+  }
+  
+  .pagination-section :deep(.el-pagination__sizes .el-input__inner) {
+    font-size: 11px;
+    padding: 3px 6px;
+    height: 26px;
+  }
+  
+  .pagination-section :deep(.el-pagination__prev),
+  .pagination-section :deep(.el-pagination__next) {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    margin: 0 6px;
+  }
+  
+  .pagination-section :deep(.el-pagination__jump) {
+    margin-left: 8px;
+    margin-top: 0;
+    font-size: 13px;
+  }
+  
+  .pagination-section :deep(.el-pagination__jump .el-input) {
+    width: 45px;
+  }
+  
+  .pagination-section :deep(.el-pagination__jump .el-input__inner) {
+    font-size: 11px;
+    padding: 3px 5px;
+    height: 26px;
   }
 }
 
 @media (max-width: 480px) {
   .element-detail-page {
-    padding: 10px;
+    padding: 6px;
   }
   
   .element-content {
-    padding: 16px;
+    padding: 12px;
+    border-radius: 6px;
+  }
+  
+  .back-button {
+    font-size: 13px;
+    margin-bottom: 10px;
   }
 
   .element-name {
@@ -1545,7 +1858,126 @@ onMounted(() => {
   }
   
   .stat-label {
-    font-size: 12px;
+    font-size: 11px;
+  }
+  
+  /* 浏览历史小屏幕优化 */
+  .browsing-history {
+    margin-bottom: 16px;
+  }
+  
+  .history-title {
+    font-size: 13px;
+    margin-bottom: 6px;
+  }
+  
+  .history-tags {
+    gap: 4px;
+  }
+  
+  .history-tag {
+    font-size: 11px;
+    padding: 3px 6px;
+    border-radius: 10px;
+  }
+  
+  .history-tag .tag-emoji {
+    font-size: 11px;
+    margin-right: 3px;
+  }
+  
+  .history-tag .tag-name {
+    font-size: 10px;
+  }
+  
+  .history-tag .tag-remove {
+    width: 12px;
+    height: 12px;
+    font-size: 9px;
+    margin-left: 3px;
+  }
+  
+  /* 元素详情小屏幕优化 */
+  .element-header {
+    gap: 10px;
+    margin-bottom: 16px;
+    padding-bottom: 12px;
+  }
+  
+  .element-emoji {
+    font-size: 36px;
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+  }
+  
+  .element-name {
+    font-size: 20px;
+    margin-bottom: 6px;
+  }
+  
+  .element-meta {
+    gap: 6px;
+  }
+  
+  .element-type {
+    font-size: 11px;
+    padding: 3px 10px;
+  }
+  
+  .element-id {
+    font-size: 11px;
+  }
+  
+  /* Element Plus 栅格系统小屏幕优化 */
+  .element-stats-section .el-row {
+    margin: 0 -4px;
+  }
+  
+  .element-stats-section .el-col {
+    padding: 0 4px;
+    margin-bottom: 8px;
+  }
+  
+  .stat-card {
+    padding: 10px;
+    min-height: 70px;
+    gap: 6px;
+  }
+  
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .stat-value {
+    font-size: 16px;
+  }
+  
+  .stat-label {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+  
+  /* 冰柱图小屏幕优化 */
+  .icicle-chart-section {
+    padding: 12px;
+    margin-top: 24px;
+  }
+  
+  .icicle-chart-container {
+    padding: 12px;
+    min-height: 250px;
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+  }
+  
+  .chart-content {
+    min-width: 100%;
+    width: max-content;
   }
   
   .section-title {
@@ -1553,26 +1985,31 @@ onMounted(() => {
   }
   
   .recipes-list {
-    gap: 8px;
+    gap: 10px;
   }
   
   .recipe-card {
-    padding: 10px;
+    padding: 12px;
+    border-radius: var(--radius-base);
+    margin-bottom: 0;
   }
   
   .recipe-header {
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 10px;
   }
   
   .ingredient-cards {
-    gap: 5px;
+    gap: 6px;
+    flex-wrap: wrap;
+    justify-content: center;
   }
   
   .ingredient-card,
   .result-card {
-    padding: 4px 6px;
-    min-width: 70px;
+    padding: 4px 8px;
+    min-width: 75px;
+    flex-shrink: 0;
   }
   
   .ingredient-emoji,
@@ -1585,25 +2022,92 @@ onMounted(() => {
   .ingredient-name,
   .result-name {
     font-size: 11px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 60px;
   }
   
   .operator {
     font-size: 12px;
   }
   
-  .like-btn {
-    padding: 2px 6px;
+  .like-btn,
+  .copy-btn,
+  .detail-btn {
+    padding: 3px 6px;
     font-size: 11px;
+    min-width: 28px;
+    height: 24px;
   }
   
   .recipe-footer {
-    margin-top: 8px;
-    padding-top: 8px;
+    margin-top: 10px;
+    padding-top: 10px;
   }
   
   .recipe-meta {
-    font-size: 9px;
-    gap: 8px;
+    font-size: 10px;
+    gap: 10px;
+  }
+  
+  /* 分页组件小屏幕优化 */
+  .pagination-section {
+    margin-top: 16px;
+  }
+  
+  .pagination-section :deep(.el-pagination) {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: center;
+    gap: 6px;
+  }
+  
+  .pagination-section :deep(.el-pagination__total) {
+    font-size: 12px;
+    margin-right: 6px;
+    margin-bottom: 0;
+    font-weight: 500;
+  }
+  
+  .pagination-section :deep(.el-pagination__sizes) {
+    margin-right: 6px;
+    margin-bottom: 0;
+  }
+  
+  .pagination-section :deep(.el-pagination__sizes .el-select) {
+    width: 60px;
+  }
+  
+  .pagination-section :deep(.el-pagination__sizes .el-input__inner) {
+    font-size: 10px;
+    padding: 2px 4px;
+    height: 24px;
+  }
+  
+  .pagination-section :deep(.el-pagination__prev),
+  .pagination-section :deep(.el-pagination__next) {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
+    margin: 0 4px;
+  }
+  
+  .pagination-section :deep(.el-pagination__jump) {
+    margin-left: 6px;
+    margin-top: 0;
+    font-size: 12px;
+  }
+  
+  .pagination-section :deep(.el-pagination__jump .el-input) {
+    width: 40px;
+  }
+  
+  .pagination-section :deep(.el-pagination__jump .el-input__inner) {
+    font-size: 10px;
+    padding: 2px 4px;
+    height: 24px;
   }
 }
 </style>

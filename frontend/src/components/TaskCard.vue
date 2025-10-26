@@ -76,8 +76,7 @@ const userStore = useUserStore();
 }
 
 .task-card:hover {
-  box-shadow: var(--shadow-xl);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
   border-color: var(--color-border-accent);
 }
 

@@ -411,8 +411,7 @@ onMounted(() => {
 }
 
 .stat-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-lg);
 }
 
 .stat-content {
@@ -432,7 +431,7 @@ onMounted(() => {
 }
 
 .stat-icon.total {
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
 }
 
 .stat-icon.processing {

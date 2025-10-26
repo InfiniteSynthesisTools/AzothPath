@@ -197,23 +197,22 @@ const handleReset = () => {
 }
 
 .import-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
-  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-300);
 }
 
 /* 上传组件样式 */
 .glass-upload :deep(.el-upload-dragger) {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
-  border: 2px dashed rgba(34, 197, 94, 0.3);
+  border: 2px dashed var(--color-primary-300);
   border-radius: var(--radius-lg);
   transition: all var(--transition-base);
 }
 
 .glass-upload :deep(.el-upload-dragger:hover) {
   border-color: var(--color-primary-400);
-  background: rgba(34, 197, 94, 0.05);
+  background: var(--color-primary-50);
   transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
@@ -256,13 +255,13 @@ const handleReset = () => {
 }
 
 :deep(.el-divider) {
-  border-color: rgba(34, 197, 94, 0.1);
+  border-color: var(--color-primary-100);
 }
 
 :deep(.el-alert) {
   border-radius: var(--radius-lg);
-  background: rgba(34, 197, 94, 0.05);
-  border: 1px solid rgba(34, 197, 94, 0.1);
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-100);
 }
 
 :deep(.el-alert__title) {

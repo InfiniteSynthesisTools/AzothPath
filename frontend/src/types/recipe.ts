@@ -15,6 +15,9 @@ export interface Recipe {
   result_emoji?: string;  // 结果的emoji
   is_verified?: boolean;  // 验证状态
   updated_at?: string;    // 更新时间
+  depth?: number;         // 合成深度
+  width?: number;         // 合成宽度
+  breadth?: number;       // 合成广度
 }
 
 export interface Item {

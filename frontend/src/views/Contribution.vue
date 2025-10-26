@@ -478,8 +478,7 @@ onMounted(() => {
 
 .stat-card:hover {
   background: var(--color-bg-surface);
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
   border-color: var(--color-border-accent);
 }
 

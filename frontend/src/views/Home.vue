@@ -56,7 +56,7 @@
           <el-card class="explore-card card-scale" shadow="hover">
             <div class="explore-content">
               <div class="explore-left">
-                <el-icon size="32" color="#10b981" class="float">
+                <el-icon size="32" color="var(--color-primary-500)" class="float">
                   <StarFilled />
                 </el-icon>
                 <div class="explore-text">
@@ -542,40 +542,69 @@ onUnmounted(() => {
 
 .page-header {
   text-align: center;
-  margin-bottom: 40px;
-  padding: 40px 20px 20px;
+  margin-bottom: 50px;
+  padding: 60px 20px 30px;
+}
+
+.page-header::before {
+  content: '';
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 4px;
+  background: linear-gradient(90deg, transparent, var(--color-primary-400), transparent);
+  border-radius: 2px;
 }
 
 .page-title {
-  font-size: 32px;
-  font-weight: 800;
+  font-size: 48px;
+  font-weight: 900;
   color: var(--color-text-primary);
-  margin: 0 0 12px 0;
-  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  margin: 0 0 16px 0;
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-700) 50%, var(--color-primary-900) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  gap: 16px;
+  letter-spacing: -0.02em;
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .title-emoji {
-  font-size: 36px;
+  font-size: 48px;
   animation: float 3s ease-in-out infinite;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
+  transition: transform 0.3s ease;
+  display: inline-block;
+  line-height: 1;
+  vertical-align: middle;
+  /* 覆盖父元素的透明文字效果 */
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  background-clip: initial !important;
+}
+
+.title-emoji:hover {
+  transform: scale(1.1);
 }
 
 @keyframes float {
   0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+  50% { transform: translateY(-8px); }
 }
 
 .page-subtitle {
-  font-size: 18px;
+  font-size: 20px;
   color: var(--color-text-secondary);
   margin: 0;
-  line-height: 1.6;
+  line-height: 1.5;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  opacity: 0.9;
 }
 
 .stats-section {
@@ -594,9 +623,8 @@ onUnmounted(() => {
 }
 
 .stats-section :deep(.el-card:hover) {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
-  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-300);
 }
 
 .stats-section :deep(.el-statistic__content) {
@@ -628,9 +656,8 @@ onUnmounted(() => {
 }
 
 .explore-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
-  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-300);
 }
 
 .explore-card :deep(.el-card__body) {
@@ -692,9 +719,8 @@ onUnmounted(() => {
 }
 
 .feature-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
-  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-300);
 }
 
 .card-header {
@@ -702,7 +728,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid rgba(34, 197, 94, 0.1);
+  border-bottom: 1px solid var(--color-primary-100);
 }
 
 .card-header h3 {
@@ -723,11 +749,11 @@ onUnmounted(() => {
 
 .card-footer {
   padding: 16px 20px;
-  border-top: 1px solid rgba(34, 197, 94, 0.1);
+  border-top: 1px solid var(--color-primary-100);
   display: flex;
   justify-content: center;
   align-items: center;
-  background: rgba(34, 197, 94, 0.05);
+  background: var(--color-primary-50);
   border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 
@@ -948,7 +974,7 @@ onUnmounted(() => {
 }
 
 .copy-btn {
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  border: 1px solid var(--color-primary-200);
   background: var(--glass-bg);
   color: var(--color-primary-600);
   border-radius: var(--radius-full);
@@ -966,11 +992,11 @@ onUnmounted(() => {
 }
 
 .copy-btn:hover {
-  background: rgba(34, 197, 94, 0.1);
+  background: var(--color-primary-100);
   border-color: var(--color-primary-400);
   color: var(--color-primary-700);
   transform: translateY(-2px) scale(1.05);
-  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
+  box-shadow: 0 4px 12px var(--color-primary-200);
 }
 
 .copy-btn:active {
@@ -1006,20 +1032,26 @@ onUnmounted(() => {
 
 /* 移动端 */
 @media (max-width: 768px) {
-  .hero-section {
-    padding: 24px 16px;
+  .page-header {
+    padding: 40px 16px 20px;
+    margin-bottom: 30px;
   }
 
-  .hero-section h2 {
-    font-size: 22px;
-    line-height: 1.3;
-    color: var(--color-text-primary);
+  .page-title {
+    font-size: 36px;
+    gap: 12px;
   }
 
-  .hero-section p {
-    font-size: 14px;
-    line-height: 1.5;
-    color: var(--color-text-secondary);
+  .title-emoji {
+    font-size: 36px;
+    /* 覆盖父元素的透明文字效果 */
+    -webkit-text-fill-color: initial !important;
+    background: none !important;
+    background-clip: initial !important;
+  }
+
+  .page-subtitle {
+    font-size: 18px;
   }
 
   .stats-section,
@@ -1141,18 +1173,22 @@ onUnmounted(() => {
 
 /* 小屏手机 */
 @media (max-width: 414px) {
-  .hero-section {
-    padding: 20px 12px;
+  .page-header {
+    padding: 30px 12px 15px;
+    margin-bottom: 25px;
   }
 
-  .hero-section h2 {
-    font-size: 20px;
-    color: var(--color-text-primary);
+  .page-title {
+    font-size: 28px;
+    gap: 8px;
   }
 
-  .hero-section p {
-    font-size: 13px;
-    color: var(--color-text-secondary);
+  .title-emoji {
+    font-size: 28px;
+  }
+
+  .page-subtitle {
+    font-size: 16px;
   }
 
   .explore-card :deep(.el-card__body) {
@@ -1265,18 +1301,22 @@ onUnmounted(() => {
 
 /* 超小屏手机 */
 @media (max-width: 375px) {
-  .hero-section {
-    padding: 16px 10px;
+  .page-header {
+    padding: 25px 10px 12px;
+    margin-bottom: 20px;
   }
 
-  .hero-section h2 {
-    font-size: 18px;
-    color: var(--color-text-primary);
+  .page-title {
+    font-size: 24px;
+    gap: 6px;
   }
 
-  .hero-section p {
-    font-size: 12px;
-    color: var(--color-text-secondary);
+  .title-emoji {
+    font-size: 24px;
+  }
+
+  .page-subtitle {
+    font-size: 14px;
   }
 
   .explore-card :deep(.el-card__body) {

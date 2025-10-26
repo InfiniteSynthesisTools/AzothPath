@@ -131,8 +131,7 @@ const handleRegister = async () => {
 }
 
 .register-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-2xl);
+  box-shadow: var(--shadow-lg);
   border-color: var(--color-border-accent);
 }
 
@@ -192,7 +191,7 @@ h2 {
 :deep(.el-input__wrapper:hover),
 :deep(.el-input__wrapper.is-focus) {
   border-color: var(--color-border-accent);
-  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.1);
+  box-shadow: 0 0 0 2px var(--color-primary-100);
 }
 
 :deep(.el-button) {

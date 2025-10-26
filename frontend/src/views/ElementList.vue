@@ -10,42 +10,44 @@
       
       <!-- 搜索和筛选区域 -->
       <div class="search-section">
-        <div class="search-wrapper">
-          <el-input
-            v-model="searchKeyword"
-            placeholder="搜索元素名称..."
-            clearable
-            size="large"
-            class="search-input"
-            @input="handleSearch"
-          >
-            <template #prefix>
-              <el-icon><Search /></el-icon>
-            </template>
-          </el-input>
-        </div>
-        
-        <div class="filters-wrapper">
-          <el-select
-            v-model="sortBy"
-            placeholder="排序方式"
-            size="large"
-            class="sort-select"
-            @change="handleSortChange"
-          >
-            <el-option label="按名称排序" value="name">
-              <span class="option-emoji">🔤</span>
-              <span>按名称</span>
-            </el-option>
-            <el-option label="按使用频率排序" value="usage">
-              <span class="option-emoji">🔥</span>
-              <span>按使用频率</span>
-            </el-option>
-            <el-option label="按配方数量排序" value="recipes">
-              <span class="option-emoji">📊</span>
-              <span>按配方数量</span>
-            </el-option>
-          </el-select>
+        <div class="search-controls">
+          <div class="search-input-wrapper">
+            <el-input
+              v-model="searchKeyword"
+              placeholder="搜索元素名称..."
+              clearable
+              size="large"
+              class="search-input"
+              @input="handleSearch"
+            >
+              <template #prefix>
+                <el-icon><Search /></el-icon>
+              </template>
+            </el-input>
+          </div>
+          
+          <div class="sort-select-wrapper">
+            <el-select
+              v-model="sortBy"
+              placeholder="排序方式"
+              size="large"
+              class="sort-select"
+              @change="handleSortChange"
+            >
+              <el-option label="按名称排序" value="name">
+                <span class="option-emoji">🔤</span>
+                <span>按名称</span>
+              </el-option>
+              <el-option label="按使用频率排序" value="usage">
+                <span class="option-emoji">🔥</span>
+                <span>按使用频率</span>
+              </el-option>
+              <el-option label="按配方数量排序" value="recipes">
+                <span class="option-emoji">📊</span>
+                <span>按配方数量</span>
+              </el-option>
+            </el-select>
+          </div>
         </div>
       </div>
     </div>
@@ -260,72 +262,69 @@ onMounted(() => {
 }
 
 .search-section {
-  display: flex;
-  flex-direction: column;
-  gap: 20px;
-  max-width: 900px;
+  max-width: 800px;
   margin: 0 auto;
 }
 
-.search-wrapper {
+.search-controls {
+  display: flex;
+  gap: 16px;
+  align-items: center;
   width: 100%;
+}
+
+.search-input-wrapper {
+  flex: 1;
+  min-width: 0;
 }
 
 .search-input {
   width: 100%;
-  --el-input-border-radius: var(--radius-2xl);
+  --el-input-border-radius: var(--radius-lg);
 }
 
 .search-input :deep(.el-input__wrapper) {
-  border-radius: var(--radius-2xl);
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
 }
 
 .search-input :deep(.el-input__wrapper:hover) {
-  box-shadow: var(--shadow-xl);
-  transform: translateY(-2px);
-  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-accent);
 }
 
 .search-input :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1), var(--shadow-xl);
+  box-shadow: 0 0 0 2px var(--color-primary-100), var(--shadow-md);
   border-color: var(--color-primary-400);
 }
 
-.filters-wrapper {
-  display: flex;
-  gap: 16px;
-  justify-content: center;
-  flex-wrap: wrap;
+.sort-select-wrapper {
+  flex-shrink: 0;
+  width: 200px;
 }
 
 .sort-select {
-  min-width: 200px;
-  flex: 1;
-  max-width: 280px;
+  width: 100%;
 }
 
 .sort-select :deep(.el-input__wrapper) {
   border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
 }
 
 .sort-select :deep(.el-input__wrapper:hover) {
-  box-shadow: var(--shadow-lg);
-  transform: translateY(-2px);
-  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-border-accent);
 }
 
 .sort-select :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1), var(--shadow-lg);
+  box-shadow: 0 0 0 2px var(--color-primary-100), var(--shadow-md);
   border-color: var(--color-primary-400);
 }
 
@@ -354,13 +353,12 @@ onMounted(() => {
 }
 
 .element-card {
-  transition: all var(--transition-bounce);
-  border-radius: var(--radius-xl);
+  transition: all var(--transition-base);
+  border-radius: var(--radius-lg);
   cursor: pointer;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-lg);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .element-card :deep(.el-card__body) {
@@ -368,9 +366,9 @@ onMounted(() => {
 }
 
 .element-card:hover {
-  transform: translateY(-6px) scale(1.02);
-  box-shadow: var(--shadow-2xl);
-  border-color: rgba(34, 197, 94, 0.4);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-md);
 }
 
 .element-header {
@@ -387,17 +385,18 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, var(--color-primary-100) 0%, var(--color-primary-200) 100%);
+  background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
   flex-shrink: 0;
-  border: 2px solid rgba(34, 197, 94, 0.2);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-primary);
+  box-shadow: var(--shadow-sm);
   transition: all var(--transition-base);
 }
 
 .element-card:hover .element-emoji {
-  transform: rotate(10deg) scale(1.1);
-  box-shadow: var(--shadow-lg);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-md);
 }
 
 .element-info {
@@ -408,7 +407,7 @@ onMounted(() => {
 .element-name {
   font-size: 20px;
   font-weight: 700;
-  color: var(--color-primary-700);
+  color: var(--color-text-primary);
   margin: 0 0 6px 0;
   word-break: break-all;
   display: flex;
@@ -427,25 +426,26 @@ onMounted(() => {
   padding: 6px 12px;
   border-radius: var(--radius-full);
   font-weight: 600;
-  box-shadow: var(--shadow-sm);
+  box-shadow: var(--shadow-xs);
   transition: all var(--transition-base);
 }
 
 .element-type.base {
-  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
-  color: #1d4ed8;
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-primary);
 }
 
 .element-type.synthetic {
-  background: linear-gradient(135deg, var(--color-primary-100) 0%, var(--color-primary-200) 100%);
-  color: var(--color-primary-700);
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  border: 1px solid var(--color-border-primary);
 }
 
 .element-card:hover .element-type {
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-md);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .element-stats {
@@ -453,8 +453,8 @@ onMounted(() => {
   gap: 20px;
   margin-bottom: 16px;
   padding: 16px 0;
-  border-top: 1px solid rgba(34, 197, 94, 0.1);
-  border-bottom: 1px solid rgba(34, 197, 94, 0.1);
+  border-top: 1px solid var(--color-border-primary);
+  border-bottom: 1px solid var(--color-border-primary);
 }
 
 .stat-item {
@@ -465,13 +465,9 @@ onMounted(() => {
   transition: all var(--transition-base);
 }
 
-.element-card:hover .stat-item {
-  transform: translateY(-2px);
-}
-
 .stat-label {
   font-size: 12px;
-  color: var(--color-gray-600);
+  color: var(--color-text-secondary);
   margin-bottom: 6px;
   font-weight: 500;
 }
@@ -479,7 +475,7 @@ onMounted(() => {
 .stat-value {
   font-size: 18px;
   font-weight: 700;
-  color: var(--color-primary-600);
+  color: var(--color-text-primary);
 }
 
 .element-actions {
@@ -495,32 +491,106 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   margin-top: 40px;
+  padding: 16px 0;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-primary);
 }
 
 .pagination-container :deep(.el-pagination) {
-  --el-pagination-bg-color: var(--glass-bg);
-  --el-pagination-border-radius: var(--radius-lg);
-  --el-pagination-button-bg-color: var(--glass-bg);
-  --el-pagination-button-border-color: var(--glass-border);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 8px;
 }
 
-.pagination-container :deep(.el-pagination .btn-prev),
-.pagination-container :deep(.el-pagination .btn-next),
-.pagination-container :deep(.el-pagination .number) {
+.pagination-container :deep(.el-pagination__total) {
+  font-size: 14px;
+  color: var(--color-text-primary);
+  margin-right: 8px;
+  font-weight: 500;
+}
+
+.pagination-container :deep(.el-pagination__sizes) {
+  margin-right: 8px;
+}
+
+.pagination-container :deep(.el-pagination__sizes .el-select) {
+  width: 80px;
+}
+
+.pagination-container :deep(.el-pagination__sizes .el-input__inner) {
+  font-size: 12px;
+  padding: 4px 8px;
+  height: 28px;
   border-radius: var(--radius-base);
+  border: 1px solid var(--color-border-primary);
+}
+
+.pagination-container :deep(.el-pagination__prev),
+.pagination-container :deep(.el-pagination__next) {
+  width: 32px;
+  height: 32px;
+  font-size: 14px;
+  margin: 0 4px;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   transition: all var(--transition-base);
 }
 
-.pagination-container :deep(.el-pagination .number:hover) {
-  background: rgba(34, 197, 94, 0.1);
-  border-color: var(--color-primary-400);
-  transform: translateY(-2px);
-  box-shadow: var(--shadow-sm);
+.pagination-container :deep(.el-pagination__prev:hover),
+.pagination-container :deep(.el-pagination__next:hover) {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
+  color: var(--color-text-primary);
 }
 
-.pagination-container :deep(.el-pagination .number.is-active) {
-  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
-  border-color: var(--color-primary-500);
+.pagination-container :deep(.el-pagination__prev.is-disabled),
+.pagination-container :deep(.el-pagination__next.is-disabled) {
+  background: var(--color-bg-primary);
+  border-color: var(--color-border-primary);
+  color: var(--color-text-disabled);
+  cursor: not-allowed;
+}
+
+.pagination-container :deep(.el-pagination__jump) {
+  margin-left: 8px;
+  font-size: 14px;
+}
+
+.pagination-container :deep(.el-pagination__jump .el-input) {
+  width: 50px;
+}
+
+.pagination-container :deep(.el-pager) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.pagination-container :deep(.el-pager li) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  height: 32px;
+  border-radius: var(--radius-base);
+  cursor: pointer;
+  transition: all var(--transition-base);
+}
+
+.pagination-container :deep(.el-pager li:hover) {
+  background: var(--color-bg-secondary);
+}
+
+.pagination-container :deep(.el-pager li.is-active) {
+  background: var(--color-primary-500);
   color: white;
 }
 
@@ -545,71 +615,68 @@ onMounted(() => {
   
   .search-section {
     max-width: 100%;
+  }
+  
+  .search-controls {
+    flex-direction: column;
     gap: 12px;
   }
   
-  .search-wrapper {
+  .search-input-wrapper {
     width: 100%;
   }
   
-  .filters-wrapper {
+  .sort-select-wrapper {
     width: 100%;
-    flex-direction: column;
-    gap: 8px;
-  }
-  
-  .sort-select {
-    width: 100%;
-    max-width: 100%;
   }
   
   .elements-grid {
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 16px;
   }
   
   /* 移动端卡片紧凑布局 */
   .element-card :deep(.el-card__body) {
-    padding: 12px;
+    padding: 16px;
   }
   
   .element-header {
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 12px;
+    margin-bottom: 12px;
   }
   
   .element-emoji {
-    font-size: 28px;
-    width: 40px;
-    height: 40px;
-    border-radius: 6px;
+    font-size: 32px;
+    width: 48px;
+    height: 48px;
+    border-radius: var(--radius-base);
   }
   
   .element-name {
-    font-size: 16px;
-    margin: 0 0 3px 0;
+    font-size: 18px;
+    margin: 0 0 4px 0;
   }
   
   .element-type {
     font-size: 11px;
-    padding: 1px 6px;
+    padding: 4px 8px;
   }
   
   .element-stats {
-    gap: 12px;
+    gap: 16px;
     margin-bottom: 0;
-    padding: 8px 0 0 0;
-    border-top: 1px solid #f0f0f0;
+    padding: 12px 0 0 0;
+    border-top: 1px solid var(--color-border-primary);
     border-bottom: none;
   }
   
   .stat-label {
     font-size: 11px;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
   }
   
   .stat-value {
-    font-size: 15px;
+    font-size: 16px;
   }
   
   .pagination-container {
@@ -629,32 +696,32 @@ onMounted(() => {
   
   .elements-grid {
     grid-template-columns: 1fr;
-    gap: 10px;
+    gap: 12px;
   }
   
   /* 超小屏幕更紧凑 */
   .element-card :deep(.el-card__body) {
-    padding: 10px;
+    padding: 12px;
   }
   
   .element-header {
-    gap: 8px;
-    margin-bottom: 8px;
+    gap: 10px;
+    margin-bottom: 10px;
   }
   
   .element-emoji {
-    font-size: 24px;
-    width: 36px;
-    height: 36px;
+    font-size: 28px;
+    width: 40px;
+    height: 40px;
   }
   
   .element-name {
-    font-size: 15px;
+    font-size: 16px;
   }
   
   .element-stats {
-    gap: 10px;
-    padding: 6px 0 0 0;
+    gap: 12px;
+    padding: 10px 0 0 0;
   }
   
   .stat-label {
@@ -662,16 +729,19 @@ onMounted(() => {
   }
   
   .stat-value {
-    font-size: 14px;
+    font-size: 15px;
+  }
+  
+  .search-controls {
+    gap: 10px;
   }
   
   .search-input :deep(.el-input__wrapper) {
-    border-radius: 20px;
+    border-radius: var(--radius-lg);
   }
   
-  .filter-select :deep(.el-input__wrapper),
   .sort-select :deep(.el-input__wrapper) {
-    border-radius: 10px;
+    border-radius: var(--radius-lg);
   }
   
   .pagination-container {

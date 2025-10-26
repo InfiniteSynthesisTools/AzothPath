@@ -1,18 +1,18 @@
-/* Azoth Path 设计系统 - 绿色调 Material Design + Glassmorphism + 主题切换 */
+/* Azoth Path 设计系统 - 蓝色调 Material Design + Glassmorphism + 主题切换 */
 
 /* ===== 浅色主题 (默认) ===== */
 :root {
-  /* ===== 绿色调色板 ===== */
-  --color-primary-50: #f0fdf4;
-  --color-primary-100: #dcfce7;
-  --color-primary-200: #bbf7d0;
-  --color-primary-300: #86efac;
-  --color-primary-400: #4ade80;
-  --color-primary-500: #22c55e;
-  --color-primary-600: #16a34a;
-  --color-primary-700: #15803d;
-  --color-primary-800: #166534;
-  --color-primary-900: #14532d;
+  /* ===== 蓝色调色板 ===== */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
 
   /* ===== 中性色 ===== */
   --color-gray-50: #f9fafb;
@@ -27,7 +27,7 @@
   --color-gray-900: #111827;
 
   /* ===== 功能色 ===== */
-  --color-success: #10b981;
+  --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
   --color-info: #3b82f6;
@@ -85,17 +85,17 @@
 
 /* ===== 深色主题 ===== */
 [data-theme="dark"] {
-  /* ===== 绿色调色板 (深色主题优化) ===== */
-  --color-primary-50: #0a1f14;
-  --color-primary-100: #0f2a1c;
-  --color-primary-200: #143522;
-  --color-primary-300: #1a4028;
-  --color-primary-400: #1f4b2e;
-  --color-primary-500: #22c55e;
-  --color-primary-600: #4ade80;
-  --color-primary-700: #86efac;
-  --color-primary-800: #bbf7d0;
-  --color-primary-900: #dcfce7;
+  /* ===== 蓝色调色板 (深色主题优化) ===== */
+  --color-primary-50: #0a0f1a;
+  --color-primary-100: #0f1420;
+  --color-primary-200: #141926;
+  --color-primary-300: #1a1f2c;
+  --color-primary-400: #1e3a8a;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #60a5fa;
+  --color-primary-700: #93c5fd;
+  --color-primary-800: #bfdbfe;
+  --color-primary-900: #dbeafe;
 
   /* ===== 中性色 (深色主题) ===== */
   --color-gray-50: #0a0a0a;
@@ -110,7 +110,7 @@
   --color-gray-900: #f3f4f6;
 
   /* ===== 功能色 (深色主题) ===== */
-  --color-success: #10b981;
+  --color-success: #22c55e;
   --color-warning: #f59e0b;
   --color-error: #ef4444;
   --color-info: #3b82f6;
@@ -218,8 +218,7 @@ body {
 }
 
 .hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .hover-scale {
@@ -244,7 +243,7 @@ body {
 .glass-input:focus {
   outline: none;
   border-color: var(--color-primary-400);
-  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1), var(--shadow-md);
+  box-shadow: 0 0 0 3px var(--color-primary-100), var(--shadow-md);
 }
 
 /* ===== 徽章样式 ===== */
@@ -275,8 +274,7 @@ body {
 }
 
 .stat-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
   border-color: var(--color-border-accent);
 }
 
@@ -429,8 +427,7 @@ body {
 }
 
 .hover-lift:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 .hover-lift-lg:hover {
@@ -447,11 +444,11 @@ body {
 }
 
 .hover-glow:hover {
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 20px var(--color-primary-300);
 }
 
 .hover-glow-primary:hover {
-  box-shadow: 0 0 20px rgba(34, 197, 94, 0.3);
+  box-shadow: 0 0 20px var(--color-primary-300);
 }
 
 .hover-glow-success:hover {
@@ -762,14 +759,13 @@ body {
   height: 300px;
 }
 
-/* 卡片悬停放大效果 */
+/* 卡片悬停放大效果 - 已移除动画 */
 .card-scale {
-  transition: transform var(--transition-bounce), box-shadow var(--transition-base);
+  transition: box-shadow var(--transition-base);
 }
 
 .card-scale:hover {
-  transform: scale(1.02);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
 }
 
 /* 文字渐变效果 */

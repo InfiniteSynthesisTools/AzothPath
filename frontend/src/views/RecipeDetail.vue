@@ -27,7 +27,6 @@
             <div class="ingredient-emoji-large">{{ recipe.item_a_emoji || '🔘' }}</div>
             <div class="ingredient-text">
               <div class="ingredient-name-large">{{ recipe.item_a }}</div>
-              <el-button link size="small" @click="goToElementDetail(recipe.item_a)" class="element-link">查看详情</el-button>
             </div>
           </div>
           
@@ -37,7 +36,6 @@
             <div class="ingredient-emoji-large">{{ recipe.item_b_emoji || '🔘' }}</div>
             <div class="ingredient-text">
               <div class="ingredient-name-large">{{ recipe.item_b }}</div>
-              <el-button link size="small" @click="goToElementDetail(recipe.item_b)" class="element-link">查看详情</el-button>
             </div>
           </div>
           
@@ -47,7 +45,6 @@
             <div class="result-emoji-large">{{ recipe.result_emoji || '🔘' }}</div>
             <div class="result-text">
               <div class="result-name-large">{{ recipe.result }}</div>
-              <el-button link size="small" @click="goToElementDetail(recipe.result)" class="element-link">查看详情</el-button>
             </div>
           </div>
         </div>
@@ -121,8 +118,10 @@
               <div class="difficulty-value">{{ recipe.depth || 0 }}</div>
               <div class="difficulty-bar">
                 <el-progress 
-                  :percentage="(recipe.depth || 0) * 10" 
-                  :color="getDifficultyColor((recipe.depth || 0) * 10)"
+                  :percentage="Math.min((recipe.depth || 0) * 10, 100)" 
+                  :color="getDifficultyColor(Math.min((recipe.depth || 0) * 10, 100))"
+                  :show-text="true"
+                  :format="(percentage: number) => `${recipe.depth || 0} (${percentage}%)`"
                 />
               </div>
             </div>
@@ -133,8 +132,10 @@
               <div class="difficulty-value">{{ recipe.width || 0 }}</div>
               <div class="difficulty-bar">
                 <el-progress 
-                  :percentage="(recipe.width || 0) * 10" 
-                  :color="getDifficultyColor((recipe.width || 0) * 10)"
+                  :percentage="Math.min((recipe.width || 0) * 10, 100)" 
+                  :color="getDifficultyColor(Math.min((recipe.width || 0) * 10, 100))"
+                  :show-text="true"
+                  :format="(percentage: number) => `${recipe.width || 0} (${percentage}%)`"
                 />
               </div>
             </div>
@@ -146,46 +147,48 @@
       <!-- 材料来源 -->
       <div class="material-sources-section">
         <h2 class="section-title">材料来源</h2>
-        <el-row :gutter="20">
-          <el-col :xs="12" :sm="12">
-            <div class="source-card">
-              <div class="source-title">{{ recipe.item_a }} 的合成方式</div>
-              <div v-if="recipesForItemA.length > 0" class="recipes-source-list">
-                <div v-for="r in recipesForItemA" :key="r.id" class="recipe-source-item">
-                  <span class="recipe-formula">{{ r.item_a }} + {{ r.item_b }} = {{ r.result }}</span>
-                  <el-button link size="small" @click="goToRecipeDetail(r)">查看</el-button>
+        <div class="sources-container">
+          <!-- 合并相同物品的合成方式 -->
+          <div v-for="(sourceData, itemName) in mergedSources" :key="itemName" class="source-card">
+            <div class="source-title">{{ itemName }} 的合成方式</div>
+            <div v-if="sourceData.length > 0" class="recipes-source-list">
+              <div v-for="r in sourceData" :key="r.id" class="recipe-source-item">
+                <div class="recipe-formula">
+                  <span class="ingredient-emoji">{{ r.item_a_emoji || '🔘' }}</span>
+                  <span class="ingredient-name">{{ r.item_a }}</span>
+                  <span class="operator">+</span>
+                  <span class="ingredient-emoji">{{ r.item_b_emoji || '🔘' }}</span>
+                  <span class="ingredient-name">{{ r.item_b }}</span>
+                  <span class="operator">=</span>
+                  <span class="result-emoji">{{ r.result_emoji || '🔘' }}</span>
+                  <span class="result-name">{{ r.result }}</span>
                 </div>
-              </div>
-              <div v-else class="no-source">
-                <el-empty description="暂无合成方式" />
+                <el-button link size="small" @click="goToRecipeDetail(r)">查看</el-button>
               </div>
             </div>
-          </el-col>
-          <el-col :xs="12" :sm="12">
-            <div class="source-card">
-              <div class="source-title">{{ recipe.item_b }} 的合成方式</div>
-              <div v-if="recipesForItemB.length > 0" class="recipes-source-list">
-                <div v-for="r in recipesForItemB" :key="r.id" class="recipe-source-item">
-                  <span class="recipe-formula">{{ r.item_a }} + {{ r.item_b }} = {{ r.result }}</span>
-                  <el-button link size="small" @click="goToRecipeDetail(r)">查看</el-button>
-                </div>
-              </div>
-              <div v-else class="no-source">
-                <el-empty description="暂无合成方式" />
-              </div>
+            <div v-else class="no-source">
+              <el-empty description="暂无合成方式" />
             </div>
-          </el-col>
-        </el-row>
+          </div>
+        </div>
       </div>
 
       <!-- 衍生配方 -->
       <div class="derived-recipes-section">
         <h2 class="section-title">衍生配方</h2>
-        <div class="section-subtitle">使用该配方结果作为材料的其他配方</div>
         <div v-if="derivedRecipes.length > 0" class="derived-recipes-list">
           <div v-for="r in derivedRecipes" :key="r.id" class="derived-recipe-item">
             <div class="derived-recipe-formula">
-              <span class="formula-text">{{ r.item_a }} + {{ r.item_b }} = <strong>{{ r.result }}</strong></span>
+              <div class="formula-content">
+                <span class="ingredient-emoji">{{ r.item_a_emoji || '🔘' }}</span>
+                <span class="ingredient-name">{{ r.item_a }}</span>
+                <span class="operator">+</span>
+                <span class="ingredient-emoji">{{ r.item_b_emoji || '🔘' }}</span>
+                <span class="ingredient-name">{{ r.item_b }}</span>
+                <span class="operator">=</span>
+                <span class="result-emoji">{{ r.result_emoji || '🔘' }}</span>
+                <span class="result-name"><strong>{{ r.result }}</strong></span>
+              </div>
               <el-button link size="small" @click="goToRecipeDetail(r)">查看</el-button>
             </div>
           </div>
@@ -205,7 +208,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft } from '@element-plus/icons-vue';
@@ -223,6 +226,21 @@ const toggling = ref(false);
 const recipesForItemA = ref<Recipe[]>([]);
 const recipesForItemB = ref<Recipe[]>([]);
 const derivedRecipes = ref<Recipe[]>([]);
+
+// 合并相同物品的材料来源
+const mergedSources = computed(() => {
+  const sources: Record<string, Recipe[]> = {};
+  
+  // 只处理主配方的两个材料
+  const mainRecipe = recipe.value;
+  if (!mainRecipe) return sources;
+  
+  // 总是显示两个材料来源，即使没有合成方式
+  sources[mainRecipe.item_a] = recipesForItemA.value || [];
+  sources[mainRecipe.item_b] = recipesForItemB.value || [];
+  
+  return sources;
+});
 
 // 格式化日期
 const formatDate = (dateString: string): string => {
@@ -254,9 +272,40 @@ const fetchRecipeDetail = async () => {
       return;
     }
 
+    // 获取配方详情，包含统计信息
     const data = await recipeApi.detail(recipeId);
     if (data) {
       recipe.value = data;
+      console.log('配方详情数据:', data);
+      console.log('深度:', data.depth, '宽度:', data.width);
+      
+      // 如果没有统计信息，尝试从列表API获取
+      if (!data.depth && !data.width) {
+        console.log('配方详情中没有统计信息，尝试从列表API获取...');
+        try {
+          const listResponse = await recipeApi.list({
+            result: data.result,
+            includeStats: true,
+            limit: 1
+          });
+          if (listResponse.recipes && listResponse.recipes.length > 0) {
+            const recipeWithStats = listResponse.recipes[0];
+            recipe.value = {
+              ...data,
+              depth: recipeWithStats.depth,
+              width: recipeWithStats.width,
+              breadth: recipeWithStats.breadth
+            };
+            console.log('从列表API获取的统计信息:', {
+              depth: recipeWithStats.depth,
+              width: recipeWithStats.width,
+              breadth: recipeWithStats.breadth
+            });
+          }
+        } catch (error) {
+          console.error('获取统计信息失败:', error);
+        }
+      }
       
       // 并行获取关联的配方
       await Promise.all([
@@ -279,7 +328,7 @@ const fetchRecipeDetail = async () => {
   }
 };
 
-// 获取物品的合成配方
+// 获取物品的合成配方（该物品作为结果的配方）
 const fetchRecipesForItem = async (itemName: string) => {
   try {
     const response = await recipeApi.list({
@@ -312,31 +361,6 @@ const fetchDerivedRecipes = async (resultItem: string) => {
     }
   } catch (error: any) {
     console.error(`获取 ${resultItem} 的衍生配方失败:`, error);
-  }
-};
-
-// 跳转到元素详情页
-const goToElementDetail = async (elementName: string) => {
-  try {
-    const response = await recipeApi.getItems({
-      search: elementName,
-      limit: 1,
-      exact: true
-    });
-    
-    if (response && response.items && response.items.length > 0) {
-      const elementData = response.items[0];
-      if (elementData && elementData.id) {
-        router.push(`/element/${elementData.id}`);
-      } else {
-        ElMessage.warning(`未找到元素: ${elementName}`);
-      }
-    } else {
-      ElMessage.warning(`未找到元素: ${elementName}`);
-    }
-  } catch (error) {
-    console.error('跳转到元素详情失败:', error);
-    ElMessage.error('跳转失败，请稍后重试');
   }
 };
 
@@ -403,16 +427,18 @@ onMounted(() => {
   max-width: 1200px;
   margin: 0 auto;
   padding: 24px;
-  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
   min-height: calc(100vh - 60px);
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
 }
 
 .back-section {
-  margin-bottom: 20px;
+  margin-bottom: 24px;
 }
 
 .back-button {
-  font-size: 16px;
+  font-size: 14px;
+  color: #409eff;
+  align-self: flex-start;
 }
 
 .loading-container {
@@ -420,6 +446,11 @@ onMounted(() => {
 }
 
 .recipe-content {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-xl);
+  padding: 32px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-primary);
   display: flex;
   flex-direction: column;
   gap: 40px;
@@ -427,20 +458,19 @@ onMounted(() => {
 
 /* 大卡片样式 */
 .recipe-card-large {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  padding: 40px;
-  box-shadow: var(--shadow-xl);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-sm);
 }
 
 .recipe-formula-large {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 20px;
-  margin-bottom: 30px;
+  gap: 16px;
+  margin-bottom: 20px;
   flex-wrap: wrap;
 }
 
@@ -448,21 +478,20 @@ onMounted(() => {
 .result-item {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   background: var(--color-bg-primary);
-  padding: 16px 20px;
-  border-radius: var(--radius-lg);
+  padding: 12px 16px;
+  border-radius: var(--radius-base);
   flex: 1;
-  min-width: 150px;
-  max-width: 200px;
+  min-width: 120px;
+  max-width: 160px;
   border: 1px solid var(--color-border-primary);
-  box-shadow: var(--shadow-sm);
 }
 
 .ingredient-emoji-large,
 .result-emoji-large {
-  font-size: 32px;
-  width: 50px;
+  font-size: 24px;
+  width: 30px;
   text-align: center;
   flex-shrink: 0;
 }
@@ -471,28 +500,21 @@ onMounted(() => {
 .result-text {
   flex: 1;
   display: flex;
-  flex-direction: column;
-  gap: 6px;
+  align-items: center;
 }
 
 .ingredient-name-large,
 .result-name-large {
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
   color: var(--color-text-primary);
 }
 
-.element-link {
-  color: #409eff;
-  padding: 2px 0;
-  height: auto;
-}
-
 .operator-large {
-  font-size: 24px;
+  font-size: 18px;
   font-weight: bold;
   color: var(--color-text-tertiary);
-  min-width: 30px;
+  min-width: 20px;
   text-align: center;
 }
 
@@ -500,29 +522,28 @@ onMounted(() => {
 .recipe-actions {
   display: flex;
   justify-content: center;
-  gap: 12px;
+  gap: 8px;
   flex-wrap: wrap;
 }
 
 .action-btn {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 10px 20px;
-  border: none;
+  gap: 4px;
+  padding: 8px 16px;
+  border: 1px solid var(--color-border-primary);
   border-radius: var(--radius-base);
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   cursor: pointer;
   transition: all var(--transition-base);
   background: var(--color-bg-primary);
   color: var(--color-text-primary);
-  box-shadow: var(--shadow-md);
 }
 
 .action-btn:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
 }
 
 .action-btn:disabled {
@@ -564,9 +585,9 @@ onMounted(() => {
   font-size: 24px;
   font-weight: 600;
   color: var(--color-text-primary);
-  margin: 0 0 24px 0;
+  margin: 0 0 8px 0;
   padding-bottom: 16px;
-  border-bottom: 2px solid var(--color-border-primary);
+  border-bottom: 1px solid var(--color-border-primary);
 }
 
 .section-subtitle {
@@ -576,10 +597,23 @@ onMounted(() => {
   margin-bottom: 20px;
 }
 
+/* 统计信息 */
+.recipe-stats-section {
+  margin-bottom: 40px;
+}
+
+.recipe-stats-section .el-row {
+  margin: 0 -10px;
+}
+
+.recipe-stats-section .el-col {
+  padding: 0 10px;
+  margin-bottom: 20px;
+}
+
 .stat-card {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
   border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
@@ -587,20 +621,19 @@ onMounted(() => {
   gap: 16px;
   height: 100%;
   transition: all var(--transition-base);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-card:hover {
-  background: var(--color-bg-surface);
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  background: var(--color-bg-secondary);
+  box-shadow: var(--shadow-md);
   border-color: var(--color-border-accent);
 }
 
 .stat-icon {
-  font-size: 28px;
-  width: 50px;
-  height: 50px;
+  font-size: 24px;
+  width: 48px;
+  height: 48px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -615,15 +648,14 @@ onMounted(() => {
 }
 
 .stat-value {
-  font-size: 18px;
+  font-size: 24px;
   font-weight: 700;
   color: var(--color-text-primary);
   margin-bottom: 4px;
-  word-break: break-word;
 }
 
 .stat-label {
-  font-size: 12px;
+  font-size: 14px;
   color: var(--color-text-secondary);
 }
 
@@ -655,13 +687,25 @@ onMounted(() => {
 }
 
 /* 材料来源 */
+.sources-container {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .source-card {
   background: var(--color-bg-surface);
   border-radius: var(--radius-lg);
-  padding: 24px;
+  padding: 20px;
   border: 1px solid var(--color-border-primary);
-  min-height: 200px;
   box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
+}
+
+.source-card:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-md);
 }
 
 .source-title {
@@ -684,16 +728,50 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
+  background: var(--color-bg-primary);
   border-radius: var(--radius-base);
   font-size: 14px;
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--color-border-primary);
+  transition: all var(--transition-base);
+}
+
+.recipe-source-item:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
 }
 
 .recipe-formula {
   flex: 1;
   color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.ingredient-emoji,
+.result-emoji {
+  font-size: 16px;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ingredient-name,
+.result-name {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--color-text-primary);
+}
+
+.operator {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--color-text-tertiary);
+  padding: 0 4px;
 }
 
 .no-source {
@@ -701,7 +779,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 150px;
-  color: #909399;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-primary);
+  color: var(--color-text-secondary);
 }
 
 /* 衍生配方 */
@@ -712,26 +793,33 @@ onMounted(() => {
 }
 
 .derived-recipe-item {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
+  background: var(--color-bg-surface);
   border-radius: var(--radius-lg);
-  padding: 16px;
-  border: 1px solid var(--glass-border);
+  padding: 20px;
+  border: 1px solid var(--color-border-primary);
   transition: all var(--transition-base);
   box-shadow: var(--shadow-sm);
 }
 
 .derived-recipe-item:hover {
-  background: var(--color-bg-surface);
+  background: var(--color-bg-secondary);
   border-color: var(--color-border-accent);
-  box-shadow: var(--shadow-xl);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .derived-recipe-formula {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 12px;
+}
+
+.formula-content {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
 }
 
 .formula-text {
@@ -745,10 +833,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 150px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
+  background: var(--color-bg-primary);
   border-radius: var(--radius-lg);
-  border: 1px solid var(--glass-border);
+  border: 1px solid var(--color-border-primary);
+  color: var(--color-text-secondary);
 }
 
 .not-found {
@@ -761,7 +849,17 @@ onMounted(() => {
 /* 响应式设计 */
 @media (max-width: 768px) {
   .recipe-detail-page {
-    padding: 12px;
+    padding: 8px;
+  }
+  
+  .recipe-content {
+    padding: 16px;
+    border-radius: 8px;
+  }
+
+  .back-button {
+    font-size: 14px;
+    margin-bottom: 12px;
   }
 
   .recipe-card-large {
@@ -769,41 +867,236 @@ onMounted(() => {
   }
 
   .recipe-formula-large {
-    gap: 10px;
-    margin-bottom: 20px;
+    gap: 12px;
+    margin-bottom: 16px;
   }
 
   .ingredient-item,
   .result-item {
-    min-width: 120px;
-    max-width: 150px;
-    padding: 12px 16px;
+    min-width: 100px;
+    max-width: 140px;
+    padding: 10px 12px;
   }
 
   .ingredient-emoji-large,
   .result-emoji-large {
-    font-size: 24px;
-    width: 40px;
+    font-size: 20px;
+    width: 24px;
   }
 
   .ingredient-name-large,
   .result-name-large {
-    font-size: 14px;
+    font-size: 12px;
   }
 
   .operator-large {
-    font-size: 20px;
-    min-width: 20px;
-  }
-
-  .section-title {
-    font-size: 20px;
-    margin-bottom: 16px;
+    font-size: 16px;
+    min-width: 16px;
   }
 
   .action-btn {
-    padding: 8px 16px;
+    padding: 6px 12px;
     font-size: 12px;
+  }
+
+  /* 配方emoji移动端优化 */
+  .recipe-formula {
+    gap: 6px;
+  }
+
+  .ingredient-emoji,
+  .result-emoji {
+    font-size: 14px;
+    width: 18px;
+    height: 18px;
+  }
+
+  .ingredient-name,
+  .result-name {
+    font-size: 12px;
+  }
+
+  .operator {
+    font-size: 12px;
+    padding: 0 2px;
+  }
+
+  .formula-content {
+    gap: 6px;
+  }
+
+  /* 材料来源移动端优化 */
+  .sources-container {
+    gap: 12px;
+  }
+
+  .source-card {
+    padding: 16px;
+  }
+
+  .source-title {
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+
+  /* 统计卡片移动端优化 */
+  .recipe-stats-section .el-row {
+    margin: 0 -6px;
+  }
+
+  .recipe-stats-section .el-col {
+    padding: 0 6px;
+    margin-bottom: 12px;
+  }
+
+  .stat-card {
+    flex-direction: column;
+    text-align: center;
+    gap: 8px;
+    padding: 12px;
+    min-height: 80px;
+  }
+  
+  .stat-icon {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+  }
+  
+  .stat-value {
+    font-size: 18px;
+    font-weight: 700;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+    line-height: 1.2;
+  }
+}
+
+@media (max-width: 480px) {
+  .recipe-detail-page {
+    padding: 6px;
+  }
+  
+  .recipe-content {
+    padding: 12px;
+    border-radius: 6px;
+  }
+
+  .back-button {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  /* 主配方公式小屏幕优化 */
+  .recipe-card-large {
+    padding: 16px;
+  }
+
+  .recipe-formula-large {
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+
+  .ingredient-item,
+  .result-item {
+    min-width: 80px;
+    max-width: 120px;
+    padding: 8px 10px;
+  }
+
+  .ingredient-emoji-large,
+  .result-emoji-large {
+    font-size: 18px;
+    width: 20px;
+  }
+
+  .ingredient-name-large,
+  .result-name-large {
+    font-size: 11px;
+  }
+
+  .operator-large {
+    font-size: 14px;
+    min-width: 12px;
+  }
+
+  /* 操作按钮小屏幕优化 */
+  .action-btn {
+    padding: 5px 10px;
+    font-size: 11px;
+  }
+
+  /* 统计卡片小屏幕优化 */
+  .recipe-stats-section .el-row {
+    margin: 0 -4px;
+  }
+
+  .recipe-stats-section .el-col {
+    padding: 0 4px;
+    margin-bottom: 8px;
+  }
+
+  .stat-card {
+    padding: 10px;
+    min-height: 70px;
+    gap: 6px;
+  }
+  
+  .stat-icon {
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+  }
+  
+  .stat-value {
+    font-size: 16px;
+  }
+  
+  .stat-label {
+    font-size: 10px;
+    line-height: 1.1;
+  }
+
+  /* 材料来源小屏幕优化 */
+  .sources-container {
+    gap: 10px;
+  }
+
+  .source-card {
+    padding: 12px;
+  }
+
+  .source-title {
+    font-size: 13px;
+    margin-bottom: 10px;
+  }
+
+  /* 配方emoji小屏幕优化 */
+  .recipe-formula {
+    gap: 4px;
+  }
+
+  .ingredient-emoji,
+  .result-emoji {
+    font-size: 12px;
+    width: 16px;
+    height: 16px;
+  }
+
+  .ingredient-name,
+  .result-name {
+    font-size: 11px;
+  }
+
+  .operator {
+    font-size: 11px;
+    padding: 0 1px;
+  }
+
+  .formula-content {
+    gap: 4px;
   }
 }
 </style>

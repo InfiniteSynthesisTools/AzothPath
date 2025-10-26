@@ -144,7 +144,7 @@ const loadSystemStats = async () => {
 
     // 加载用户统计
     const userStats = await userApi.getUserCount();
-    systemStats.value.total_users = userStats.total_users || 0;
+    systemStats.value.total_users = userStats.data?.total_users || 0;
 
   } catch (error) {
     console.error('加载系统统计失败:', error);
@@ -199,8 +199,7 @@ onMounted(() => {
 
 .stat-card:hover {
   background: var(--color-bg-surface);
-  transform: translateY(-4px);
-  box-shadow: var(--shadow-xl);
+  box-shadow: var(--shadow-lg);
   border-color: var(--color-border-accent);
 }
 

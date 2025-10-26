@@ -543,6 +543,32 @@ export class UserService {
   }
 
   /**
+   * 修改用户密码（管理员功能）
+   */
+  async changeUserPassword(userId: number, newPassword: string): Promise<void> {
+    // 检查用户是否存在
+    const user = await database.get<User>('SELECT id FROM user WHERE id = ?', [userId]);
+    if (!user) {
+      throw new Error('用户不存在');
+    }
+
+    // 加密新密码
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+    // 更新密码
+    const result = await database.run(
+      'UPDATE user SET psw = ? WHERE id = ?',
+      [hashedPassword, userId]
+    );
+
+    if (result.changes === 0) {
+      throw new Error('密码修改失败');
+    }
+
+    logger.info(`管理员修改了用户 ${userId} 的密码`);
+  }
+
+  /**
    * 获取用户总数（管理员功能）
    */
   async getUserCount(): Promise<number> {

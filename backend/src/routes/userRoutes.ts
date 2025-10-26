@@ -558,6 +558,69 @@ router.put('/admin/:id', authMiddleware, async (req: AuthRequest, res: Response)
 });
 
 /**
+ * PUT /api/users/admin/:id/password
+ * 修改用户密码（管理员功能）
+ */
+router.put('/admin/:id/password', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    // 检查管理员权限
+    const currentUser = await userService.getCurrentUser(req.userId!);
+    if (currentUser.auth !== 9) {
+      return res.status(403).json({
+        code: 403,
+        message: '权限不足，需要管理员权限'
+      });
+    }
+
+    const userId = parseInt(req.params.id);
+    const { newPassword } = req.body;
+
+    if (isNaN(userId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的用户 ID'
+      });
+    }
+
+    if (!newPassword || typeof newPassword !== 'string') {
+      return res.status(400).json({
+        code: 400,
+        message: '请提供有效的新密码'
+      });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({
+        code: 400,
+        message: '密码长度至少为 6 个字符'
+      });
+    }
+
+    await userService.changeUserPassword(userId, newPassword);
+
+    res.json({
+      code: 200,
+      message: '密码修改成功',
+      data: { userId }
+    });
+  } catch (error: any) {
+    logger.error('修改用户密码失败', error);
+    
+    if (error.message === '用户不存在') {
+      return res.status(404).json({
+        code: 404,
+        message: error.message
+      });
+    }
+
+    res.status(400).json({
+      code: 400,
+      message: error.message || '修改密码失败'
+    });
+  }
+});
+
+/**
  * DELETE /api/users/admin/:id
  * 删除用户（管理员功能）
  */

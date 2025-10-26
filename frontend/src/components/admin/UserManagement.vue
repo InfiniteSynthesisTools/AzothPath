@@ -77,7 +77,7 @@
           </template>
         </el-table-column>
         
-        <el-table-column label="操作" width="150" fixed="right" align="center">
+        <el-table-column label="操作" width="200" fixed="right" align="center">
           <template #default="{ row }">
             <el-button 
               size="small" 
@@ -85,6 +85,13 @@
               @click="viewUserDetail(row)"
             >
               编辑
+            </el-button>
+            <el-button 
+              size="small" 
+              type="warning"
+              @click="changeUserPassword(row)"
+            >
+              改密
             </el-button>
             <el-button 
               size="small" 
@@ -210,6 +217,70 @@
         </div>
       </template>
     </el-dialog>
+
+    <!-- 密码修改对话框 -->
+    <el-dialog
+      v-model="passwordDialogVisible"
+      title="修改用户密码"
+      width="500px"
+      :close-on-click-modal="false"
+    >
+      <div v-if="selectedUserForPassword" class="password-change">
+        <div class="user-info-summary">
+          <div class="user-avatar-name">
+            <div class="user-emoji-avatar">{{ truncateEmoji(selectedUserForPassword.emoji) }}</div>
+            <div class="user-details">
+              <div class="username">{{ selectedUserForPassword.name }}</div>
+              <div class="user-id">ID: {{ selectedUserForPassword.id }}</div>
+            </div>
+          </div>
+        </div>
+
+        <el-form
+          ref="passwordFormRef"
+          :model="passwordForm"
+          :rules="passwordRules"
+          label-width="100px"
+          class="password-form"
+        >
+          <el-form-item label="新密码" prop="newPassword">
+            <el-input
+              v-model="passwordForm.newPassword"
+              type="password"
+              placeholder="请输入新密码"
+              show-password
+              clearable
+            />
+          </el-form-item>
+          
+          <el-form-item label="确认密码" prop="confirmPassword">
+            <el-input
+              v-model="passwordForm.confirmPassword"
+              type="password"
+              placeholder="请再次输入新密码"
+              show-password
+              clearable
+            />
+          </el-form-item>
+        </el-form>
+      </div>
+      
+      <template #footer>
+        <div class="dialog-footer">
+          <el-button @click="passwordDialogVisible = false">
+            取消
+          </el-button>
+          <el-button 
+            type="primary" 
+            @click="savePasswordChange" 
+            :loading="passwordLoading"
+          >
+            <el-icon><Check /></el-icon>
+            确认修改
+          </el-button>
+        </div>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -237,6 +308,16 @@ const pageSize = ref(20);
 const totalUsers = ref(0);
 const userDialogVisible = ref(false);
 const selectedUser = ref<any>(null);
+
+// 密码修改相关
+const passwordDialogVisible = ref(false);
+const selectedUserForPassword = ref<any>(null);
+const passwordLoading = ref(false);
+const passwordFormRef = ref<FormInstance>();
+const passwordForm = ref({
+  newPassword: '',
+  confirmPassword: ''
+});
 
 // 编辑相关
 const editLoading = ref(false);
@@ -266,6 +347,27 @@ const editRules: FormRules = {
   ],
   created_at: [
     { required: true, message: '请选择注册时间', trigger: 'change' }
+  ]
+};
+
+// 密码表单验证规则
+const passwordRules: FormRules = {
+  newPassword: [
+    { required: true, message: '请输入新密码', trigger: 'blur' },
+    { min: 6, message: '密码长度至少为 6 个字符', trigger: 'blur' }
+  ],
+  confirmPassword: [
+    { required: true, message: '请确认密码', trigger: 'blur' },
+    {
+      validator: (_rule: any, value: string, callback: any) => {
+        if (value !== passwordForm.value.newPassword) {
+          callback(new Error('两次输入的密码不一致'));
+        } else {
+          callback();
+        }
+      },
+      trigger: 'blur'
+    }
   ]
 };
 
@@ -379,6 +481,37 @@ const deleteUser = async (user: any) => {
   }
 };
 
+
+// 修改用户密码
+const changeUserPassword = (user: any) => {
+  selectedUserForPassword.value = user;
+  // 重置密码表单
+  passwordForm.value = {
+    newPassword: '',
+    confirmPassword: ''
+  };
+  passwordDialogVisible.value = true;
+};
+
+// 保存密码修改
+const savePasswordChange = async () => {
+  if (!passwordFormRef.value || !selectedUserForPassword.value) return;
+  
+  try {
+    await passwordFormRef.value.validate();
+    passwordLoading.value = true;
+    
+    await userApi.updateUserPassword(selectedUserForPassword.value.id, passwordForm.value.newPassword);
+    
+    ElMessage.success('密码修改成功');
+    passwordDialogVisible.value = false;
+  } catch (error) {
+    console.error('修改密码失败:', error);
+    ElMessage.error('修改密码失败');
+  } finally {
+    passwordLoading.value = false;
+  }
+};
 
 // 保存用户编辑
 const saveUserEdit = async () => {
@@ -586,6 +719,58 @@ onMounted(() => {
 :deep(.el-dialog__footer) {
   padding: 20px;
   background-color: var(--color-bg-secondary);
+}
+
+/* 密码修改对话框样式 */
+.password-change {
+  padding: 20px 0;
+}
+
+.user-info-summary {
+  margin-bottom: 30px;
+  padding: 20px;
+  background-color: var(--color-bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--color-border-primary);
+}
+
+.user-avatar-name {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.user-emoji-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-surface);
+  box-shadow: inset 0 0 0 2px var(--color-border-primary);
+  font-size: 32px;
+  line-height: 1;
+}
+
+.user-details {
+  flex: 1;
+}
+
+.username {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin-bottom: 4px;
+}
+
+.user-id {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
+}
+
+.password-form {
+  padding: 20px 0;
 }
 
 /* 基础表格样式 */

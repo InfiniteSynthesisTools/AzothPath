@@ -104,6 +104,11 @@ export const userApi = {
     return request.delete<{ userId: number }>(`/users/admin/${userId}`);
   },
 
+  // 修改用户密码（管理员功能）
+  updateUserPassword(userId: number, newPassword: string) {
+    return request.put<{ userId: number }>(`/users/admin/${userId}/password`, { newPassword });
+  },
+
   // 获取用户总数（管理员功能）
   getUserCount() {
     return request.get<{ total_users: number }>('/users/admin/count');

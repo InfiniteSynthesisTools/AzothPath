@@ -54,14 +54,14 @@
           v-for="(user, index) in contributionRanks" 
           :key="user.id"
           class="leaderboard-item"
-          :class="{ 'top-three': index < 3 }"
+          :class="{ 'top-three': getGlobalRank(index) <= 3 }"
           @click="viewProfile(user.id)"
         >
           <!-- 排名 -->
           <div class="rank-section">
-            <div class="rank-badge" :class="getRankClass(index)">
-              <span v-if="index < 3" class="rank-icon">{{ getRankIcon(index) }}</span>
-              <span v-else class="rank-number">{{ index + 1 }}</span>
+            <div class="rank-badge" :class="getRankClass(getGlobalRank(index) - 1)">
+              <span v-if="getGlobalRank(index) <= 3" class="rank-icon">{{ getRankIcon(getGlobalRank(index) - 1) }}</span>
+              <span v-else class="rank-number">{{ getGlobalRank(index) }}</span>
             </div>
           </div>
 
@@ -184,6 +184,11 @@ const loadData = async () => {
 };
 
 // 使用统一的时间工具函数，已在上方导入
+
+// 计算全局排名
+const getGlobalRank = (index: number) => {
+  return (currentPage.value - 1) * pageSize.value + index + 1;
+};
 
 // 获取排名样式
 const getRankClass = (index: number) => {

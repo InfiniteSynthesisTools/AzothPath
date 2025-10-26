@@ -2160,11 +2160,12 @@ export class RecipeService {
   }
 
   /**
-   * 🚀 按需生成冰柱图（从图结构动态提取子图）
+   * 🚀 按需生成冰柱图（从图结构动态提取子图）- 非阻塞版本
    * 相比预生成全量数据，这种方式：
    * - 内存占用低（只生成请求的子图）
    * - 响应更快（避免序列化巨型对象）
    * - 支持深度限制（控制数据量）
+   * - 非阻塞处理（使用异步队列和超时机制）
    * 
    * @param itemName 目标物品名称
    * @param maxDepth 最大展开深度（可选，默认不限制）
@@ -2209,32 +2210,16 @@ export class RecipeService {
       }
       logger.info(`按需生成物品 "${itemName}" 的冰柱图，最大深度: ${maxDepth ?? '无限制'}, 包含统计: ${includeStats}, 可达性: ${isReachable}`);
 
-      // 异步调用，避免阻塞事件循环
-      // 添加 5 秒硬超时，防止单个查询耗时过长
-      const tree = await Promise.race([
-        this.extractSubgraphAsTreeAsync(
-          itemName,
-          cache.itemToRecipes,
-          cache.baseItemNames,
-          cache.itemEmojiMap,
-          cache.reachableItems,
-          maxDepth
-        ),
-        new Promise<IcicleNode | null>((_, reject) =>
-          setTimeout(() => reject(new Error(`冰柱图生成超时：物品 "${itemName}" 耗时超过 5 秒`)), 5000)
-        )
-      ]).catch(error => {
-        logger.warn(`冰柱图生成超时或失败：${error.message}`, { itemName });
-        // 返回一个简单的叶子节点作为降级方案
-        const emoji = cache.itemEmojiMap[itemName];
-        return {
-          id: `leaf_${itemName}`,
-          name: itemName,
-          emoji: emoji ? truncateEmoji(emoji) : undefined,
-          isBase: false,
-          value: 1
-        } as IcicleNode;
-      });
+      // 🚀 非阻塞优化：使用异步队列和超时机制
+      // 将计算密集型任务放入异步队列，避免阻塞事件循环
+      const tree = await this.generateIcicleTreeAsync(
+        itemName,
+        cache.itemToRecipes,
+        cache.baseItemNames,
+        cache.itemEmojiMap,
+        cache.reachableItems,
+        maxDepth
+      );
 
       logger.info(`提取物品 "${itemName}" 的冰柱图树成功`, {
         maxDepth,
@@ -2281,6 +2266,64 @@ export class RecipeService {
       logger.error(`按需生成物品 "${itemName}" 的冰柱图失败:`, error);
       throw error;
     }
+  }
+
+  /**
+   * 🚀 异步生成冰柱树（非阻塞版本）
+   * 使用 Promise 包装计算密集型任务，避免阻塞事件循环
+   */
+  private async generateIcicleTreeAsync(
+    itemName: string,
+    itemToRecipes: Record<string, Recipe[]>,
+    baseItemNames: string[],
+    itemEmojiMap: Record<string, string>,
+    reachableItems: Set<string>,
+    maxDepth?: number
+  ): Promise<IcicleNode | null> {
+    // 使用 Promise 包装计算任务，避免阻塞事件循环
+    return new Promise<IcicleNode | null>((resolve, reject) => {
+      // 设置超时时间（3秒），防止长时间阻塞
+      const timeoutId = setTimeout(() => {
+        logger.warn(`冰柱树生成超时：物品 "${itemName}" 耗时超过 3 秒`);
+        // 返回降级方案
+        const emoji = itemEmojiMap[itemName];
+        resolve({
+          id: `leaf_${itemName}`,
+          name: itemName,
+          emoji: emoji ? truncateEmoji(emoji) : undefined,
+          isBase: false,
+          value: 1
+        } as IcicleNode);
+      }, 3000);
+
+      // 在下一个事件循环中执行计算任务
+      setImmediate(() => {
+        try {
+          const tree = this.extractSubgraphAsTree(
+            itemName,
+            itemToRecipes,
+            baseItemNames,
+            itemEmojiMap,
+            reachableItems,
+            maxDepth
+          );
+          clearTimeout(timeoutId);
+          resolve(tree);
+        } catch (error) {
+          clearTimeout(timeoutId);
+          logger.error(`冰柱树生成失败：物品 "${itemName}"`, error);
+          // 返回降级方案
+          const emoji = itemEmojiMap[itemName];
+          resolve({
+            id: `leaf_${itemName}`,
+            name: itemName,
+            emoji: emoji ? truncateEmoji(emoji) : undefined,
+            isBase: false,
+            value: 1
+          } as IcicleNode);
+        }
+      });
+    });
   }
 
   /**

@@ -25,7 +25,7 @@
           </el-col>
           <el-col :span="6">
             <el-select v-model="filters.target_user_id" placeholder="目标用户" clearable>
-              <el-option label="全体用户" :value="null" />
+              <el-option label="全体用户" value="" />
               <el-option 
                 v-for="user in userList" 
                 :key="user.id" 
@@ -141,7 +141,7 @@
         </el-form-item>
         <el-form-item label="目标用户" prop="target_user_id">
           <el-select v-model="createForm.target_user_id" placeholder="请选择目标用户" clearable>
-            <el-option label="全体用户" :value="null" />
+            <el-option label="全体用户" value="" />
             <el-option 
               v-for="user in userList" 
               :key="user.id" 
@@ -223,16 +223,16 @@ const currentNotification = ref<Notification | null>(null);
 // 筛选条件
 const filters = ref({
   type: '',
-  target_user_id: undefined as number | null | undefined,
+  target_user_id: undefined as number | string | undefined,
   is_read: undefined as number | undefined
 });
 
 // 创建通知表单
-const createForm = ref<CreateNotificationRequest>({
+const createForm = ref({
   title: '',
   content: '',
   type: 'info',
-  target_user_id: null
+  target_user_id: undefined as number | string | null | undefined
 });
 
 const createFormRef = ref();
@@ -265,7 +265,7 @@ const loadNotifications = async () => {
     if (filters.value.type && filters.value.type !== '') {
       params.type = filters.value.type;
     }
-    if (filters.value.target_user_id !== undefined && filters.value.target_user_id !== null) {
+    if (filters.value.target_user_id !== undefined && filters.value.target_user_id !== '' && filters.value.target_user_id !== null) {
       params.target_user_id = filters.value.target_user_id;
     }
     if (filters.value.is_read !== undefined) {
@@ -287,7 +287,7 @@ const loadNotifications = async () => {
 const loadUserList = async () => {
   try {
     const result = await userApi.getAllUsers({ page: 1, limit: 1000 });
-    userList.value = result.users;
+    userList.value = (result as any).users;
     console.log('用户列表加载成功:', userList.value);
   } catch (error) {
     console.error('加载用户列表失败:', error);
@@ -393,7 +393,13 @@ const createNotification = async () => {
     await createFormRef.value.validate();
     creating.value = true;
     
-    await notificationApi.createNotification(createForm.value);
+    // 处理目标用户ID，空字符串或undefined转换为null
+    const formData = {
+      ...createForm.value,
+      target_user_id: (createForm.value.target_user_id === '' || createForm.value.target_user_id === undefined) ? null : createForm.value.target_user_id
+    };
+    
+    await notificationApi.createNotification(formData as CreateNotificationRequest);
     ElMessage.success('通知发布成功');
     showCreateDialog.value = false;
     loadNotifications();
@@ -409,7 +415,7 @@ const handleCreateClose = () => {
     title: '',
     content: '',
     type: 'info',
-    target_user_id: null
+    target_user_id: undefined
   };
   if (createFormRef.value) {
     createFormRef.value.resetFields();

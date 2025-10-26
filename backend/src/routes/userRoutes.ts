@@ -119,13 +119,18 @@ router.put('/me/avatar', authMiddleware, async (req: AuthRequest, res: Response)
       });
     }
 
-    // 验证emoji是否为单个字符
-    if (emoji.length !== 1 && !emoji.match(/^[\uD800-\uDBFF][\uDC00-\uDFFF]$/)) {
+    // 简化emoji验证，移除严格的长度和格式限制
+    // 仅确保字符串不为空且去除空白后不为空
+    const trimmedEmoji = emoji.trim();
+    if (!trimmedEmoji) {
       return res.status(400).json({
         code: 400,
-        message: '头像必须是单个emoji字符'
+        message: '请提供有效的emoji头像'
       });
     }
+    
+    // 允许任何非空字符串作为头像，让前端负责提供有效的emoji
+    // 这样可以支持各种复杂的emoji组合
 
     // 更新用户头像
     await userService.updateUserInfo(req.userId!, { emoji });

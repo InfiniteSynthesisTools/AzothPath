@@ -160,9 +160,11 @@ onMounted(() => {
 
 <style scoped>
 .admin-page {
-  padding: 20px;
+  padding: 24px;
   max-width: 1200px;
   margin: 0 auto;
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
+  min-height: calc(100vh - 60px);
 }
 
 .page-header {
@@ -173,11 +175,11 @@ onMounted(() => {
 .page-header h1 {
   font-size: 2.5rem;
   margin-bottom: 10px;
-  color: #303133;
+  color: var(--color-text-primary);
 }
 
 .page-header p {
-  color: #606266;
+  color: var(--color-text-secondary);
   font-size: 1.1rem;
 }
 
@@ -187,6 +189,19 @@ onMounted(() => {
 
 .stat-card {
   text-align: center;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.stat-card:hover {
+  background: var(--color-bg-surface);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--color-border-accent);
 }
 
 .admin-tabs {
@@ -195,9 +210,15 @@ onMounted(() => {
 
 .admin-tabs-container {
   min-height: 500px;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 20px;
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-primary);
 }
 
 :deep(.el-tabs__content) {
   padding: 20px 0;
+  background: var(--color-bg-surface);
 }
 </style>

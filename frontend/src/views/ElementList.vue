@@ -233,7 +233,7 @@ onMounted(() => {
   margin: 0 auto;
   padding: 32px 24px;
   min-height: calc(100vh - 60px);
-  background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-gray-50) 100%);
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
 }
 
 .page-header {
@@ -244,7 +244,7 @@ onMounted(() => {
 .page-title {
   font-size: 36px;
   font-weight: 800;
-  color: var(--color-primary-700);
+  color: var(--color-text-primary);
   margin: 0 0 12px 0;
   background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
   -webkit-background-clip: text;
@@ -254,7 +254,7 @@ onMounted(() => {
 
 .page-subtitle {
   font-size: 18px;
-  color: var(--color-gray-600);
+  color: var(--color-text-secondary);
   margin: 0 0 32px 0;
   line-height: 1.6;
 }

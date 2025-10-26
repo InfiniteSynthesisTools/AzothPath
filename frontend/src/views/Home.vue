@@ -1,19 +1,19 @@
 <template>
   <div class="home">
     <!-- 页面标题 -->
-    <div class="page-header">
+    <div class="page-header slide-in-up">
       <h1 class="page-title">
-        <span class="title-emoji">🧪</span>
+        <span class="title-emoji float">🧪</span>
         Azoth Path
       </h1>
-      <p class="page-subtitle">无尽合成工具站</p>
+      <p class="page-subtitle fade-in">无尽合成工具站</p>
     </div>
 
     <!-- 统计信息 -->
     <div class="stats-section">
       <el-row :gutter="20">
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <el-card shadow="hover">
+          <el-card shadow="hover" class="card-scale">
             <el-statistic :value="stats.total_recipes" title="配方总数">
               <template #prefix>
                 <el-icon>
@@ -24,7 +24,7 @@
           </el-card>
         </el-col>
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <el-card shadow="hover">
+          <el-card shadow="hover" class="card-scale">
             <el-statistic :value="stats.total_items" title="物品总数">
               <template #prefix>
                 <el-icon>
@@ -35,7 +35,7 @@
           </el-card>
         </el-col>
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <el-card shadow="hover">
+          <el-card shadow="hover" class="card-scale">
             <el-statistic :value="stats.reachable_items" title="可合成物品">
               <template #prefix>
                 <el-icon>
@@ -53,10 +53,10 @@
       <el-row :gutter="20">
         <!-- 探索元素 - 紧凑版 -->
         <el-col :xs="24" :sm="24" :md="24" :lg="24">
-          <el-card class="explore-card" shadow="hover">
+          <el-card class="explore-card card-scale" shadow="hover">
             <div class="explore-content">
               <div class="explore-left">
-                <el-icon size="32" color="#10b981">
+                <el-icon size="32" color="#10b981" class="float">
                   <StarFilled />
                 </el-icon>
                 <div class="explore-text">
@@ -64,7 +64,7 @@
                   <p>随机发现一个意想不到的合成元素</p>
                 </div>
               </div>
-              <el-button type="primary" @click="exploreRandomElement" :loading="loadingRandomElement">
+              <el-button type="primary" @click="exploreRandomElement" :loading="loadingRandomElement" class="ripple-effect">
                 {{ loadingRandomElement ? '探索中...' : '随机探索' }}
               </el-button>
             </div>
@@ -451,7 +451,7 @@ onMounted(() => {
 
 <style scoped>
 .home {
-  background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-gray-50) 100%);
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
   min-height: 100vh;
 }
 
@@ -464,7 +464,7 @@ onMounted(() => {
 .page-title {
   font-size: 32px;
   font-weight: 800;
-  color: var(--color-primary-700);
+  color: var(--color-text-primary);
   margin: 0 0 12px 0;
   background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
   -webkit-background-clip: text;
@@ -488,7 +488,7 @@ onMounted(() => {
 
 .page-subtitle {
   font-size: 18px;
-  color: var(--color-gray-600);
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.6;
 }
@@ -512,6 +512,18 @@ onMounted(() => {
   transform: translateY(-4px);
   box-shadow: var(--shadow-xl);
   border-color: rgba(34, 197, 94, 0.3);
+}
+
+.stats-section :deep(.el-statistic__content) {
+  color: var(--color-text-primary);
+}
+
+.stats-section :deep(.el-statistic__title) {
+  color: var(--color-text-secondary);
+}
+
+.stats-section :deep(.el-icon) {
+  color: var(--color-primary-500);
 }
 
 .cards-section {
@@ -571,13 +583,13 @@ onMounted(() => {
   margin: 0 0 6px 0;
   font-size: 20px;
   font-weight: 700;
-  color: var(--color-primary-700);
+  color: var(--color-text-primary);
 }
 
 .explore-text p {
   margin: 0;
   font-size: 15px;
-  color: var(--color-gray-600);
+  color: var(--color-text-secondary);
   line-height: 1.5;
 }
 
@@ -612,7 +624,7 @@ onMounted(() => {
   margin: 0;
   font-size: 18px;
   font-weight: 600;
-  color: var(--color-primary-700);
+  color: var(--color-text-primary);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -664,9 +676,9 @@ onMounted(() => {
 
 .recipe-item {
   padding: 12px;
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(34, 197, 94, 0.1);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   transition: all var(--transition-base);
   display: grid;
@@ -678,8 +690,8 @@ onMounted(() => {
 }
 
 .recipe-item:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(34, 197, 94, 0.3);
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-accent);
   box-shadow: var(--shadow-md);
   transform: translateY(-1px);
 }
@@ -703,8 +715,8 @@ onMounted(() => {
 
 .material {
   padding: 4px 8px;
-  background: rgba(34, 197, 94, 0.1);
-  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: var(--color-primary-50);
+  border: 1px solid var(--color-primary-200);
   border-radius: var(--radius-base);
   color: var(--color-primary-700);
   font-weight: 500;
@@ -723,7 +735,7 @@ onMounted(() => {
 }
 
 .material.clickable:hover {
-  background: rgba(34, 197, 94, 0.2);
+  background: var(--color-primary-100);
   border-color: var(--color-primary-400);
   color: var(--color-primary-800);
   transform: translateY(-1px);
@@ -752,7 +764,7 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 150px;
-  border: 1px solid rgba(34, 197, 94, 0.3);
+  border: 1px solid var(--color-primary-300);
   transition: all var(--transition-base);
 }
 
@@ -805,7 +817,7 @@ onMounted(() => {
 
 .like-btn {
   border: 1px solid rgba(239, 68, 68, 0.2);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--glass-bg);
   color: #ef4444;
   border-radius: var(--radius-full);
   padding: 6px 12px;
@@ -852,7 +864,7 @@ onMounted(() => {
 
 .copy-btn {
   border: 1px solid rgba(34, 197, 94, 0.2);
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--glass-bg);
   color: var(--color-primary-600);
   border-radius: var(--radius-full);
   padding: 6px;
@@ -916,11 +928,13 @@ onMounted(() => {
   .hero-section h2 {
     font-size: 22px;
     line-height: 1.3;
+    color: var(--color-text-primary);
   }
 
   .hero-section p {
     font-size: 14px;
     line-height: 1.5;
+    color: var(--color-text-secondary);
   }
 
   .stats-section,
@@ -953,10 +967,12 @@ onMounted(() => {
 
   .explore-text h3 {
     font-size: 16px;
+    color: var(--color-text-primary);
   }
 
   .explore-text p {
     font-size: 13px;
+    color: var(--color-text-secondary);
   }
 
   .feature-card {
@@ -1046,10 +1062,12 @@ onMounted(() => {
 
   .hero-section h2 {
     font-size: 20px;
+    color: var(--color-text-primary);
   }
 
   .hero-section p {
     font-size: 13px;
+    color: var(--color-text-secondary);
   }
 
   .explore-card :deep(.el-card__body) {
@@ -1133,10 +1151,12 @@ onMounted(() => {
 
   .hero-section h2 {
     font-size: 18px;
+    color: var(--color-text-primary);
   }
 
   .hero-section p {
     font-size: 12px;
+    color: var(--color-text-secondary);
   }
 
   .explore-card :deep(.el-card__body) {

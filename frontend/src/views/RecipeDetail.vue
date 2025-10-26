@@ -402,7 +402,9 @@ onMounted(() => {
 .recipe-detail-page {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 20px;
+  padding: 24px;
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
+  min-height: calc(100vh - 60px);
 }
 
 .back-section {
@@ -425,10 +427,12 @@ onMounted(() => {
 
 /* 大卡片样式 */
 .recipe-card-large {
-  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
-  border-radius: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
   padding: 40px;
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-xl);
 }
 
 .recipe-formula-large {
@@ -445,12 +449,14 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 12px;
-  background: white;
+  background: var(--color-bg-primary);
   padding: 16px 20px;
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   flex: 1;
   min-width: 150px;
   max-width: 200px;
+  border: 1px solid var(--color-border-primary);
+  box-shadow: var(--shadow-sm);
 }
 
 .ingredient-emoji-large,
@@ -473,7 +479,7 @@ onMounted(() => {
 .result-name-large {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
 }
 
 .element-link {
@@ -485,7 +491,7 @@ onMounted(() => {
 .operator-large {
   font-size: 24px;
   font-weight: bold;
-  color: #606266;
+  color: var(--color-text-tertiary);
   min-width: 30px;
   text-align: center;
 }
@@ -504,14 +510,14 @@ onMounted(() => {
   gap: 6px;
   padding: 10px 20px;
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-base);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: all 0.3s ease;
-  background: white;
-  color: #303133;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all var(--transition-base);
+  background: var(--color-bg-primary);
+  color: var(--color-text-primary);
+  box-shadow: var(--shadow-md);
 }
 
 .action-btn:hover {
@@ -557,33 +563,38 @@ onMounted(() => {
 .section-title {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0 0 24px 0;
   padding-bottom: 16px;
-  border-bottom: 2px solid #f0f0f0;
+  border-bottom: 2px solid var(--color-border-primary);
 }
 
 .section-subtitle {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-secondary);
   margin-top: -12px;
   margin-bottom: 20px;
 }
 
 .stat-card {
-  background: #f8f9fa;
-  border-radius: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
   height: 100%;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card:hover {
-  background: #e9ecef;
-  transform: translateY(-2px);
+  background: var(--color-bg-surface);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--color-border-accent);
 }
 
 .stat-icon {
@@ -593,9 +604,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  border-radius: 8px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-base);
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-content {
@@ -605,35 +617,36 @@ onMounted(() => {
 .stat-value {
   font-size: 18px;
   font-weight: 700;
-  color: #303133;
+  color: var(--color-text-primary);
   margin-bottom: 4px;
   word-break: break-word;
 }
 
 .stat-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-secondary);
 }
 
 /* 难度卡片 */
 .difficulty-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
   padding: 20px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--color-border-primary);
   text-align: center;
+  box-shadow: var(--shadow-sm);
 }
 
 .difficulty-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-secondary);
   margin-bottom: 8px;
 }
 
 .difficulty-value {
   font-size: 28px;
   font-weight: 700;
-  color: #303133;
+  color: var(--color-text-primary);
   margin-bottom: 12px;
 }
 
@@ -643,17 +656,18 @@ onMounted(() => {
 
 /* 材料来源 */
 .source-card {
-  background: white;
-  border-radius: 12px;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
   padding: 24px;
-  border: 1px solid #f0f0f0;
+  border: 1px solid var(--color-border-primary);
   min-height: 200px;
+  box-shadow: var(--shadow-sm);
 }
 
 .source-title {
   font-size: 16px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   margin-bottom: 16px;
 }
 
@@ -670,14 +684,16 @@ onMounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 12px;
-  background: #f8f9fa;
-  border-radius: 8px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-base);
   font-size: 14px;
+  border: 1px solid var(--glass-border);
 }
 
 .recipe-formula {
   flex: 1;
-  color: #606266;
+  color: var(--color-text-secondary);
 }
 
 .no-source {
@@ -696,17 +712,20 @@ onMounted(() => {
 }
 
 .derived-recipe-item {
-  background: #f8f9fa;
-  border-radius: 10px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
   padding: 16px;
-  border: 1px solid #e9ecef;
-  transition: all 0.3s ease;
+  border: 1px solid var(--glass-border);
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
 }
 
 .derived-recipe-item:hover {
-  background: white;
-  border-color: #409eff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
 }
 
 .derived-recipe-formula {
@@ -717,7 +736,7 @@ onMounted(() => {
 
 .formula-text {
   flex: 1;
-  color: #606266;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
@@ -726,8 +745,10 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   min-height: 150px;
-  background: #f8f9fa;
-  border-radius: 10px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
 }
 
 .not-found {

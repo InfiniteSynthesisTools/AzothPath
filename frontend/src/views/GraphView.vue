@@ -13,7 +13,7 @@
     <div class="stats-section">
       <el-row :gutter="20">
         <el-col :span="6">
-          <el-card shadow="hover">
+          <el-card shadow="hover" class="stat-card">
             <el-statistic :value="stats.totalItems" title="总元素数">
               <template #prefix>
                 <el-icon><Box /></el-icon>
@@ -22,7 +22,7 @@
           </el-card>
         </el-col>
         <el-col :span="6">
-          <el-card shadow="hover">
+          <el-card shadow="hover" class="stat-card">
             <el-statistic :value="stats.totalRecipes" title="合成配方数">
               <template #prefix>
                 <el-icon><Document /></el-icon>
@@ -31,7 +31,7 @@
           </el-card>
         </el-col>
         <el-col :span="6">
-          <el-card shadow="hover">
+          <el-card shadow="hover" class="stat-card">
             <el-statistic :value="stats.maxDepth" title="最大深度">
               <template #prefix>
                 <el-icon><TrendCharts /></el-icon>
@@ -40,7 +40,7 @@
           </el-card>
         </el-col>
         <el-col :span="6">
-          <el-card shadow="hover">
+          <el-card shadow="hover" class="stat-card">
             <el-statistic :value="stats.baseItems" title="基础材料">
               <template #prefix>
                 <el-icon><Star /></el-icon>
@@ -313,9 +313,10 @@ onUnmounted(() => {
 
 <style scoped>
 .graph-view {
-  background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-gray-50) 100%);
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
   min-height: 100vh;
   padding: 20px;
+  transition: background var(--transition-base);
 }
 
 .page-header {
@@ -327,9 +328,9 @@ onUnmounted(() => {
 .page-title {
   font-size: 32px;
   font-weight: 800;
-  color: var(--color-primary-700);
+  color: var(--color-text-primary);
   margin: 0 0 12px 0;
-  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-700) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -351,7 +352,7 @@ onUnmounted(() => {
 
 .page-subtitle {
   font-size: 18px;
-  color: var(--color-gray-600);
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.6;
 }
@@ -362,18 +363,41 @@ onUnmounted(() => {
   padding: 0 20px;
 }
 
+.stats-section :deep(.stat-card) {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.stats-section :deep(.stat-card:hover) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--color-border-accent);
+}
+
+.stats-section :deep(.el-statistic__content) {
+  color: var(--color-text-primary);
+}
+
+.stats-section :deep(.el-statistic__title) {
+  color: var(--color-text-secondary);
+}
+
 .tabs-section {
   max-width: 1400px;
   margin: 0 auto;
-  background: white;
-  border-radius: 12px;
-  box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-primary);
   overflow: hidden;
 }
 
 :deep(.el-tabs__header) {
   margin: 0;
-  background: #f8f9fa;
+  background: var(--color-bg-tertiary);
 }
 
 :deep(.el-tabs__item) {
@@ -385,22 +409,22 @@ onUnmounted(() => {
 }
 
 .tab-content h2 {
-  color: #303133;
+  color: var(--color-text-primary);
   margin-bottom: 8px;
   font-size: 20px;
   font-weight: 600;
 }
 
 .description {
-  color: #606266;
+  color: var(--color-text-secondary);
   margin-bottom: 20px;
   font-size: 14px;
 }
 
 .chart-card {
-  background: #fafbfc;
-  border: 1px solid #e8eaed;
-  border-radius: 8px;
+  background: var(--color-bg-tertiary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
   padding: 20px;
 }
 
@@ -428,7 +452,7 @@ onUnmounted(() => {
 }
 
 .filter-group span {
-  color: #606266;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
@@ -439,14 +463,14 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: white;
-  border: 1px solid #e8eaed;
-  border-radius: 8px;
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
 }
 
 .dag-placeholder {
   text-align: center;
-  color: #909399;
+  color: var(--color-text-tertiary);
 }
 
 .dag-placeholder p {
@@ -467,6 +491,7 @@ onUnmounted(() => {
   
   .page-header h1 {
     font-size: 24px;
+    color: var(--color-text-primary);
   }
   
   .tab-content {
@@ -488,8 +513,14 @@ onUnmounted(() => {
     width: 100%;
   }
   
+  .filter-group span {
+    color: var(--color-text-secondary);
+  }
+  
   .dag-chart-content {
     height: 400px;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-primary);
   }
 }
 
@@ -500,10 +531,21 @@ onUnmounted(() => {
   
   .page-header h1 {
     font-size: 20px;
+    color: var(--color-text-primary);
+  }
+  
+  .page-subtitle {
+    color: var(--color-text-secondary);
   }
   
   .dag-chart-content {
     height: 350px;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-primary);
+  }
+  
+  .dag-placeholder {
+    color: var(--color-text-tertiary);
   }
 }
 </style>

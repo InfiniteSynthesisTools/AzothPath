@@ -823,6 +823,7 @@ onMounted(() => {
   margin: 0 auto;
   padding: 24px;
   min-height: calc(100vh - 60px);
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
 }
 
 .back-section {
@@ -846,9 +847,10 @@ onMounted(() => {
   flex-direction: column;
   gap: 8px;
   padding: 12px 16px;
-  background: #f5f7fa;
-  border-radius: 8px;
-  border: 1px dashed #dcdfe6;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-base);
+  border: 1px dashed var(--color-border-primary);
 }
 
 .history-header {
@@ -860,7 +862,7 @@ onMounted(() => {
 
 .history-label {
   font-size: 13px;
-  color: #909399;
+  color: var(--color-text-secondary);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -892,10 +894,11 @@ onMounted(() => {
 }
 
 .element-content {
-  background: #fff;
-  border-radius: 12px;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-xl);
   padding: 32px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-lg);
+  border: 1px solid var(--color-border-primary);
 }
 
 .element-header {
@@ -914,9 +917,12 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
-  border-radius: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-xl);
   flex-shrink: 0;
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-md);
 }
 
 .element-info {
@@ -926,7 +932,7 @@ onMounted(() => {
 .element-name {
   font-size: 36px;
   font-weight: 700;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0 0 12px 0;
 }
 
@@ -943,7 +949,7 @@ onMounted(() => {
 
 .element-id {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-tertiary);
 }
 
 .element-stats-section {
@@ -951,19 +957,24 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: #f8f9fa;
-  border-radius: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   padding: 20px;
   display: flex;
   align-items: center;
   gap: 16px;
   height: 100%;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-md);
 }
 
 .stat-card:hover {
-  background: #e9ecef;
-  transform: translateY(-2px);
+  background: var(--color-bg-surface);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--color-border-accent);
 }
 
 .stat-icon {
@@ -973,9 +984,10 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #fff;
-  border-radius: 8px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-base);
   flex-shrink: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-content {
@@ -985,13 +997,13 @@ onMounted(() => {
 .stat-value {
   font-size: 24px;
   font-weight: 700;
-  color: #303133;
+  color: var(--color-text-primary);
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-secondary);
 }
 
 /* 冰柱图可视化板块样式 */
@@ -1000,8 +1012,10 @@ onMounted(() => {
 }
 
 .icicle-chart-container {
-  background: #f8f9fa;
-  border-radius: 12px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   padding: 24px;
   min-height: 300px;
   display: flex;
@@ -1009,6 +1023,7 @@ onMounted(() => {
   justify-content: flex-start;
   overflow-x: auto;
   width: 100%;
+  box-shadow: var(--shadow-md);
 }
 
 .chart-loading {
@@ -1105,18 +1120,20 @@ onMounted(() => {
 }
 
 .recipe-card {
-  background: #f8f9fa;
-  border-radius: 10px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   padding: 16px;
-  border: 1px solid #e9ecef;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
 }
 
 .recipe-card:hover {
-  background: #fff;
-  border-color: #409eff;
-  box-shadow: 0 4px 12px rgba(64, 158, 255, 0.1);
-  transform: translateY(-2px);
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-4px);
 }
 
 .recipe-header {
@@ -1152,19 +1169,19 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: #fff;
-  border: 1px solid #e4e7ed;
-  border-radius: 6px;
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-base);
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: all var(--transition-base);
   min-width: 100px;
 }
 
 .ingredient-card:hover {
-  background: #f5f7fa;
-  border-color: #409eff;
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
   transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+  box-shadow: var(--shadow-md);
 }
 
 .ingredient-emoji {
@@ -1179,13 +1196,13 @@ onMounted(() => {
 .ingredient-name {
   font-size: 13px;
   font-weight: 500;
-  color: #303133;
+  color: var(--color-text-primary);
 }
 
 .operator {
   font-size: 14px;
   font-weight: 600;
-  color: #909399;
+  color: var(--color-text-tertiary);
   padding: 0 2px;
 }
 
@@ -1194,9 +1211,9 @@ onMounted(() => {
   align-items: center;
   gap: 6px;
   padding: 6px 10px;
-  background: #f0f9ff;
-  border: 1px solid #bae0ff;
-  border-radius: 6px;
+  background: linear-gradient(135deg, var(--color-primary-100) 0%, var(--color-primary-200) 100%);
+  border: 1px solid var(--color-primary-300);
+  border-radius: var(--radius-base);
   min-width: 100px;
 }
 
@@ -1212,7 +1229,7 @@ onMounted(() => {
 .result-name {
   font-size: 13px;
   font-weight: 500;
-  color: #1890ff;
+  color: var(--color-primary-700);
 }
 
 .like-btn {
@@ -1588,4 +1605,4 @@ onMounted(() => {
   }
 }
 </style>
-
+

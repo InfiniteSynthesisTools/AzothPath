@@ -379,7 +379,8 @@ onMounted(() => {
 <style scoped>
 .task-board-page {
   min-height: calc(100vh - 200px);
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
+  transition: background var(--transition-base);
 }
 
 .page-container {
@@ -397,7 +398,7 @@ onMounted(() => {
 
 .page-header h1 {
   font-size: 24px;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0;
   font-weight: 500;
 }
@@ -413,15 +414,17 @@ onMounted(() => {
 }
 
 .stat-card {
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  transition: all 0.3s ease;
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-primary);
+  transition: all var(--transition-base);
 }
 
 .stat-card:hover {
-  border-color: #409eff;
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.1);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
 }
 
 .stat-content {
@@ -434,13 +437,13 @@ onMounted(() => {
 .stat-icon {
   width: 48px;
   height: 48px;
-  background: #f0f2f5;
-  border-radius: 8px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-base);
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 20px;
-  color: #409eff;
+  color: var(--color-primary-500);
 }
 
 .stat-info {
@@ -450,29 +453,30 @@ onMounted(() => {
 .stat-value {
   font-size: 24px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #6b7280;
+  color: var(--color-text-tertiary);
 }
 
 /* 状态标签页 */
 .status-tabs {
   margin-bottom: 20px;
-  background: white;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-primary);
   padding: 20px;
 }
 
 .tab-switch {
   display: inline-flex;
-  background: #f5f7fa;
-  border-radius: 6px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-base);
   padding: 4px;
   position: relative;
 }
@@ -482,21 +486,21 @@ onMounted(() => {
   padding: 8px 20px;
   font-size: 14px;
   font-weight: 500;
-  color: #606266;
+  color: var(--color-text-secondary);
   cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.3s ease;
+  border-radius: var(--radius-sm);
+  transition: all var(--transition-base);
   z-index: 2;
 }
 
 .tab-item:hover {
-  color: #409eff;
+  color: var(--color-primary-500);
 }
 
 .tab-item.active {
-  background: #ffffff;
-  color: #409eff;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-primary);
+  color: var(--color-primary-500);
+  box-shadow: var(--shadow-sm);
 }
 
 
@@ -568,6 +572,7 @@ onMounted(() => {
   
   .stat-card {
     margin-bottom: 0;
+    border-radius: var(--radius-md);
   }
   
   .stat-content {
@@ -579,24 +584,29 @@ onMounted(() => {
     width: 36px;
     height: 36px;
     font-size: 16px;
+    background: var(--color-bg-tertiary);
   }
   
   .stat-value {
     font-size: 18px;
+    color: var(--color-text-primary);
   }
   
   .stat-label {
     font-size: 12px;
+    color: var(--color-text-tertiary);
   }
   
   .status-tabs {
     padding: 12px;
     margin-bottom: 16px;
+    border-radius: var(--radius-md);
   }
   
   .tab-switch {
     width: 100%;
     justify-content: space-around;
+    background: var(--color-bg-tertiary);
   }
   
   .tab-item {
@@ -604,6 +614,12 @@ onMounted(() => {
     text-align: center;
     padding: 8px 12px;
     font-size: 13px;
+    color: var(--color-text-secondary);
+  }
+  
+  .tab-item.active {
+    background: var(--color-bg-primary);
+    color: var(--color-primary-500);
   }
   
   .task-col {
@@ -633,6 +649,7 @@ onMounted(() => {
   
   .page-header h1 {
     font-size: 18px;
+    color: var(--color-text-primary);
   }
   
   .header-actions .el-button {
@@ -649,23 +666,33 @@ onMounted(() => {
     width: 32px;
     height: 32px;
     font-size: 14px;
+    background: var(--color-bg-tertiary);
   }
   
   .stat-value {
     font-size: 16px;
+    color: var(--color-text-primary);
   }
   
   .stat-label {
     font-size: 11px;
+    color: var(--color-text-tertiary);
   }
   
   .status-tabs {
     padding: 10px;
+    border-radius: var(--radius-md);
   }
   
   .tab-item {
     padding: 6px 10px;
     font-size: 12px;
+    color: var(--color-text-secondary);
+  }
+  
+  .tab-item.active {
+    background: var(--color-bg-primary);
+    color: var(--color-primary-500);
   }
   
   .task-col {

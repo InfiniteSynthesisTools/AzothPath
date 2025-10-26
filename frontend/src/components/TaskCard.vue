@@ -67,21 +67,23 @@ const userStore = useUserStore();
 <style scoped>
 .task-card {
   height: 100%;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
   cursor: pointer;
-  border: 1px solid #e5e7eb;
-  transition: all 0.3s ease;
+  border: 1px solid var(--color-border-primary);
+  background: var(--color-bg-surface);
+  transition: all var(--transition-base);
 }
 
 .task-card:hover {
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--shadow-xl);
   transform: translateY(-2px);
+  border-color: var(--color-border-accent);
 }
 
 .task-card.completed {
   opacity: 0.8;
-  background-color: #f8f9fa;
+  background-color: var(--color-bg-tertiary);
 }
 
 .task-header {
@@ -99,7 +101,7 @@ const userStore = useUserStore();
 .more-icon {
   font-size: 16px;
   cursor: pointer;
-  color: #909399;
+  color: var(--color-text-tertiary);
 }
 
 .task-body {
@@ -113,7 +115,7 @@ const userStore = useUserStore();
 .item-name {
   font-size: 18px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0;
 }
 
@@ -123,18 +125,18 @@ const userStore = useUserStore();
 
 .prize-text {
   font-size: 14px;
-  color: #e6a23c;
+  color: var(--color-warning);
   font-weight: 500;
-  background: #fdf6ec;
+  background: var(--color-bg-tertiary);
   padding: 4px 8px;
-  border-radius: 4px;
-  border: 1px solid #f5dab1;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-secondary);
 }
 
 .task-footer {
   display: flex;
   align-items: center;
-  color: #6b7280;
+  color: var(--color-text-tertiary);
   font-size: 12px;
 }
 
@@ -147,7 +149,8 @@ const userStore = useUserStore();
 /* 响应式设计 */
 @media (max-width: 768px) {
   .task-card {
-    border-radius: 6px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-surface);
   }
   
   .task-header {
@@ -177,6 +180,7 @@ const userStore = useUserStore();
   
   .item-name {
     font-size: 16px;
+    color: var(--color-text-primary);
   }
   
   .task-prize {
@@ -186,6 +190,8 @@ const userStore = useUserStore();
   .prize-text {
     font-size: 13px;
     padding: 3px 6px;
+    color: var(--color-warning);
+    background: var(--color-bg-tertiary);
   }
   
   .task-time {
@@ -207,14 +213,18 @@ const userStore = useUserStore();
   
   .item-name {
     font-size: 15px;
+    color: var(--color-text-primary);
   }
   
   .prize-text {
     font-size: 12px;
+    color: var(--color-warning);
+    background: var(--color-bg-tertiary);
   }
   
   .task-time {
     font-size: 10px;
+    color: var(--color-text-tertiary);
   }
 }
 </style>

@@ -115,49 +115,67 @@ const handleRegister = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
   padding: 20px;
 }
 
 .register-card {
   width: 100%;
   max-width: 400px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-radius: 8px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-xl);
+  transition: all var(--transition-base);
+}
+
+.register-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-2xl);
+  border-color: var(--color-border-accent);
 }
 
 .register-card :deep(.el-card__header) {
   text-align: center;
-  padding: 20px 20px 10px;
-  border-bottom: 1px solid #ebeef5;
+  padding: 24px 24px 16px;
+  border-bottom: 1px solid var(--color-border-primary);
+  background: transparent;
 }
 
 .register-card :deep(.el-card__body) {
-  padding: 20px;
+  padding: 24px;
 }
 
 h2 {
   margin: 0;
-  color: #303133;
+  color: var(--color-text-primary);
   font-size: 24px;
-  font-weight: 600;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .footer {
   text-align: center;
   margin-top: 20px;
-  color: #606266;
+  color: var(--color-text-secondary);
   font-size: 14px;
 }
 
 .footer a {
-  color: #409eff;
+  color: var(--color-primary-600);
   text-decoration: none;
-  font-weight: 500;
+  font-weight: 600;
+  transition: all var(--transition-base);
 }
 
 .footer a:hover {
+  color: var(--color-primary-700);
   text-decoration: underline;
+  transform: translateY(-1px);
 }
 
 :deep(.el-form-item) {
@@ -165,12 +183,34 @@ h2 {
 }
 
 :deep(.el-input__wrapper) {
-  border-radius: 6px;
+  border-radius: var(--radius-lg);
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
+  transition: all var(--transition-base);
+}
+
+:deep(.el-input__wrapper:hover),
+:deep(.el-input__wrapper.is-focus) {
+  border-color: var(--color-border-accent);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.1);
 }
 
 :deep(.el-button) {
-  border-radius: 6px;
-  font-weight: 500;
-  height: 40px;
+  border-radius: var(--radius-lg);
+  font-weight: 600;
+  height: 44px;
+  transition: all var(--transition-base);
+}
+
+:deep(.el-button--primary) {
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+  border: none;
+  box-shadow: var(--shadow-md);
+}
+
+:deep(.el-button--primary:hover) {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%);
 }
 </style>

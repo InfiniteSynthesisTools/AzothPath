@@ -34,6 +34,9 @@
         </el-menu>
         
         <div class="user-actions">
+          <!-- 主题切换按钮 -->
+          <ThemeToggle class="theme-toggle-wrapper" />
+          
           <template v-if="userStore.isLoggedIn">
             <el-dropdown>
               <span class="user-info">
@@ -152,6 +155,7 @@ import {
   TrendCharts
 } from '@element-plus/icons-vue';
 import Sidebar from '@/components/Sidebar.vue';
+import ThemeToggle from '@/components/ThemeToggle.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -221,13 +225,14 @@ const handleLogout = () => {
 }
 
 .header {
-  background: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-md);
   padding: 0;
   position: sticky;
   top: 0;
   z-index: 1000;
   height: 60px;
+  border-bottom: 1px solid var(--color-border-primary);
 }
 
 .header-content {
@@ -239,6 +244,7 @@ const handleLogout = () => {
   height: 100%;
   padding: 0 20px;
   gap: 20px;
+  background: var(--color-bg-surface);
 }
 
 /* 移动端菜单按钮 */
@@ -246,6 +252,13 @@ const handleLogout = () => {
   display: none;
   padding: 8px;
   margin-right: -8px;
+  color: var(--color-text-primary);
+  transition: all var(--transition-base);
+}
+
+.mobile-menu-btn:hover {
+  color: var(--color-primary-600);
+  transform: scale(1.1);
 }
 
 .logo {
@@ -256,20 +269,48 @@ const handleLogout = () => {
 
 .logo h1 {
   font-size: 24px;
-  color: #409eff;
+  color: var(--color-primary-600);
   margin: 0;
   line-height: 1.2;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .subtitle {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-secondary);
   display: block;
 }
 
 .nav-menu {
   flex: 1;
   border: none;
+  background: transparent;
+}
+
+:deep(.nav-menu .el-menu-item) {
+  color: var(--color-text-secondary);
+  font-weight: 500;
+  transition: all var(--transition-base);
+}
+
+:deep(.nav-menu .el-menu-item:hover) {
+  color: var(--color-primary-600);
+  background: var(--color-primary-50);
+}
+
+:deep(.nav-menu .el-menu-item.is-active) {
+  color: var(--color-primary-600);
+  background: var(--color-primary-50);
+  border-bottom: 2px solid var(--color-primary-500);
+}
+
+[data-theme="dark"] :deep(.nav-menu .el-menu-item:hover),
+[data-theme="dark"] :deep(.nav-menu .el-menu-item.is-active) {
+  background: var(--color-primary-900);
 }
 
 .user-actions {
@@ -279,24 +320,39 @@ const handleLogout = () => {
   flex-shrink: 0;
 }
 
+.theme-toggle-wrapper {
+  margin-right: 8px;
+}
+
 .user-info {
   cursor: pointer;
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 8px 12px;
-  border-radius: 4px;
-  transition: background-color 0.3s;
+  border-radius: var(--radius-base);
+  transition: all var(--transition-base);
+  color: var(--color-text-primary);
 }
 
 .user-info:hover {
-  background-color: #f5f7fa;
+  background-color: var(--color-bg-tertiary);
+  transform: translateY(-1px);
 }
 
 .user-level {
   font-size: 12px;
-  color: #409eff;
+  color: var(--color-primary-500);
   font-weight: bold;
+  background: var(--color-primary-100);
+  padding: 2px 6px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--color-primary-200);
+}
+
+[data-theme="dark"] .user-level {
+  background: var(--color-primary-900);
+  border-color: var(--color-primary-700);
 }
 
 .user-avatar {
@@ -306,15 +362,21 @@ const handleLogout = () => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
-  box-shadow: inset 0 0 0 1px #e4e7ed;
+  background: var(--color-bg-tertiary);
+  box-shadow: inset 0 0 0 1px var(--color-border-primary);
   font-size: 16px;
   line-height: 1;
+  transition: all var(--transition-base);
+}
+
+.user-info:hover .user-avatar {
+  transform: scale(1.1);
+  box-shadow: inset 0 0 0 1px var(--color-primary-300), var(--shadow-sm);
 }
 
 .main-content {
   flex: 1;
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
   transition: margin-right 0.3s ease;
 }
 
@@ -325,12 +387,28 @@ const handleLogout = () => {
 /* 移动端抽屉菜单样式 */
 .mobile-menu-header h3 {
   margin: 0;
-  color: #409eff;
+  color: var(--color-primary-600);
   font-size: 20px;
+  font-weight: 700;
 }
 
 :deep(.mobile-menu-drawer .el-menu) {
   border-right: none;
+  background: var(--color-bg-surface);
+}
+
+:deep(.mobile-menu-drawer .el-menu-item) {
+  color: var(--color-text-primary);
+  transition: all var(--transition-base);
+}
+
+:deep(.mobile-menu-drawer .el-menu-item:hover) {
+  color: var(--color-primary-600);
+  background: var(--color-primary-50);
+}
+
+[data-theme="dark"] :deep(.mobile-menu-drawer .el-menu-item:hover) {
+  background: var(--color-primary-900);
 }
 
 :deep(.mobile-menu-drawer .el-menu-item) {
@@ -410,22 +488,31 @@ const handleLogout = () => {
     font-size: 14px;
   }
   
-  /* 隐藏移动端的登录按钮 */
-  .mobile-hidden {
-    display: none;
-  }
-  
+/* 隐藏移动端的登录按钮 */
+.mobile-hidden {
+  display: none;
+}
+
   .user-actions .el-button {
     padding: 8px 12px;
     font-size: 14px;
+    transition: all var(--transition-base);
+  }
+
+  .user-actions .el-button:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
   }
   
   .main-content.with-sidebar {
     margin-right: 0;
   }
-}
-
-/* 小屏手机 (< 375px) */
+  
+  /* 移动端主题切换按钮优化 */
+  .theme-toggle-wrapper {
+    margin-right: 4px;
+  }
+}/* 小屏手机 (< 375px) */
 @media (max-width: 375px) {
   .header-content {
     padding: 0 8px;
@@ -439,6 +526,11 @@ const handleLogout = () => {
   .user-actions .el-button {
     padding: 6px 10px;
     font-size: 13px;
+  }
+  
+  /* 小屏手机主题切换按钮优化 */
+  .theme-toggle-wrapper {
+    margin-right: 2px;
   }
 }
 </style>

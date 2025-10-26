@@ -213,9 +213,9 @@ onMounted(() => {
 .contribution-page {
   max-width: 1000px;
   margin: 0 auto;
-  padding: 20px;
-  background-color: #f5f7fa;
-  min-height: calc(100vh - 200px);
+  padding: 24px;
+  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
+  min-height: calc(100vh - 60px);
 }
 
 .page-header {
@@ -225,24 +225,25 @@ onMounted(() => {
 
 .page-header h1 {
   font-size: 28px;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0 0 8px 0;
   font-weight: 500;
 }
 
 .page-header p {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-secondary);
   margin: 0;
 }
 
 /* 排行榜容器 */
 .leaderboard-container {
-  background: white;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-lg);
   margin-bottom: 20px;
+  border: 1px solid var(--color-border-primary);
 }
 
 .leaderboard-header {
@@ -256,7 +257,7 @@ onMounted(() => {
 
 .leaderboard-header h2 {
   font-size: 18px;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0;
   font-weight: 500;
 }
@@ -273,16 +274,26 @@ onMounted(() => {
   display: flex;
   align-items: center;
   padding: 16px 20px;
-  background: white;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
   cursor: pointer;
   gap: 20px;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.leaderboard-item:hover {
+  background: var(--color-bg-surface);
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
 }
 
 .leaderboard-item.top-three {
-  background: #f8f9ff;
-  border-color: #e6f7ff;
+  background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-primary-100) 100%);
+  border-color: var(--color-primary-200);
 }
 
 /* 排名区域 */
@@ -299,30 +310,31 @@ onMounted(() => {
   border-radius: 50%;
   font-weight: 600;
   font-size: 16px;
+  box-shadow: var(--shadow-sm);
 }
 
 .rank-gold {
-  background: #fff3cd;
+  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
   color: #856404;
-  border: 2px solid #ffeaa7;
+  border: 2px solid #ffd700;
 }
 
 .rank-silver {
-  background: #f8f9fa;
-  color: #6c757d;
-  border: 2px solid #dee2e6;
+  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+  color: #4a5568;
+  border: 2px solid #c0c0c0;
 }
 
 .rank-bronze {
-  background: #fdf2e9;
-  color: #d97706;
-  border: 2px solid #fed7aa;
+  background: linear-gradient(135deg, #cd7f32 0%, #e9b384 100%);
+  color: #7c2d12;
+  border: 2px solid #cd7f32;
 }
 
 .rank-number {
-  color: #606266;
-  background: #f5f5f5;
-  border: 1px solid #e0e0e0;
+  color: var(--color-text-secondary);
+  background: var(--color-bg-primary);
+  border: 1px solid var(--color-border-primary);
 }
 
 .rank-icon {
@@ -349,8 +361,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
-  box-shadow: inset 0 0 0 2px #e4e7ed;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 0 0 2px var(--glass-border);
   font-size: 28px;
   line-height: 1;
 }
@@ -363,14 +376,14 @@ onMounted(() => {
 .user-name {
   font-size: 16px;
   font-weight: 500;
-  color: #303133;
+  color: var(--color-text-primary);
   margin: 0 0 2px 0;
   line-height: 1.2;
 }
 
 .join-date {
   font-size: 13px;
-  color: #909399;
+  color: var(--color-text-secondary);
   margin: 0;
   line-height: 1.2;
 }
@@ -390,15 +403,17 @@ onMounted(() => {
   min-width: 50px;
   height: 48px;
   padding: 6px 8px;
-  border-radius: 4px;
-  background: #f8f9fa;
-  border: 1px solid #e9ecef;
+  border-radius: var(--radius-base);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-sm);
 }
 
 .user-stat-item.primary {
-  background: #409eff;
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
   color: white;
-  border-color: #409eff;
+  border-color: var(--color-primary-600);
 }
 
 .user-stat-value {
@@ -410,7 +425,7 @@ onMounted(() => {
 
 .user-stat-label {
   font-size: 11px;
-  color: #909399;
+  color: var(--color-text-secondary);
   line-height: 1;
 }
 
@@ -427,6 +442,10 @@ onMounted(() => {
 .empty-state {
   padding: 60px 0;
   text-align: center;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--glass-border);
 }
 
 /* 分页 */
@@ -449,10 +468,19 @@ onMounted(() => {
   align-items: center;
   gap: 12px;
   padding: 16px;
-  background: white;
-  border: 1px solid #f0f0f0;
-  border-radius: 8px;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.stat-card:hover {
+  background: var(--color-bg-surface);
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--color-border-accent);
 }
 
 .stat-icon {
@@ -461,10 +489,11 @@ onMounted(() => {
   justify-content: center;
   width: 40px;
   height: 40px;
-  background: #f8f9fa;
+  background: var(--color-bg-primary);
   border-radius: 50%;
-  color: #409eff;
+  color: var(--color-primary-500);
   font-size: 18px;
+  box-shadow: var(--shadow-sm);
 }
 
 .stat-content {
@@ -474,14 +503,14 @@ onMounted(() => {
 .stat-value {
   font-size: 20px;
   font-weight: 600;
-  color: #303133;
+  color: var(--color-text-primary);
   line-height: 1;
   margin-bottom: 4px;
 }
 
 .stat-label {
   font-size: 14px;
-  color: #909399;
+  color: var(--color-text-secondary);
   line-height: 1;
 }
 

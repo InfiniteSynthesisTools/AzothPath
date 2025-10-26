@@ -2,6 +2,8 @@ import express, { Request, Response } from 'express';
 import { logger } from '../utils/logger';
 import { databaseBackupService } from '../services/databaseBackupService';
 import { recipeService } from '../services/recipeService';
+import { CacheService } from '../services/cacheService';
+import { MemoryMonitorService } from '../services/memoryMonitorService';
 import os from 'os';
 import process from 'process';
 import fs from 'fs';
@@ -279,6 +281,125 @@ router.post('/cache/refresh', async (req: Request, res: Response) => {
     res.status(500).json({
       code: 500,
       message: error.message || '刷新缓存失败'
+    });
+  }
+});
+
+/**
+ * GET /api/system/cache/stats
+ * 获取缓存统计信息
+ */
+router.get('/cache/stats', async (req: Request, res: Response) => {
+  try {
+    const cacheService = CacheService.getInstance();
+    const cacheStats = cacheService.getStats();
+    
+    res.json({
+      code: 200,
+      message: '获取缓存统计成功',
+      data: {
+        ...cacheStats,
+        hitRate: Math.round(cacheStats.hitRate * 100 * 100) / 100, // 转换为百分比
+        missRate: Math.round(cacheStats.missRate * 100 * 100) / 100 // 转换为百分比
+      }
+    });
+  } catch (error: any) {
+    logger.error('获取缓存统计失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取缓存统计失败'
+    });
+  }
+});
+
+/**
+ * POST /api/system/cache/clear
+ * 清除所有缓存
+ */
+router.post('/cache/clear', async (req: Request, res: Response) => {
+  try {
+    logger.info('收到清除缓存请求');
+    const cacheService = CacheService.getInstance();
+    cacheService.clearAll();
+    
+    res.json({
+      code: 200,
+      message: '缓存清除成功'
+    });
+  } catch (error: any) {
+    logger.error('清除缓存失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '清除缓存失败'
+    });
+  }
+});
+
+/**
+ * GET /api/system/memory/stats
+ * 获取内存使用统计
+ */
+router.get('/memory/stats', async (req: Request, res: Response) => {
+  try {
+    const memoryMonitor = MemoryMonitorService.getInstance();
+    const memoryStats = memoryMonitor.getMemoryStats();
+    
+    res.json({
+      code: 200,
+      message: '获取内存统计成功',
+      data: memoryStats
+    });
+  } catch (error: any) {
+    logger.error('获取内存统计失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '获取内存统计失败'
+    });
+  }
+});
+
+/**
+ * POST /api/system/memory/gc
+ * 手动触发垃圾回收
+ */
+router.post('/memory/gc', async (req: Request, res: Response) => {
+  try {
+    logger.info('收到手动垃圾回收请求');
+    const memoryMonitor = MemoryMonitorService.getInstance();
+    memoryMonitor.forceGarbageCollection();
+    
+    res.json({
+      code: 200,
+      message: '垃圾回收执行成功'
+    });
+  } catch (error: any) {
+    logger.error('垃圾回收失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '垃圾回收失败'
+    });
+  }
+});
+
+/**
+ * POST /api/system/memory/clear-history
+ * 清除内存历史记录
+ */
+router.post('/memory/clear-history', async (req: Request, res: Response) => {
+  try {
+    logger.info('收到清除内存历史记录请求');
+    const memoryMonitor = MemoryMonitorService.getInstance();
+    memoryMonitor.clearMemoryHistory();
+    
+    res.json({
+      code: 200,
+      message: '内存历史记录清除成功'
+    });
+  } catch (error: any) {
+    logger.error('清除内存历史记录失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '清除内存历史记录失败'
     });
   }
 });

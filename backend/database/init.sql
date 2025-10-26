@@ -41,6 +41,9 @@ CREATE INDEX IF NOT EXISTS idx_recipes_result_likes ON recipes(result, likes DES
 -- 复合索引：公开状态过滤（所有查询都用到）
 CREATE INDEX IF NOT EXISTS idx_recipes_is_public_created_at ON recipes(is_public, created_at DESC, id DESC);
 
+-- 复合索引：优化配方列表查询（包含点赞数和emoji查询）
+CREATE INDEX IF NOT EXISTS idx_recipes_public_likes_created ON recipes(is_public, likes DESC, created_at DESC, id DESC);
+
 -- 单列索引：游标分页优化
 CREATE INDEX IF NOT EXISTS idx_recipes_id_desc ON recipes(id DESC);
 
@@ -72,6 +75,9 @@ CREATE TABLE IF NOT EXISTS items (
 CREATE INDEX IF NOT EXISTS idx_items_name ON items(name);
 CREATE INDEX IF NOT EXISTS idx_items_pinyin ON items(pinyin);
 
+-- 复合索引：优化物品JOIN查询
+CREATE INDEX IF NOT EXISTS idx_items_name_emoji ON items(name, emoji);
+
 -- 复合索引：按类型过滤（基础材料 vs 合成材料）
 CREATE INDEX IF NOT EXISTS idx_items_is_base_name ON items(is_base, name);
 
@@ -102,6 +108,9 @@ CREATE TABLE IF NOT EXISTS user (
 
 CREATE INDEX IF NOT EXISTS idx_user_name ON user(name);
 CREATE INDEX IF NOT EXISTS idx_user_contribute ON user(contribute DESC);
+
+-- 复合索引：优化用户贡献统计查询
+CREATE INDEX IF NOT EXISTS idx_user_id_name ON user(id, name);
 
 -- 创建默认管理员账号 (密码: admin123)
 INSERT OR IGNORE INTO user (name, psw, auth) VALUES 
@@ -202,6 +211,9 @@ CREATE INDEX IF NOT EXISTS idx_recipe_likes_recipe_user ON recipe_likes(recipe_i
 
 -- 复合索引：用户点赞列表查询
 CREATE INDEX IF NOT EXISTS idx_recipe_likes_user_created ON recipe_likes(user_id, created_at DESC);
+
+-- 复合索引：优化点赞检查查询
+CREATE INDEX IF NOT EXISTS idx_recipe_likes_recipe_user_created ON recipe_likes(recipe_id, user_id, created_at);
 
 -- ====================================
 -- 7. tags 表 (标签系统)

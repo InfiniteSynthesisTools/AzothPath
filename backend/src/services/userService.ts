@@ -2,6 +2,8 @@ import { database } from '../database/connection';
 import bcrypt from 'bcryptjs';
 import { generateToken } from '../middlewares/auth';
 import { getCurrentUTC8TimeForDB, convertUTCToUTC8ForDB } from '../utils/timezone';
+import { CacheService } from './cacheService';
+import { logger } from '../utils/logger';
 
 // 用户完整信息（包含密码）
 export interface User {
@@ -206,6 +208,15 @@ export class UserService {
    * 获取用户详细贡献统计
    */
   async getUserContributionStats(userId: number) {
+    const cacheService = CacheService.getInstance();
+    
+    // 尝试从缓存获取用户统计
+    const cachedStats = cacheService.getUserStats(userId);
+    if (cachedStats) {
+      logger.debug(`[缓存命中] 用户 ${userId} 统计信息`);
+      return cachedStats;
+    }
+
     const user = await database.get<UserPublic>(
       'SELECT id, name, auth, contribute, level, created_at FROM user WHERE id = ?',
       [userId]
@@ -241,7 +252,7 @@ export class UserService {
       [userId]
     );
 
-    return {
+    const result = {
       user,
       stats: {
         total_contribution: user.contribute,
@@ -250,6 +261,11 @@ export class UserService {
         task_completed: taskCount?.count || 0
       }
     };
+
+    // 缓存用户统计信息
+    cacheService.setUserStats(userId, result);
+    
+    return result;
   }
 
   /**
@@ -366,14 +382,28 @@ export class UserService {
       LIMIT ? OFFSET ?
     `, [...params, limit, offset]);
 
-    // 获取总数
-    const totalResult = await database.get<{ count: number }>(`
-      SELECT COUNT(*) as count FROM user u ${whereClause}
-    `, params);
+    // 获取总数 - 使用缓存优化
+    const cacheService = CacheService.getInstance();
+    const cacheKey = whereClause;
+    let total = cacheService.getUserListCount(cacheKey);
+    
+    if (total === null) {
+      // 缓存未命中，执行COUNT查询
+      const totalResult = await database.get<{ count: number }>(`
+        SELECT COUNT(*) as count FROM user u ${whereClause}
+      `, params);
+      total = totalResult?.count || 0;
+      
+      // 缓存结果
+      cacheService.setUserListCount(cacheKey, total);
+      logger.debug(`[缓存设置] 用户列表总数: ${total}, 条件: ${cacheKey}`);
+    } else {
+      logger.debug(`[缓存命中] 用户列表总数: ${total}, 条件: ${cacheKey}`);
+    }
 
     return {
       users,
-      total: totalResult?.count || 0,
+      total,
       page,
       limit
     };
@@ -473,6 +503,10 @@ export class UserService {
     if (result.changes === 0) {
       throw new Error('用户不存在');
     }
+
+    // 更新用户信息后清除相关缓存
+    const cacheService = CacheService.getInstance();
+    cacheService.invalidateUserCache(userId);
   }
 
   /**
@@ -512,8 +546,22 @@ export class UserService {
    * 获取用户总数（管理员功能）
    */
   async getUserCount(): Promise<number> {
+    const cacheService = CacheService.getInstance();
+    const cachedCount = cacheService.getUserListCount('');
+    
+    if (cachedCount !== null) {
+      logger.debug(`[缓存命中] 用户总数: ${cachedCount}`);
+      return cachedCount;
+    }
+
     const result = await database.get<{ count: number }>('SELECT COUNT(*) as count FROM user');
-    return result?.count || 0;
+    const count = result?.count || 0;
+    
+    // 缓存结果
+    cacheService.setUserListCount('', count);
+    logger.debug(`[缓存设置] 用户总数: ${count}`);
+    
+    return count;
   }
 }
 

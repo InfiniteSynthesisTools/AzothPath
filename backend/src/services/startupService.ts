@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { recipeService } from './recipeService';
 import { databaseBackupService } from './databaseBackupService';
 import { importTaskQueue } from './importTaskQueue';
+import { MemoryMonitorService } from './memoryMonitorService';
 
 /**
  * 启动时初始化服务
@@ -36,6 +37,10 @@ export class StartupService {
 
       // 5. 启动导入任务队列
       await importTaskQueue.start();
+
+      // 6. 启动内存监控
+      const memoryMonitor = MemoryMonitorService.getInstance();
+      memoryMonitor.startMonitoring();
 
       logger.success('=== 启动初始化完成 ===');
     } catch (error) {

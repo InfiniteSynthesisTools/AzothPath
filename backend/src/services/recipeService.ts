@@ -3,6 +3,7 @@ import { logger } from '../utils/logger';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 import { truncateEmoji } from '../utils/emoji';
 import { icicleChartCache } from '../utils/lruCache';
+import { CacheService } from './cacheService';
 
 export interface Recipe {
   id: number;
@@ -698,6 +699,16 @@ export class RecipeService {
    * 异步获取总数（避免阻塞主查询）
    */
   private async getCountAsync(baseParams: any[], conditions: string[]): Promise<number> {
+    const cacheService = CacheService.getInstance();
+    const cacheKey = conditions.join(' AND ');
+    
+    // 尝试从缓存获取
+    const cachedCount = cacheService.getRecipeListCount(cacheKey);
+    if (cachedCount !== null) {
+      logger.debug(`[缓存命中] 配方列表总数: ${cachedCount}, 条件: ${cacheKey}`);
+      return cachedCount;
+    }
+
     let countSql = 'SELECT COUNT(*) as count FROM recipes r';
     if (conditions.length > 0) {
       countSql += ` WHERE ${conditions.join(' AND ')}`;
@@ -705,7 +716,13 @@ export class RecipeService {
 
     try {
       const totalResult = await databaseAdapter.get<{ count: number }>(countSql, baseParams);
-      return totalResult?.count || 0;
+      const count = totalResult?.count || 0;
+      
+      // 缓存结果
+      cacheService.setRecipeListCount(cacheKey, count);
+      logger.debug(`[缓存设置] 配方列表总数: ${count}, 条件: ${cacheKey}`);
+      
+      return count;
     } catch (error) {
       logger.error('获取总数失败:', error);
       logger.error('SQL:', countSql);
@@ -939,6 +956,11 @@ export class RecipeService {
         logger.info(`用户${creatorId}获得${contributionPoints}分 (1个配方 + ${newItemCount}个新物品)`);
       }
 
+      // 添加配方后清除相关缓存
+      const cacheService = CacheService.getInstance();
+      cacheService.invalidateRecipeCache();
+      cacheService.invalidateUserCache(creatorId);
+      
       return recipeResult.lastID!;
     });
   }

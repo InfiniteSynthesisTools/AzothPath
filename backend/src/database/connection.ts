@@ -315,12 +315,16 @@ export class Database {
 
   // 执行事务
   async transaction<T>(callback: (db: Database) => Promise<T>): Promise<T> {
-    // better-sqlite3 supports transaction APIs; use explicit BEGIN/COMMIT to remain compatible
     const txnStart = Date.now();
-    await this.run('BEGIN TRANSACTION');
+    const db = this.ensureInitialized();
+    
+    // 使用 better-sqlite3 原生事务 API
+    const transaction = db.transaction(() => {
+      return callback(this);
+    });
+    
     try {
-      const result = await callback(this);
-      await this.run('COMMIT');
+      const result = await transaction();
       const txnDuration = Date.now() - txnStart;
       logger.database('事务提交', { duration: txnDuration, success: true });
       if (txnDuration > SLOW_QUERY_MS) {
@@ -328,9 +332,8 @@ export class Database {
       }
       return result;
     } catch (error) {
-      await this.run('ROLLBACK');
       const txnDuration = Date.now() - txnStart;
-      logger.error('事务回滚', { duration: txnDuration, error: (error as any)?.message });
+      logger.error('事务失败', { duration: txnDuration, error: (error as any)?.message });
       throw error;
     }
   }

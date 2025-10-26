@@ -213,10 +213,14 @@ export class AsyncDatabase extends EventEmitter {
   // 执行事务
   async transaction<T>(callback: (db: AsyncDatabase) => Promise<T>): Promise<T> {
     const txnStart = Date.now();
-    await this.run('BEGIN TRANSACTION');
+    
+    // 使用 better-sqlite3 原生事务 API
+    const transaction = this.db.transaction(() => {
+      return callback(this);
+    });
+    
     try {
-      const result = await callback(this);
-      await this.run('COMMIT');
+      const result = await transaction();
       const txnDuration = Date.now() - txnStart;
       logger.database('事务提交', { duration: txnDuration, success: true });
       if (txnDuration > 100) {
@@ -224,9 +228,8 @@ export class AsyncDatabase extends EventEmitter {
       }
       return result;
     } catch (error) {
-      await this.run('ROLLBACK');
       const txnDuration = Date.now() - txnStart;
-      logger.error('事务回滚', { duration: txnDuration, error: (error as any)?.message });
+      logger.error('事务失败', { duration: txnDuration, error: (error as any)?.message });
       throw error;
     }
   }

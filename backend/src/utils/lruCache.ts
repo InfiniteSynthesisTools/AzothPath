@@ -12,6 +12,8 @@ export class LRUCache<K, V> {
   private cache: Map<K, { value: V; timestamp: number }>;
   private maxSize: number;
   private ttl?: number; // 毫秒单位，undefined 表示无过期时间
+  private hits: number = 0;
+  private misses: number = 0;
 
   /**
    * @param maxSize 最大缓存项数，超过此数会删除最久未使用的项
@@ -21,6 +23,8 @@ export class LRUCache<K, V> {
     this.cache = new Map();
     this.maxSize = maxSize;
     this.ttl = ttl;
+    this.hits = 0;
+    this.misses = 0;
   }
 
   /**
@@ -31,6 +35,7 @@ export class LRUCache<K, V> {
     const item = this.cache.get(key);
 
     if (!item) {
+      this.misses++;
       return undefined;
     }
 
@@ -38,12 +43,14 @@ export class LRUCache<K, V> {
     if (this.ttl && Date.now() - item.timestamp > this.ttl) {
       // 已过期，删除并返回 undefined
       this.cache.delete(key);
+      this.misses++;
       return undefined;
     }
 
     // 更新访问时间（通过重新插入 Map 使其移到末尾）
     this.cache.delete(key);
     this.cache.set(key, item);
+    this.hits++;
 
     return item.value;
   }
@@ -115,12 +122,24 @@ export class LRUCache<K, V> {
     maxSize: number;
     ttl: number | undefined;
     keys: K[];
+    hits: number;
+    misses: number;
+    hitRate: number;
+    missRate: number;
   } {
+    const total = this.hits + this.misses;
+    const hitRate = total > 0 ? this.hits / total : 0;
+    const missRate = total > 0 ? this.misses / total : 0;
+    
     return {
       size: this.cache.size,
       maxSize: this.maxSize,
       ttl: this.ttl,
-      keys: Array.from(this.cache.keys())
+      keys: Array.from(this.cache.keys()),
+      hits: this.hits,
+      misses: this.misses,
+      hitRate: hitRate,
+      missRate: missRate
     };
   }
 

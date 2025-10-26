@@ -1,6 +1,7 @@
 import { database } from '../database/connection';
 import { logger } from '../utils/logger';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
+import { CacheService } from './cacheService';
 
 export interface Task {
   id: number;
@@ -61,11 +62,25 @@ export class TaskService {
     // 构建 ORDER BY
     const orderClause = `ORDER BY ${sortBy} ${sortOrder.toUpperCase()}`;
 
-    // 查询总数
-    const countResult = await database.get<{ total: number }>(
-      `SELECT COUNT(*) as total FROM task ${whereClause}`,
-      values
-    );
+    // 查询总数 - 使用缓存优化
+    const cacheService = CacheService.getInstance();
+    const cacheKey = whereClause;
+    let total = cacheService.getTaskCount(cacheKey);
+    
+    if (total === null) {
+      // 缓存未命中，执行COUNT查询
+      const countResult = await database.get<{ total: number }>(
+        `SELECT COUNT(*) as total FROM task ${whereClause}`,
+        values
+      );
+      total = countResult?.total || 0;
+      
+      // 缓存结果
+      cacheService.setTaskCount(total, cacheKey);
+      logger.debug(`[缓存设置] 任务列表总数: ${total}, 条件: ${cacheKey}`);
+    } else {
+      logger.debug(`[缓存命中] 任务列表总数: ${total}, 条件: ${cacheKey}`);
+    }
 
     // 查询任务列表
     const tasks = await database.all<Task[]>(
@@ -75,7 +90,7 @@ export class TaskService {
 
     return {
       tasks,
-      total: countResult?.total || 0,
+      total,
       page,
       limit
     };
@@ -254,6 +269,11 @@ export class TaskService {
       );
 
       logger.success(`任务完成: 用户${userId}完成任务${taskId}, 获得${task.prize}分奖励`);
+
+      // 完成任务后清除相关缓存
+      const cacheService = CacheService.getInstance();
+      cacheService.invalidateTaskCache();
+      cacheService.invalidateUserCache(userId);
 
       return {
         taskId,

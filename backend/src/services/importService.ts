@@ -4,6 +4,7 @@ import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 import { apiConfig } from '../config/api';
 import axios from 'axios';
 import { validationLimiter } from '../utils/validationLimiter';
+import { CacheService } from './cacheService';
 
 export interface ImportTask {
   id: number;
@@ -155,19 +156,33 @@ export class ImportService {
 
     const contents = await database.all<ImportTaskContent>(sql, sqlParams);
 
-    // 获取总数
-    let countSql = 'SELECT COUNT(*) as count FROM import_tasks_content WHERE task_id = ?';
-    const countParams: any[] = [taskId];
-    if (status !== undefined) {
-      countSql += ' AND status = ?';
-      countParams.push(status);
-    }
+    // 获取总数 - 使用缓存优化
+    const cacheService = CacheService.getInstance();
+    const cacheKey = `task_${taskId}_${status || 'all'}`;
+    let total = cacheService.getImportTaskCount(parseInt(cacheKey));
+    
+    if (total === null) {
+      // 缓存未命中，执行COUNT查询
+      let countSql = 'SELECT COUNT(*) as count FROM import_tasks_content WHERE task_id = ?';
+      const countParams: any[] = [taskId];
+      if (status !== undefined) {
+        countSql += ' AND status = ?';
+        countParams.push(status);
+      }
 
-    const totalResult = await database.get<{ count: number }>(countSql, countParams);
+      const totalResult = await database.get<{ count: number }>(countSql, countParams);
+      total = totalResult?.count || 0;
+      
+      // 缓存结果
+      cacheService.setImportTaskCount(total, parseInt(cacheKey));
+      logger.debug(`[缓存设置] 导入任务内容总数: ${total}, 任务ID: ${taskId}, 状态: ${status || 'all'}`);
+    } else {
+      logger.debug(`[缓存命中] 导入任务内容总数: ${total}, 任务ID: ${taskId}, 状态: ${status || 'all'}`);
+    }
 
     return {
       contents,
-      total: totalResult?.count || 0
+      total
     };
   }
 

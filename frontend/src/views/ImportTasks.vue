@@ -23,36 +23,48 @@
       <!-- 统计卡片 -->
       <el-row :gutter="20" class="stats-row">
         <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
-          <StatCard 
-            type="primary"
-            emoji="📊"
-            :value="stats.total"
-            label="总任务数"
-          />
+          <el-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon total">📊</div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.total }}</div>
+                <div class="stat-label">总任务数</div>
+              </div>
+            </div>
+          </el-card>
         </el-col>
         <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
-          <StatCard 
-            type="warning"
-            emoji="🔄"
-            :value="stats.processing"
-            label="处理中"
-          />
+          <el-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon processing">🔄</div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.processing }}</div>
+                <div class="stat-label">处理中</div>
+              </div>
+            </div>
+          </el-card>
         </el-col>
         <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
-          <StatCard 
-            type="success"
-            emoji="✅"
-            :value="stats.completed"
-            label="已完成"
-          />
+          <el-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon completed">✅</div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.completed }}</div>
+                <div class="stat-label">已完成</div>
+              </div>
+            </div>
+          </el-card>
         </el-col>
         <el-col :xs="12" :sm="6" :md="6" :lg="6" :xl="6">
-          <StatCard 
-            type="error"
-            emoji="❌"
-            :value="stats.failed"
-            label="失败"
-          />
+          <el-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon failed">❌</div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.failed }}</div>
+                <div class="stat-label">失败</div>
+              </div>
+            </div>
+          </el-card>
         </el-col>
       </el-row>
 
@@ -253,7 +265,6 @@ import { Plus, Refresh, Check, Loading, Close, InfoFilled, List } from '@element
 import { useImportStore } from '@/stores/import';
 import type { ImportTask, ImportTaskContent } from '@/types';
 import ImportTaskCard from '@/components/ImportTaskCard.vue';
-import StatCard from '@/components/StatCard.vue';
 import { formatDateTime } from '@/utils/format';
 
 const importStore = useImportStore();
@@ -548,6 +559,71 @@ onMounted(() => {
 /* 统计卡片 */
 .stats-row {
   margin-bottom: 24px;
+}
+
+.stat-card {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(10px);
+}
+
+.stat-card:hover {
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+  background: rgba(255, 255, 255, 0.95);
+}
+
+.stat-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 4px;
+}
+
+.stat-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-icon.total {
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+}
+
+.stat-icon.processing {
+  background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+}
+
+.stat-icon.completed {
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+}
+
+.stat-icon.failed {
+  background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 28px;
+  font-weight: bold;
+  color: #303133;
+  line-height: 1;
+  margin-bottom: 8px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: #909399;
 }
 
 

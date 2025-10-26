@@ -80,63 +80,32 @@
           </div>
         </el-card>
 
-        <!-- 贡献统计卡片 -->
-        <el-card class="stats-card card-scale" shadow="hover" v-if="currentUser" style="margin-top: 24px;">
-          <template #header>
-            <div class="card-header">
-              <h3>📊 贡献统计</h3>
+        <!-- 贡献统计 -->
+        <div class="stats-section" v-if="currentUser" style="margin-top: 24px;">
+          <h3 class="stats-title">📊 贡献统计</h3>
+          <div class="stats-list">
+            <div class="stat-row">
+              <span class="stat-icon">📋</span>
+              <span class="stat-label">提交配方</span>
+              <span class="stat-value">{{ userStats.recipe_count || 0 }}</span>
             </div>
-          </template>
-
-          <div class="stats-section">
-            <el-row :gutter="20">
-              <el-col :xs="12" :sm="6" :md="6" :lg="6">
-                <el-card class="stat-card card-scale" shadow="hover">
-                  <div class="stat-content">
-                    <div class="stat-icon recipes">📋</div>
-                    <div class="stat-info">
-                      <div class="stat-value">{{ userStats.recipe_count || 0 }}</div>
-                      <div class="stat-label">提交配方</div>
-                    </div>
-                  </div>
-                </el-card>
-              </el-col>
-              <el-col :xs="12" :sm="6" :md="6" :lg="6">
-                <el-card class="stat-card card-scale" shadow="hover">
-                  <div class="stat-content">
-                    <div class="stat-icon items">🧪</div>
-                    <div class="stat-info">
-                      <div class="stat-value">{{ userStats.item_count || 0 }}</div>
-                      <div class="stat-label">发现物品</div>
-                    </div>
-                  </div>
-                </el-card>
-              </el-col>
-              <el-col :xs="12" :sm="6" :md="6" :lg="6">
-                <el-card class="stat-card card-scale" shadow="hover">
-                  <div class="stat-content">
-                    <div class="stat-icon tasks">✅</div>
-                    <div class="stat-info">
-                      <div class="stat-value">{{ userStats.task_completed || 0 }}</div>
-                      <div class="stat-label">完成任务</div>
-                    </div>
-                  </div>
-                </el-card>
-              </el-col>
-              <el-col :xs="12" :sm="6" :md="6" :lg="6">
-                <el-card class="stat-card card-scale" shadow="hover">
-                  <div class="stat-content">
-                    <div class="stat-icon contributions">🏆</div>
-                    <div class="stat-info">
-                      <div class="stat-value">{{ userStats.total_contribution || 0 }}</div>
-                      <div class="stat-label">总贡献</div>
-                    </div>
-                  </div>
-                </el-card>
-              </el-col>
-            </el-row>
+            <div class="stat-row">
+              <span class="stat-icon">🧪</span>
+              <span class="stat-label">发现物品</span>
+              <span class="stat-value">{{ userStats.item_count || 0 }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-icon">✅</span>
+              <span class="stat-label">完成任务</span>
+              <span class="stat-value">{{ userStats.task_completed || 0 }}</span>
+            </div>
+            <div class="stat-row">
+              <span class="stat-icon">🏆</span>
+              <span class="stat-label">总贡献</span>
+              <span class="stat-value">{{ userStats.total_contribution || 0 }}</span>
+            </div>
           </div>
-        </el-card>
+        </div>
       </div>
 
       <!-- 右侧：收藏配方 -->
@@ -901,35 +870,62 @@ onMounted(async () => {
   line-height: 1.5;
 }
 
-/* 统计卡片 */
+/* 贡献统计 */
 .stats-section {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
   padding: 20px;
+  border: 1px solid var(--color-border-primary);
 }
 
-.stats-section :deep(.el-card) {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
+.stats-title {
+  margin: 0 0 16px 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stats-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.stat-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border-primary);
   transition: all var(--transition-base);
 }
 
-.stats-section :deep(.el-card:hover) {
-  box-shadow: var(--shadow-lg);
-  border-color: var(--color-primary-300);
+.stat-row:hover {
+  background: var(--color-bg-secondary);
+  border-color: var(--color-border-accent);
 }
 
-.stats-section :deep(.el-statistic__content) {
+.stat-icon {
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.stat-label {
+  flex: 1;
+  font-size: 14px;
   color: var(--color-text-primary);
+  font-weight: 500;
 }
 
-.stats-section :deep(.el-statistic__title) {
-  color: var(--color-text-secondary);
-}
-
-.stats-section :deep(.el-icon) {
-  color: var(--color-primary-500);
+.stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--color-primary-600);
 }
 
 /* 收藏配方卡片 */
@@ -1206,6 +1202,37 @@ onMounted(async () => {
   .recipe-meta {
     display: none;
   }
+  
+  /* 贡献统计移动端优化 */
+  .stats-section {
+    padding: 16px;
+  }
+  
+  .stats-title {
+    font-size: 16px;
+    margin-bottom: 12px;
+  }
+  
+  .stats-list {
+    gap: 8px;
+  }
+  
+  .stat-row {
+    padding: 10px 12px;
+  }
+  
+  .stat-icon {
+    font-size: 18px;
+    margin-right: 8px;
+  }
+  
+  .stat-label {
+    font-size: 13px;
+  }
+  
+  .stat-value {
+    font-size: 14px;
+  }
 }
 
 @media (max-width: 480px) {
@@ -1220,6 +1247,37 @@ onMounted(async () => {
   
   .page-header {
     margin-bottom: 16px;
+  }
+  
+  /* 贡献统计小屏优化 */
+  .stats-section {
+    padding: 12px;
+  }
+  
+  .stats-title {
+    font-size: 15px;
+    margin-bottom: 10px;
+  }
+  
+  .stats-list {
+    gap: 6px;
+  }
+  
+  .stat-row {
+    padding: 8px 10px;
+  }
+  
+  .stat-icon {
+    font-size: 16px;
+    margin-right: 6px;
+  }
+  
+  .stat-label {
+    font-size: 12px;
+  }
+  
+  .stat-value {
+    font-size: 13px;
   }
 }
 </style>

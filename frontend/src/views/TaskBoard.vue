@@ -21,36 +21,48 @@
       <!-- 统计卡片 -->
       <el-row :gutter="20" class="stats-row">
         <el-col :xs="12" :sm="12" :md="6" :lg="6">
-          <StatCard 
-            type="primary"
-            emoji="📊"
-            :value="stats.total"
-            label="总任务数"
-          />
+          <el-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon">📊</div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.total }}</div>
+                <div class="stat-label">总任务数</div>
+              </div>
+            </div>
+          </el-card>
         </el-col>
         <el-col :xs="12" :sm="12" :md="6" :lg="6">
-          <StatCard 
-            type="success"
-            emoji="🎯"
-            :value="stats.active"
-            label="活跃任务"
-          />
+          <el-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon">🎯</div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.active }}</div>
+                <div class="stat-label">活跃任务</div>
+              </div>
+            </div>
+          </el-card>
         </el-col>
         <el-col :xs="12" :sm="12" :md="6" :lg="6">
-          <StatCard 
-            type="info"
-            emoji="✅"
-            :value="stats.completed"
-            label="已完成"
-          />
+          <el-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon">✅</div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.completed }}</div>
+                <div class="stat-label">已完成</div>
+              </div>
+            </div>
+          </el-card>
         </el-col>
         <el-col :xs="12" :sm="12" :md="6" :lg="6">
-          <StatCard 
-            type="warning"
-            emoji="💰"
-            :value="stats.total_prize"
-            label="待领奖励"
-          />
+          <el-card class="stat-card">
+            <div class="stat-content">
+              <div class="stat-icon">💰</div>
+              <div class="stat-info">
+                <div class="stat-value">{{ stats.total_prize }}</div>
+                <div class="stat-label">待领奖励</div>
+              </div>
+            </div>
+          </el-card>
         </el-col>
       </el-row>
 
@@ -207,7 +219,6 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { taskApi, type Task, type TaskWithDetails, type TaskStats } from '@/api/task';
 import { useUserStore } from '@/stores/user';
 import TaskCard from '@/components/TaskCard.vue';
-import StatCard from '@/components/StatCard.vue';
 import { formatDateTime } from '@/utils/format';
 
 const userStore = useUserStore();
@@ -416,6 +427,55 @@ onMounted(() => {
 /* 统计卡片 */
 .stats-row {
   margin-bottom: 20px;
+}
+
+.stat-card {
+  background: var(--color-bg-surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-primary);
+  transition: all var(--transition-base);
+}
+
+.stat-card:hover {
+  border-color: var(--color-border-accent);
+  box-shadow: var(--shadow-lg);
+}
+
+.stat-content {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 20px;
+}
+
+.stat-icon {
+  width: 48px;
+  height: 48px;
+  background: var(--color-bg-tertiary);
+  border-radius: var(--radius-base);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: var(--color-primary-500);
+}
+
+.stat-info {
+  flex: 1;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--color-text-tertiary);
 }
 
 /* 状态标签页 */

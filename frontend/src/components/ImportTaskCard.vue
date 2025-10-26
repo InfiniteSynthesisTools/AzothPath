@@ -3,47 +3,28 @@
     <!-- 卡片头部 -->
     <div class="card-header">
       <div class="task-id">#{{ task.id }}</div>
-      <Badge 
-        :type="getStatusType(task.status)" 
-        size="sm"
-        :emoji="getStatusEmoji(task.status)"
-        :text="getStatusText(task.status)"
-      />
+      <el-tag :type="getStatusType(task.status)" size="small">
+        {{ getStatusText(task.status) }}
+      </el-tag>
     </div>
 
     <!-- 任务统计 -->
     <div class="task-stats">
       <div class="stat-item">
-        <Badge 
-          type="default" 
-          size="sm"
-          emoji="📊"
-          :text="`${task.total_count} 总数`"
-        />
+        <div class="stat-label">总配方数</div>
+        <div class="stat-value">{{ task.total_count }}</div>
       </div>
       <div class="stat-item">
-        <Badge 
-          type="success" 
-          size="sm"
-          emoji="✅"
-          :text="`${task.success_count} 成功`"
-        />
+        <div class="stat-label">成功</div>
+        <div class="stat-value success">{{ task.success_count }}</div>
       </div>
       <div class="stat-item">
-        <Badge 
-          type="error" 
-          size="sm"
-          emoji="❌"
-          :text="`${task.failed_count} 失败`"
-        />
+        <div class="stat-label">失败</div>
+        <div class="stat-value failed">{{ task.failed_count }}</div>
       </div>
       <div class="stat-item">
-        <Badge 
-          type="warning" 
-          size="sm"
-          emoji="🔄"
-          :text="`${task.duplicate_count} 重复`"
-        />
+        <div class="stat-label">重复</div>
+        <div class="stat-value duplicate">{{ task.duplicate_count }}</div>
       </div>
     </div>
 
@@ -117,7 +98,6 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import Badge from '@/components/Badge.vue';
 import type { ImportTask } from '@/types';
 
 interface Props {
@@ -155,7 +135,7 @@ const getStatusType = (status: string) => {
   switch (status) {
     case 'processing': return 'warning';
     case 'completed': return 'success';
-    case 'failed': return 'error';
+    case 'failed': return 'danger';
     default: return 'info';
   }
 };
@@ -163,20 +143,10 @@ const getStatusType = (status: string) => {
 // 获取状态文本
 const getStatusText = (status: string) => {
   switch (status) {
-    case 'processing': return '处理中';
-    case 'completed': return '已完成';
-    case 'failed': return '失败';
+    case 'processing': return '🔄 处理中';
+    case 'completed': return '✅ 已完成';
+    case 'failed': return '❌ 失败';
     default: return status;
-  }
-};
-
-// 获取状态emoji
-const getStatusEmoji = (status: string) => {
-  switch (status) {
-    case 'processing': return '🔄';
-    case 'completed': return '✅';
-    case 'failed': return '❌';
-    default: return '📝';
   }
 };
 
@@ -235,7 +205,40 @@ const formatDate = (dateStr: string) => {
 
 .stat-item {
   text-align: center;
-  padding: 8px 4px;
+  padding: 12px 8px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #ffffff 100%);
+  border-radius: 10px;
+  border: 1px solid rgba(0, 0, 0, 0.05);
+  transition: all 0.2s ease;
+}
+
+.stat-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #909399;
+  margin-bottom: 6px;
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 18px;
+  font-weight: 700;
+  color: #303133;
+}
+
+.stat-value.success {
+  color: #67c23a;
+}
+
+.stat-value.failed {
+  color: #f56c6c;
+}
+
+.stat-value.duplicate {
+  color: #e6a23c;
 }
 
 /* 进度条 */

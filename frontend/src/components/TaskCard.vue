@@ -27,12 +27,7 @@
       </div>
       
       <div class="task-prize">
-        <Badge 
-          type="warning" 
-          size="sm"
-          emoji="💰"
-          :text="`${task.prize} 贡献分`"
-        />
+        <span class="prize-text">{{ task.prize }} 贡献分</span>
       </div>
 
       <div class="task-footer">
@@ -48,7 +43,6 @@
 <script setup lang="ts">
 import { More, Clock } from '@element-plus/icons-vue';
 import { useUserStore } from '@/stores/user';
-import Badge from '@/components/Badge.vue';
 import type { Task } from '@/api/task';
 import { formatDateTime } from '@/utils/format';
 
@@ -128,6 +122,16 @@ const userStore = useUserStore();
   margin-bottom: 12px;
 }
 
+.prize-text {
+  font-size: 14px;
+  color: var(--color-warning);
+  font-weight: 500;
+  background: var(--color-bg-tertiary);
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border-secondary);
+}
+
 .task-footer {
   display: flex;
   align-items: center;
@@ -182,6 +186,13 @@ const userStore = useUserStore();
     margin-bottom: 10px;
   }
   
+  .prize-text {
+    font-size: 13px;
+    padding: 3px 6px;
+    color: var(--color-warning);
+    background: var(--color-bg-tertiary);
+  }
+  
   .task-time {
     font-size: 11px;
   }
@@ -202,6 +213,12 @@ const userStore = useUserStore();
   .item-name {
     font-size: 15px;
     color: var(--color-text-primary);
+  }
+  
+  .prize-text {
+    font-size: 12px;
+    color: var(--color-warning);
+    background: var(--color-bg-tertiary);
   }
   
   .task-time {

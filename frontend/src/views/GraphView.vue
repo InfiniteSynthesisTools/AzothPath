@@ -13,36 +13,40 @@
     <div class="stats-section">
       <el-row :gutter="20">
         <el-col :span="6">
-          <StatCard 
-            type="primary"
-            emoji="🧪"
-            :value="stats.totalItems"
-            label="总元素数"
-          />
+          <el-card shadow="hover" class="stat-card">
+            <el-statistic :value="stats.totalItems" title="总元素数">
+              <template #prefix>
+                <el-icon><Box /></el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
         <el-col :span="6">
-          <StatCard 
-            type="success"
-            emoji="📋"
-            :value="stats.totalRecipes"
-            label="合成配方数"
-          />
+          <el-card shadow="hover" class="stat-card">
+            <el-statistic :value="stats.totalRecipes" title="合成配方数">
+              <template #prefix>
+                <el-icon><Document /></el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
         <el-col :span="6">
-          <StatCard 
-            type="info"
-            emoji="📊"
-            :value="stats.maxDepth"
-            label="最大深度"
-          />
+          <el-card shadow="hover" class="stat-card">
+            <el-statistic :value="stats.maxDepth" title="最大深度">
+              <template #prefix>
+                <el-icon><TrendCharts /></el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
         <el-col :span="6">
-          <StatCard 
-            type="warning"
-            emoji="⭐"
-            :value="stats.baseItems"
-            label="基础材料"
-          />
+          <el-card shadow="hover" class="stat-card">
+            <el-statistic :value="stats.baseItems" title="基础材料">
+              <template #prefix>
+                <el-icon><Star /></el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
       </el-row>
     </div>
@@ -160,11 +164,14 @@
 import { ref, reactive, onMounted, onUnmounted, nextTick } from 'vue';
 import { ElMessage } from 'element-plus';
 import {
+  Box,
+  Document,
+  Star,
   Search,
   FullScreen,
   Connection,
+  TrendCharts,
 } from '@element-plus/icons-vue';
-import StatCard from '@/components/StatCard.vue';
 import { recipeApi } from '@/api';
 
 // 响应式数据
@@ -344,6 +351,27 @@ onUnmounted(() => {
   max-width: 1400px;
   margin: 0 auto 40px;
   padding: 0 20px;
+}
+
+.stats-section :deep(.stat-card) {
+  background: var(--color-bg-surface);
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.stats-section :deep(.stat-card:hover) {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-border-accent);
+}
+
+.stats-section :deep(.el-statistic__content) {
+  color: var(--color-text-primary);
+}
+
+.stats-section :deep(.el-statistic__title) {
+  color: var(--color-text-secondary);
 }
 
 .tabs-section {

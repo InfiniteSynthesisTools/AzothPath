@@ -638,8 +638,7 @@ export class RecipeService {
           return {
             ...recipe,
             depth: 0,
-            width: 1,
-            breadth: 0
+            width: 1
           };
         })
       );
@@ -1313,7 +1312,7 @@ export class RecipeService {
     }
 
     // 🚀 性能优化：对每个物品的所有配方进行最简路径排序
-    // 排序规则：深度最小 → 宽度最小 → 广度最大 → 字典序
+    // 排序规则：深度最小 → 宽度最小 → 字典序
     for (const itemName of allItemNames) {
       const recipesForItem = itemToRecipes[itemName];
       if (recipesForItem && recipesForItem.length > 1) {
@@ -1321,7 +1320,7 @@ export class RecipeService {
         const baseItems = ['金', '木', '水', '火', '土'];
 
         // 计算每个配方的统计信息并排序
-        const memo: Record<string, { depth: number; width: number; breadth: number }> = {};
+        const memo: Record<string, { depth: number; width: number }> = {};
 
         recipesForItem.sort((a, b) => {
           // 自合成配方检测：a+a=a 或 a+b=a

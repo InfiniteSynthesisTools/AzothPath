@@ -152,7 +152,7 @@
         <div class="icicle-chart-container">
           <div v-if="icicleChartLoading" class="chart-loading">
             <el-icon class="is-loading"><Loading /></el-icon>
-            <span>冰柱图加载中...</span>
+            <span>冰柱图加载中...（复杂物品可能需要几秒钟）</span>
           </div>
           <div v-else-if="icicleChartData && icicleChartData.nodes && icicleChartData.nodes.length > 0" class="chart-content">
             <!-- 真正的冰柱图组件 -->
@@ -577,10 +577,12 @@ const fetchElementDetail = async () => {
       
       // 异步加载冰柱图数据（不阻塞主流程）
       if (reachabilityResult.reachable) {
-        // 在后台加载，不使用 await
-        fetchIcicleChartData(elementData.name).catch(error => {
-          console.error('后台加载冰柱图数据失败:', error);
-        });
+        // 在后台加载，不使用 await，并添加超时保护
+        setTimeout(() => {
+          fetchIcicleChartData(elementData.name).catch(error => {
+            console.error('后台加载冰柱图数据失败:', error);
+          });
+        }, 100); // 延迟100ms，确保主流程先完成
       }
     } else {
       ElMessage.error('获取元素详情失败');

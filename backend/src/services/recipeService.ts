@@ -403,6 +403,18 @@ export class RecipeService {
   private graphCachePromise: Promise<GraphCache> | null = null;
   private readonly CACHE_TTL = 60 * 60 * 1000; // 60 分钟
   private synthesisGraph: SynthesisGraph | null = null;
+  
+  // 冰柱图请求队列和并发控制
+  private icicleChartQueue: Array<{ 
+    itemName: string; 
+    maxDepth?: number; 
+    includeStats?: boolean;
+    resolve: (value: IcicleChartData | null) => void; 
+    reject: (error: any) => void 
+  }> = [];
+  private icicleChartProcessing = false;
+  private readonly MAX_CONCURRENT_ICICLE_REQUESTS = 1; // 限制同时处理的冰柱图请求数量
+  private activeIcicleRequests = 0;
 
   /**
    * 处理记录中的 emoji 字段
@@ -1722,7 +1734,7 @@ export class RecipeService {
     const stack: { node: IcicleNode; depth: number }[] = [{ node, depth: 1 }];
     let maxDepth = 0;
     let iterations = 0;
-    const MAX_ITERATIONS = 10000; // 最多迭代1万次
+    const MAX_ITERATIONS = 5000; // 减少最大迭代次数到5000次
 
     while (stack.length > 0 && iterations < MAX_ITERATIONS) {
       iterations++;
@@ -1741,6 +1753,7 @@ export class RecipeService {
 
     if (iterations >= MAX_ITERATIONS) {
       logger.warn(`calculateIcicleTreeDepth: 物品 "${node.name}" 迭代次数超限 (${iterations}次)，可能存在复杂树结构`);
+      // 返回当前最大深度，而不是继续计算
     }
 
     return maxDepth;
@@ -1757,7 +1770,7 @@ export class RecipeService {
     let maxDepth = 0;
     let totalSteps = 0;
     let iterations = 0;
-    const MAX_ITERATIONS = 10000; // 最多迭代1万次
+    const MAX_ITERATIONS = 5000; // 减少最大迭代次数到5000次
 
     while (stack.length > 0 && iterations < MAX_ITERATIONS) {
       iterations++;
@@ -1790,6 +1803,7 @@ export class RecipeService {
 
     if (iterations >= MAX_ITERATIONS) {
       logger.warn(`calculateIcicleTreeStats: 物品 "${node.name}" 迭代次数超限 (${iterations}次)，可能存在复杂树结构`);
+      // 返回当前计算的统计信息，而不是继续计算
     }
 
     const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);
@@ -2198,6 +2212,71 @@ export class RecipeService {
     maxDepth?: number,
     includeStats: boolean = false
   ): Promise<IcicleChartData | null> {
+    // 使用队列系统控制并发请求
+    return new Promise<IcicleChartData | null>((resolve, reject) => {
+      // 如果队列中已经有相同物品的请求，直接返回缓存结果
+      const cachedResult = icicleChartCache.get(itemName);
+      if (cachedResult) {
+        logger.info(`[缓存命中] 物品 "${itemName}" 的冰柱图`, {
+          cacheSize: icicleChartCache.size,
+          fromCache: true
+        });
+        resolve(cachedResult);
+        return;
+      }
+
+      // 添加到队列
+      this.icicleChartQueue.push({ itemName, maxDepth, includeStats, resolve, reject });
+      
+      // 如果队列未在处理中，开始处理
+      if (!this.icicleChartProcessing) {
+        this.processIcicleChartQueue();
+      }
+    });
+  }
+
+  /**
+   * 处理冰柱图请求队列
+   */
+  private async processIcicleChartQueue() {
+    if (this.icicleChartProcessing || this.icicleChartQueue.length === 0) {
+      return;
+    }
+
+    this.icicleChartProcessing = true;
+
+    while (this.icicleChartQueue.length > 0 && this.activeIcicleRequests < this.MAX_CONCURRENT_ICICLE_REQUESTS) {
+      const request = this.icicleChartQueue.shift();
+      if (!request) continue;
+
+      this.activeIcicleRequests++;
+      
+      try {
+        const result = await this.generateIcicleChartInternal(request.itemName, request.maxDepth, request.includeStats);
+        request.resolve(result);
+      } catch (error) {
+        request.reject(error);
+      } finally {
+        this.activeIcicleRequests--;
+      }
+    }
+
+    this.icicleChartProcessing = false;
+    
+    // 如果队列中还有请求，继续处理
+    if (this.icicleChartQueue.length > 0) {
+      setTimeout(() => this.processIcicleChartQueue(), 100);
+    }
+  }
+
+  /**
+   * 内部方法：实际生成冰柱图数据
+   */
+  private async generateIcicleChartInternal(
+    itemName: string,
+    maxDepth?: number,
+    includeStats: boolean = false
+  ): Promise<IcicleChartData | null> {
     try {
       // 🔥 首先检查 LRU 缓存
       const cacheKey = itemName; // 注：这里忽略 maxDepth 和 includeStats，使用默认设置
@@ -2304,9 +2383,9 @@ export class RecipeService {
   ): Promise<IcicleNode | null> {
     // 使用 Promise 包装计算任务，避免阻塞事件循环
     return new Promise<IcicleNode | null>((resolve, reject) => {
-      // 设置超时时间（3秒），防止长时间阻塞
+      // 设置超时时间（2秒），防止长时间阻塞
       const timeoutId = setTimeout(() => {
-        logger.warn(`冰柱树生成超时：物品 "${itemName}" 耗时超过 3 秒`);
+        logger.warn(`冰柱树生成超时：物品 "${itemName}" 耗时超过 2 秒`);
         // 返回降级方案
         const emoji = itemEmojiMap[itemName];
         resolve({
@@ -2316,7 +2395,7 @@ export class RecipeService {
           isBase: false,
           value: 1
         } as IcicleNode);
-      }, 3000);
+      }, 2000);
 
       // 在下一个事件循环中执行计算任务
       setImmediate(() => {

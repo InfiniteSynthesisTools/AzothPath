@@ -534,8 +534,7 @@ export class UserService {
       await db.run('DELETE FROM import_tasks WHERE user_id = ?', [userId]);
 
       // 删除用户相关的通知
-      await db.run('DELETE FROM notifications WHERE sender_id = ?', [userId]);
-      await db.run('DELETE FROM user_notifications WHERE user_id = ?', [userId]);
+      await db.run('DELETE FROM notifications WHERE created_by_user_id = ?', [userId]);
 
       // 最后删除用户
       await db.run('DELETE FROM user WHERE id = ?', [userId]);

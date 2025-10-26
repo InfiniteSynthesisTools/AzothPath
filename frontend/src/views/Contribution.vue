@@ -290,7 +290,7 @@ onMounted(() => {
 }
 
 .stats-section :deep(.el-card:hover) {
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
   border-color: var(--color-primary-300);
 }
 
@@ -320,7 +320,7 @@ onMounted(() => {
 }
 
 .leaderboard-card:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-md);
   border-color: var(--color-primary-300);
 }
 
@@ -373,8 +373,7 @@ onMounted(() => {
 .leaderboard-item:hover {
   background: var(--color-bg-surface);
   border-color: var(--color-border-accent);
-  box-shadow: var(--shadow-xl);
-  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .leaderboard-item.top-three {

@@ -1,129 +1,147 @@
 <template>
   <div class="contribution-page">
-    <div class="page-header">
-      <h1 class="page-title">
-        <span class="title-emoji">🏆</span>
-        贡献榜
-      </h1>
-      <p class="page-subtitle">感谢所有为社区做出贡献的用户</p>
-    </div>
+    <div class="page-container">
+      <!-- 页面标题 -->
+      <div class="page-header">
+        <h1 class="page-title">
+          <span class="title-emoji">🏆</span>
+          贡献榜
+        </h1>
+        <p class="page-subtitle">感谢所有为社区做出贡献的用户</p>
+      </div>
 
     <!-- 统计信息 -->
-    <div class="stats-grid">
-      <div class="stat-card">
-        <div class="stat-icon">
-          <el-icon><User /></el-icon>
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ stats.totalUsers }}</div>
-          <div class="stat-label">总用户数</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">
-          <el-icon><Medal /></el-icon>
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ stats.totalContributions }}</div>
-          <div class="stat-label">总贡献分</div>
-        </div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-icon">
-          <el-icon><Star /></el-icon>
-        </div>
-        <div class="stat-content">
-          <div class="stat-value">{{ stats.avgLevel.toFixed(1) }}</div>
-          <div class="stat-label">平均等级</div>
-        </div>
-      </div>
+    <div class="stats-section">
+      <el-row :gutter="20">
+        <el-col :xs="24" :sm="8" :md="8" :lg="8">
+          <el-card shadow="hover" class="card-scale">
+            <el-statistic :value="stats.totalUsers" title="总用户数">
+              <template #prefix>
+                <el-icon>
+                  <User />
+                </el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="8" :md="8" :lg="8">
+          <el-card shadow="hover" class="card-scale">
+            <el-statistic :value="stats.totalContributions" title="总贡献分">
+              <template #prefix>
+                <el-icon>
+                  <Medal />
+                </el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
+        </el-col>
+        <el-col :xs="24" :sm="8" :md="8" :lg="8">
+          <el-card shadow="hover" class="card-scale">
+            <el-statistic :value="stats.avgLevel.toFixed(1)" title="平均等级">
+              <template #prefix>
+                <el-icon>
+                  <Star />
+                </el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
+        </el-col>
+      </el-row>
     </div>
 
     <!-- 排行榜卡片列表 -->
-    <div class="leaderboard-container">
-      <div class="leaderboard-header">
-        <h2>排行榜</h2>
-        <el-select v-model="sortBy" placeholder="排序方式" style="width: 150px">
-          <el-option label="贡献分" value="contribute" />
-          <el-option label="等级" value="level" />
-        </el-select>
-      </div>
-
-      <div class="leaderboard-list" v-loading="loading">
-        <div 
-          v-for="(user, index) in contributionRanks" 
-          :key="user.id"
-          class="leaderboard-item"
-          :class="{ 'top-three': getGlobalRank(index) <= 3 }"
-          @click="viewProfile(user.id)"
-        >
-          <!-- 排名 -->
-          <div class="rank-section">
-            <div class="rank-badge" :class="getRankClass(getGlobalRank(index) - 1)">
-              <span v-if="getGlobalRank(index) <= 3" class="rank-icon">{{ getRankIcon(getGlobalRank(index) - 1) }}</span>
-              <span v-else class="rank-number">{{ getGlobalRank(index) }}</span>
+    <div class="cards-section">
+      <el-card class="leaderboard-card card-scale" shadow="hover">
+        <template #header>
+          <div class="card-header">
+            <h3>🏆 排行榜</h3>
+            <div class="card-actions">
+              <el-select v-model="sortBy" placeholder="排序方式" style="width: 150px">
+                <el-option label="贡献分" value="contribute" />
+                <el-option label="等级" value="level" />
+              </el-select>
             </div>
           </div>
+        </template>
+        <div class="card-content">
+          <div class="leaderboard-list" v-loading="loading">
+            <div 
+              v-for="(user, index) in contributionRanks" 
+              :key="user.id"
+              class="leaderboard-item"
+              :class="{ 'top-three': getGlobalRank(index) <= 3 }"
+              @click="viewProfile(user.id)"
+            >
+              <!-- 排名 -->
+              <div class="rank-section">
+                <div class="rank-badge" :class="getRankClass(getGlobalRank(index) - 1)">
+                  <span v-if="getGlobalRank(index) <= 3" class="rank-icon">{{ getRankIcon(getGlobalRank(index) - 1) }}</span>
+                  <span v-else class="rank-number">{{ getGlobalRank(index) }}</span>
+                </div>
+              </div>
 
-          <!-- 用户信息 -->
-          <div class="user-section">
-            <div class="user-avatar-wrapper">
-              <div class="user-emoji-avatar">
-                {{ user.emoji || '🙂' }}
+              <!-- 用户信息 -->
+              <div class="user-section">
+                <div class="user-avatar-wrapper">
+                  <div class="user-emoji-avatar">
+                    {{ user.emoji || '🙂' }}
+                  </div>
+                </div>
+                <div class="user-info">
+                  <h3 class="user-name">{{ user.name }}</h3>
+                  <p class="join-date">加入于 {{ formatDate(user.created_at) }}</p>
+                </div>
+              </div>
+
+              <!-- 统计数据 -->
+              <div class="user-stats-section">
+                <div class="user-stat-item primary">
+                  <span class="user-stat-value">{{ user.contribute }}</span>
+                  <span class="user-stat-label">贡献分</span>
+                </div>
+                <div class="user-stat-item">
+                  <span class="user-stat-value">{{ user.recipe_count || 0 }}</span>
+                  <span class="user-stat-label">配方</span>
+                </div>
+                <div class="user-stat-item">
+                  <span class="user-stat-value">{{ user.item_count || 0 }}</span>
+                  <span class="user-stat-label">物品</span>
+                </div>
+                <div class="user-stat-item">
+                  <span class="user-stat-value">Lv.{{ user.level }}</span>
+                  <span class="user-stat-label">等级</span>
+                </div>
+              </div>
+
+              <!-- 操作按钮 -->
+              <div class="action-section">
+                <el-button type="primary" link>
+                  查看详情
+                </el-button>
               </div>
             </div>
-            <div class="user-info">
-              <h3 class="user-name">{{ user.name }}</h3>
-              <p class="join-date">加入于 {{ formatDate(user.created_at) }}</p>
-            </div>
-          </div>
 
-          <!-- 统计数据 -->
-          <div class="user-stats-section">
-            <div class="user-stat-item primary">
-              <span class="user-stat-value">{{ user.contribute }}</span>
-              <span class="user-stat-label">贡献分</span>
-            </div>
-            <div class="user-stat-item">
-              <span class="user-stat-value">{{ user.recipe_count || 0 }}</span>
-              <span class="user-stat-label">配方</span>
-            </div>
-            <div class="user-stat-item">
-              <span class="user-stat-value">{{ user.item_count || 0 }}</span>
-              <span class="user-stat-label">物品</span>
-            </div>
-            <div class="user-stat-item">
-              <span class="user-stat-value">Lv.{{ user.level }}</span>
-              <span class="user-stat-label">等级</span>
-            </div>
-          </div>
-
-          <!-- 操作按钮 -->
-          <div class="action-section">
-            <el-button type="primary" link>
-              查看详情
-            </el-button>
+          <!-- 空状态 -->
+          <div v-if="contributionRanks.length === 0" class="empty-state">
+            <el-empty description="暂无用户数据" />
           </div>
         </div>
-
-        <!-- 空状态 -->
-        <div v-if="contributionRanks.length === 0" class="empty-state">
-          <el-empty description="暂无用户数据" />
         </div>
-      </div>
 
-      <!-- 分页 -->
-      <div class="pagination">
-        <el-pagination
-          v-model:current-page="currentPage"
-          v-model:page-size="pageSize"
+        <!-- 分页 -->
+        <div class="pagination">
+          <el-pagination
+            v-model:current-page="currentPage"
+            v-model:page-size="pageSize"
             :page-sizes="[20, 40, 60]"
-          :total="total"
-          layout="total, prev, pager, next"
-          @size-change="loadData"
-          @current-change="loadData"
-        />
-      </div>
+            :total="total"
+            layout="total, prev, pager, next"
+            @size-change="loadData"
+            @current-change="loadData"
+          />
+        </div>
+      </el-card>
+    </div>
     </div>
   </div>
 </template>
@@ -216,23 +234,30 @@ onMounted(() => {
 
 <style scoped>
 .contribution-page {
-  max-width: 1000px;
-  margin: 0 auto;
-  padding: 24px;
   background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
-  min-height: calc(100vh - 60px);
+  min-height: 100vh;
+}
+
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 24px;
 }
 
 .page-header {
-  margin-bottom: 24px;
+  margin-bottom: 40px;
   text-align: center;
 }
 
 .page-title {
-  font-size: 28px;
-  font-weight: 600;
+  font-size: 36px;
+  font-weight: 800;
   color: var(--color-text-primary);
-  margin: 0 0 8px 0;
+  margin: 0 0 12px 0;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .title-emoji {
@@ -245,36 +270,82 @@ onMounted(() => {
 }
 
 .page-subtitle {
-  font-size: 14px;
+  font-size: 18px;
   color: var(--color-text-secondary);
-  margin: 0 0 24px 0;
-  line-height: 1.5;
+  margin: 0 0 32px 0;
+  line-height: 1.6;
 }
 
-/* 排行榜容器 */
-.leaderboard-container {
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-lg);
-  padding: 24px;
+.stats-section {
+  margin-bottom: 40px;
+}
+
+.stats-section :deep(.el-card) {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
-  margin-bottom: 20px;
-  border: 1px solid var(--color-border-primary);
+  transition: all var(--transition-base);
 }
 
-.leaderboard-header {
+.stats-section :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-300);
+}
+
+.stats-section :deep(.el-statistic__content) {
+  color: var(--color-text-primary);
+}
+
+.stats-section :deep(.el-statistic__title) {
+  color: var(--color-text-secondary);
+}
+
+.stats-section :deep(.el-icon) {
+  color: var(--color-primary-500);
+}
+
+.cards-section {
+  margin: 40px 0 60px;
+}
+
+.leaderboard-card {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+.leaderboard-card:hover {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-300);
+}
+
+.card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
-  padding-bottom: 12px;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--color-primary-100);
 }
 
-.leaderboard-header h2 {
-  font-size: 18px;
-  color: var(--color-text-primary);
+.card-header h3 {
   margin: 0;
-  font-weight: 500;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-content {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 20px;
 }
 
 /* 排行榜列表 */
@@ -303,6 +374,7 @@ onMounted(() => {
   background: var(--color-bg-surface);
   border-color: var(--color-border-accent);
   box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
 }
 
 .leaderboard-item.top-three {
@@ -469,64 +541,6 @@ onMounted(() => {
   justify-content: center;
 }
 
-/* 顶部统计卡片区域 */
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 16px;
-  margin-bottom: 30px;
-}
-
-.stat-card {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 16px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-md);
-  transition: all var(--transition-base);
-}
-
-.stat-card:hover {
-  background: var(--color-bg-surface);
-  box-shadow: var(--shadow-lg);
-  border-color: var(--color-border-accent);
-}
-
-.stat-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: var(--color-bg-primary);
-  border-radius: 50%;
-  color: var(--color-primary-500);
-  font-size: 18px;
-  box-shadow: var(--shadow-sm);
-}
-
-.stat-content {
-  flex: 1;
-}
-
-.stat-value {
-  font-size: 20px;
-  font-weight: 600;
-  color: var(--color-text-primary);
-  line-height: 1;
-  margin-bottom: 4px;
-}
-
-.stat-label {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  line-height: 1;
-}
-
 /* 响应式设计 */
 @media (max-width: 768px) {
   .page-title {
@@ -561,15 +575,6 @@ onMounted(() => {
   .user-stat-item {
     min-width: 45px;
     height: 44px;
-  }
-  
-  .stats-grid {
-    grid-template-columns: 1fr;
-    gap: 12px;
-  }
-  
-  .stat-card {
-    padding: 12px;
   }
 }
 

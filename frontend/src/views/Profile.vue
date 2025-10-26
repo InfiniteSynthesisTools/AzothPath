@@ -19,7 +19,12 @@
 
           <div class="user-info-content" v-if="currentUser">
             <div class="user-avatar">
-              <div class="user-emoji-avatar-large">
+              <div 
+                class="user-emoji-avatar-large"
+                @click="openAvatarModal"
+                :class="{ 'clickable': isViewingSelf }"
+                title="点击修改头像"
+              >
                 {{ currentUser.emoji || '🙂' }}
               </div>
             </div>
@@ -163,14 +168,187 @@
     </div>
 
   </div>
+
+  <!-- 头像修改模态框 -->
+  <el-dialog
+    v-model="avatarDialogVisible"
+    title="修改头像"
+    width="600px"
+    destroy-on-close
+  >
+    <div class="avatar-dialog-content">
+      <!-- 当前选中的头像预览 -->
+      <div class="avatar-preview">
+        <div class="preview-emoji">{{ selectedEmoji }}</div>
+        <p class="preview-text">当前选择的头像</p>
+      </div>
+
+      <!-- 可用头像列表（用户发现的元素） -->
+      <div class="avatar-selection">
+        <h3 class="selection-title">您发现的元素</h3>
+        
+        <div v-if="discoveredItemsLoading" class="loading-container">
+          <el-skeleton :rows="3" animated />
+        </div>
+        
+        <div v-else-if="discoveredItems.length === 0" class="empty-container">
+          <el-empty description="您还没有发现任何元素" />
+          <p class="empty-tip">去发现更多元素吧！</p>
+        </div>
+        
+        <div v-else class="emoji-grid">
+          <div
+            v-for="item in discoveredItems"
+            :key="item.id"
+            class="emoji-option"
+            :class="{ 'selected': selectedEmoji === item.emoji }"
+            @click="selectEmoji(item.emoji)"
+            :title="item.name"
+          >
+            <div class="emoji">{{ item.emoji }}</div>
+            <div class="emoji-name">{{ item.name }}</div>
+          </div>
+        </div>
+
+        <!-- 分页 -->
+        <div class="pagination-container" v-if="discoveredItemsTotal > discoveredItemsLimit">
+          <el-pagination
+            v-model:current-page="discoveredItemsPage"
+            :page-size="discoveredItemsLimit"
+            :total="discoveredItemsTotal"
+            layout="prev, pager, next, jumper, total"
+            @current-change="loadDiscoveredItems"
+          />
+        </div>
+      </div>
+    </div>
+
+    <template #footer>
+      <el-button @click="avatarDialogVisible = false">取消</el-button>
+      <el-button type="primary" @click="confirmUpdateAvatar">确认修改</el-button>
+    </template>
+  </el-dialog>
 </template>
+
+<style scoped>
+/* 头像相关样式 */
+.user-emoji-avatar-large {
+  font-size: 4rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.user-emoji-avatar-large.clickable:hover {
+  transform: scale(1.1);
+}
+
+/* 头像选择模态框样式 */
+.avatar-dialog-content {
+  padding: 10px 0;
+}
+
+.avatar-preview {
+  text-align: center;
+  margin-bottom: 20px;
+  padding: 20px;
+  background: #f5f7fa;
+  border-radius: 8px;
+}
+
+.preview-emoji {
+  font-size: 6rem;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.preview-text {
+  color: #606266;
+  font-size: 14px;
+}
+
+.avatar-selection {
+  margin-top: 20px;
+}
+
+.selection-title {
+  font-size: 16px;
+  font-weight: 500;
+  margin-bottom: 15px;
+  color: #303133;
+}
+
+.emoji-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
+  gap: 15px;
+  margin-bottom: 20px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 10px;
+  background: #f5f7fa;
+  border-radius: 4px;
+}
+
+.emoji-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 2px solid transparent;
+}
+
+.emoji-option:hover {
+  background: #ecf5ff;
+  transform: translateY(-2px);
+}
+
+.emoji-option.selected {
+  background: #ecf5ff;
+  border-color: #409eff;
+}
+
+.emoji {
+  font-size: 2rem;
+  margin-bottom: 5px;
+}
+
+.emoji-name {
+  font-size: 12px;
+  color: #606266;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.pagination-container {
+  margin-top: 20px;
+  text-align: center;
+}
+
+.loading-container,
+.empty-container {
+  padding: 30px 0;
+}
+
+.empty-tip {
+  text-align: center;
+  color: #909399;
+  margin-top: 10px;
+}
+</style>
 
 <script setup lang="ts">
 import { ref, onMounted, computed, watch } from 'vue';
 import { useRoute } from 'vue-router';
 import { useUserStore } from '@/stores';
 import { userApi } from '@/api';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElDialog } from 'element-plus';
 import { Star } from '@element-plus/icons-vue';
 import { formatDate, formatDateTime } from '@/utils/format';
 
@@ -200,6 +378,15 @@ const userStats = ref({
   task_completed: 0
 });
 
+// 头像修改相关
+const avatarDialogVisible = ref(false);
+const selectedEmoji = ref('');
+const discoveredItems = ref<any[]>([]);
+const discoveredItemsLoading = ref(false);
+const discoveredItemsPage = ref(1);
+const discoveredItemsLimit = ref(20);
+const discoveredItemsTotal = ref(0);
+
 // 收藏配方相关
 const likedRecipes = ref<any[]>([]);
 const likedRecipesLoading = ref(false);
@@ -211,11 +398,26 @@ const likedRecipesTotal = ref(0);
 
 // 加载用户基本信息
 const loadUserInfo = async () => {
-  const userId = route.params.id ? parseInt(route.params.id as string) : null;
+  const userId = route.params.id ? parseInt(route.params.id as string) : (userStore.userInfo?.id || null);
   
-  if (isViewingSelf.value) {
-    // 查看自己的资料，使用 store 中的数据
-    currentUser.value = userStore.userInfo;
+  if (isViewingSelf.value && userId) {
+    // 查看自己的资料，从API获取最新数据而不是只使用缓存
+    try {
+      const response = await userApi.getCurrentUser();
+      console.log('Current user API response:', response);
+      if (response) {
+        currentUser.value = response;
+        // 同时更新store中的数据以保持同步
+        if (userStore.userInfo) {
+          userStore.userInfo = response;
+          localStorage.setItem('user', JSON.stringify(response));
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load current user:', error);
+      // 如果API请求失败，回退到使用store中的数据
+      currentUser.value = userStore.userInfo;
+    }
   } else if (userId) {
     // 查看其他用户的资料，使用新的 API 获取
     try {
@@ -264,6 +466,78 @@ const loadUserStats = async () => {
   }
 };
 
+// 打开头像修改模态框
+function openAvatarModal() {
+  if (!isViewingSelf.value) return;
+  
+  avatarDialogVisible.value = true;
+  selectedEmoji.value = currentUser.value?.emoji || '🙂';
+  discoveredItemsPage.value = 1;
+  loadDiscoveredItems();
+}
+
+// 加载用户发现的元素
+async function loadDiscoveredItems() {
+  try {
+    discoveredItemsLoading.value = true;
+    const userId = currentUser.value?.id;
+    if (!userId) return;
+    
+    const response = await userApi.getUserDiscoveredItems(userId, {
+      page: discoveredItemsPage.value,
+      limit: discoveredItemsLimit.value
+    });
+    
+    discoveredItems.value = response.items || [];
+    discoveredItemsTotal.value = response.total || 0;
+  } catch (error) {
+    console.error('加载用户发现的元素失败', error);
+    ElMessage.error('加载发现的元素失败');
+  } finally {
+    discoveredItemsLoading.value = false;
+  }
+}
+
+// 选择头像
+function selectEmoji(emoji: string) {
+  selectedEmoji.value = emoji;
+}
+
+// 确认更新头像
+async function confirmUpdateAvatar() {
+  try {
+    const response = await userApi.updateUserAvatar(selectedEmoji.value);
+    
+    // 更新当前用户信息
+    if (response.emoji) {
+      currentUser.value.emoji = response.emoji;
+      if (userStore.userInfo) {
+        // 创建新的用户信息对象，确保响应式更新
+        const updatedUserInfo = { ...userStore.userInfo, emoji: response.emoji };
+        userStore.userInfo = updatedUserInfo;
+        // 更新localStorage中的用户信息
+        localStorage.setItem('user', JSON.stringify(updatedUserInfo));
+      }
+    } else {
+      // 后备方案，直接使用选择的emoji
+      currentUser.value.emoji = selectedEmoji.value;
+      if (userStore.userInfo) {
+        // 创建新的用户信息对象，确保响应式更新
+        const updatedUserInfo = { ...userStore.userInfo, emoji: selectedEmoji.value };
+        userStore.userInfo = updatedUserInfo;
+        // 更新localStorage中的用户信息
+        localStorage.setItem('user', JSON.stringify(updatedUserInfo));
+      }
+    }
+    
+    ElMessage.success('头像更新成功');
+    avatarDialogVisible.value = false;
+  } catch (error: any) {
+    console.error('更新头像失败', error);
+    ElMessage.error(error.response?.data?.message || '更新头像失败');
+  }
+}
+
 // 加载收藏配方
 const loadLikedRecipes = async () => {
   const userId = route.params.id 
@@ -280,10 +554,9 @@ const loadLikedRecipes = async () => {
     });
     
     console.log('Liked recipes response:', response);
-    console.log('Response data:', response.data);
-    if (response && (response as any).recipes) {
-      likedRecipes.value = (response as any).recipes;
-      likedRecipesTotal.value = (response as any).total;
+    if (response && response.recipes) {
+      likedRecipes.value = response.recipes;
+      likedRecipesTotal.value = response.total;
     } else {
       console.error('Invalid liked recipes response structure:', response);
     }

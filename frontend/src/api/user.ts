@@ -33,6 +33,16 @@ export const userApi = {
     return request.put<User>(`/users/${id}`, data);
   },
 
+  // 更新当前用户头像
+  updateUserAvatar(emoji: string) {
+    return request.put<User>('/users/me/avatar', { emoji });
+  },
+
+  // 获取用户发现的元素列表
+  getUserDiscoveredItems(userId: number, params: { page?: number; limit?: number } = {}) {
+    return request.get<{ items: any[]; total: number; page: number; limit: number }>(`/users/${userId}/discovered-items`, { params });
+  },
+
   // 获取贡献榜
   getContributionRank(params: { page?: number; limit?: number; period?: 'total' | 'month' | 'week' } = {}) {
     return request.get<ContributionRankResponse>('/users/contribution-rank', { params });

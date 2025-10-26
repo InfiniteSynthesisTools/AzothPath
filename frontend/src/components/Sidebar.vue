@@ -1,6 +1,6 @@
 <template>
-  <!-- 侧边栏切换按钮 -->
-  <div class="sidebar-toggle" :class="{ 'sidebar-open': isOpen }">
+  <!-- 侧边栏切换按钮（仅在 showToggleButton 为 true 时显示） -->
+  <div v-if="showToggleButton" class="sidebar-toggle" :class="{ 'sidebar-open': isOpen }">
     <el-button
       class="toggle-button"
       :type="hasNotifications ? 'danger' : 'primary'"
@@ -178,6 +178,7 @@ import { notificationApi } from '@/api';
 const props = defineProps<{
   visible?: boolean;
   hasUnreadNotifications?: boolean;
+  showToggleButton?: boolean;
 }>();
 
 // 定义emits
@@ -500,34 +501,43 @@ onUnmounted(() => {
   border: 2px solid white;
 }
 
-/* 侧边栏样式 */
+/* 侧边栏样式 - 桌面端 */
 .sidebar {
   position: fixed;
-  top: 0;
+  top: 60px; /* 从导航栏下方开始 */
   right: -320px;
   width: 320px;
-  height: 100vh;
-  background: white;
-  box-shadow: -2px 0 8px rgba(0, 0, 0, 0.15);
-  z-index: 1999;
-  transition: right 0.3s ease;
+  height: calc(100vh - 60px); /* 减去导航栏高度 */
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-lg);
+  z-index: 9999; /* 大幅提高 z-index 确保在最上层 */
+  transition: right var(--transition-base);
   display: flex;
   flex-direction: column;
+  border-left: 1px solid var(--color-border-primary);
 }
 
 .sidebar.sidebar-open {
   right: 0;
 }
 
-/* 移动端适配：全屏抽屉 */
+/* 移动端适配：左侧二次展开 */
 @media (max-width: 768px) {
   .sidebar {
-    width: 100%;
-    right: -100%;
+    width: 280px;
+    height: 100vh; /* 占据整个屏幕高度 */
+    right: auto;
+    left: -280px;
+    top: 0; /* 从屏幕顶部开始，覆盖导航栏 */
+    transition: left var(--transition-base);
+    border-left: none;
+    border-right: 1px solid var(--color-border-primary);
+    z-index: 9999; /* 大幅提高 z-index 确保在最上层 */
   }
   
   .sidebar.sidebar-open {
-    right: 0;
+    left: 0;
+    right: auto;
   }
   
   .sidebar-toggle {
@@ -540,24 +550,33 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   padding: 16px 20px;
-  border-bottom: 1px solid #e4e7ed;
-  background: #f8f9fa;
+  border-bottom: 1px solid var(--color-border-primary);
+  background: var(--color-bg-secondary);
 }
 
 .sidebar-header h3 {
   margin: 0;
   font-size: 16px;
-  color: #303133;
+  color: var(--color-text-primary);
+  font-weight: 600;
 }
 
 .close-button {
   padding: 4px;
+  color: var(--color-text-secondary);
+  transition: all var(--transition-base);
+}
+
+.close-button:hover {
+  color: var(--color-primary-600);
+  background-color: var(--color-bg-tertiary);
 }
 
 .sidebar-content {
   flex: 1;
   overflow-y: auto;
   padding: 16px;
+  background: var(--color-bg-surface);
 }
 
 /* 分区样式 */
@@ -581,7 +600,7 @@ onUnmounted(() => {
 .section-header h4 {
   margin: 0;
   font-size: 14px;
-  color: #303133;
+  color: var(--color-text-primary);
   font-weight: 600;
 }
 
@@ -594,19 +613,25 @@ onUnmounted(() => {
 
 .task-card {
   padding: 12px;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  background: #f8f9fa;
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-base);
+  background: var(--color-bg-secondary);
+  transition: all var(--transition-base);
+}
+
+.task-card:hover {
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .task-card.task-completed {
-  border-color: #67c23a;
-  background: #f0f9ff;
+  border-color: var(--color-success-400);
+  background: var(--color-success-50);
 }
 
 .task-card.task-failed {
-  border-color: #f56c6c;
-  background: #fef0f0;
+  border-color: var(--color-danger-400);
+  background: var(--color-danger-50);
 }
 
 .task-header {
@@ -619,7 +644,7 @@ onUnmounted(() => {
 .task-title {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--color-text-primary);
 }
 
 .task-progress {
@@ -628,7 +653,7 @@ onUnmounted(() => {
 
 .progress-text {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-secondary);
   text-align: center;
   margin-top: 4px;
 }
@@ -647,7 +672,7 @@ onUnmounted(() => {
 
 .stat-label {
   font-size: 12px;
-  color: #909399;
+  color: var(--color-text-secondary);
 }
 
 .stat-value {
@@ -656,20 +681,20 @@ onUnmounted(() => {
 }
 
 .stat-value.success {
-  color: #67c23a;
+  color: var(--color-success-600);
 }
 
 .stat-value.failed {
-  color: #f56c6c;
+  color: var(--color-danger-600);
 }
 
 .stat-value.duplicate {
-  color: #e6a23c;
+  color: var(--color-warning-600);
 }
 
 .task-time {
   font-size: 11px;
-  color: #c0c4cc;
+  color: var(--color-text-tertiary);
   text-align: right;
 }
 
@@ -684,19 +709,20 @@ onUnmounted(() => {
   display: flex;
   gap: 12px;
   padding: 12px;
-  border: 1px solid #e4e7ed;
-  border-radius: 8px;
-  background: white;
-  transition: all 0.2s ease;
+  border: 1px solid var(--color-border-primary);
+  border-radius: var(--radius-base);
+  background: var(--color-bg-surface);
+  transition: all var(--transition-base);
 }
 
 .notification-item.notification-unread {
-  border-color: #409eff;
-  background: #f0f9ff;
+  border-color: var(--color-primary-400);
+  background: var(--color-primary-50);
 }
 
 .notification-item:hover {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  box-shadow: var(--shadow-sm);
+  transform: translateY(-1px);
 }
 
 .notification-icon {
@@ -714,20 +740,20 @@ onUnmounted(() => {
 .notification-title {
   font-size: 14px;
   font-weight: 500;
-  color: #303133;
+  color: var(--color-text-primary);
   margin-bottom: 4px;
 }
 
 .notification-message {
   font-size: 12px;
-  color: #606266;
+  color: var(--color-text-secondary);
   line-height: 1.4;
   margin-bottom: 4px;
 }
 
 .notification-time {
   font-size: 11px;
-  color: #909399;
+  color: var(--color-text-tertiary);
 }
 
 .notification-actions {

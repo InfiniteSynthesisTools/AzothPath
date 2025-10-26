@@ -37,6 +37,14 @@
           <!-- 主题切换按钮 -->
           <ThemeToggle class="theme-toggle-wrapper" />
           
+          <!-- 通知切换按钮（桌面端） -->
+          <NotificationToggle 
+            v-if="userStore.isLoggedIn"
+            :has-unread="hasUnreadNotifications"
+            :is-mobile="false"
+            @toggle="toggleSidebar"
+          />
+          
           <template v-if="userStore.isLoggedIn">
             <el-dropdown>
               <span class="user-info">
@@ -80,6 +88,15 @@
           <h3>✨ Azoth Path</h3>
         </div>
       </template>
+      <!-- 移动端通知切换按钮 -->
+      <div v-if="userStore.isLoggedIn" class="mobile-notification-section">
+        <NotificationToggle 
+          :has-unread="hasUnreadNotifications"
+          :is-mobile="true"
+          @toggle-mobile="handleMobileNotificationToggle"
+        />
+      </div>
+      
       <el-menu 
         :default-active="activeMenu" 
         router 
@@ -128,7 +145,7 @@
     </el-drawer>
 
     <!-- 内容区域 -->
-    <div class="main-content" :class="{ 'with-sidebar': sidebarVisible }">
+    <div class="main-content" :class="{ 'with-sidebar': sidebarVisible && !isMobile }">
       <router-view :key="$route.fullPath" />
     </div>
 
@@ -137,6 +154,7 @@
       v-if="userStore.isLoggedIn"
       v-model:visible="sidebarVisible"
       :has-unread-notifications="hasUnreadNotifications"
+      :show-toggle-button="false"
     />
 
   </div>
@@ -161,6 +179,7 @@ import {
 } from '@element-plus/icons-vue';
 import Sidebar from '@/components/Sidebar.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';
+import NotificationToggle from '@/components/NotificationToggle.vue';
 
 const router = useRouter();
 const route = useRoute();
@@ -172,6 +191,28 @@ const hasUnreadNotifications = ref(false);
 
 // 移动端菜单状态
 const mobileMenuVisible = ref(false);
+
+// 侧边栏切换方法
+const toggleSidebar = () => {
+  sidebarVisible.value = !sidebarVisible.value;
+};
+
+// 移动端检测
+const isMobile = ref(window.innerWidth <= 768);
+
+// 监听窗口大小变化
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 768;
+};
+
+// 移动端通知切换方法
+const handleMobileNotificationToggle = () => {
+  // 直接在导航栏上展开通知面板，不关闭移动端菜单
+  sidebarVisible.value = true;
+};
+
+// 添加窗口大小变化监听器
+window.addEventListener('resize', handleResize);
 
 // 当前激活的菜单项
 const activeMenu = computed(() => route.path);
@@ -387,6 +428,13 @@ const handleLogout = () => {
 
 .main-content.with-sidebar {
   margin-right: 320px;
+}
+
+/* 移动端通知按钮区域 */
+.mobile-notification-section {
+  padding: 16px;
+  border-bottom: 1px solid var(--color-border-primary);
+  background: var(--color-bg-surface);
 }
 
 /* 移动端抽屉菜单样式 */

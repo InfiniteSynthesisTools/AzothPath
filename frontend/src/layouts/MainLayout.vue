@@ -41,7 +41,7 @@
             <el-dropdown>
               <span class="user-info">
                 <span class="user-avatar" :title="userStore.userInfo?.name">
-                  {{ userStore.userInfo?.emoji || '🙂' }}
+                  {{ truncateEmoji(userStore.userInfo?.emoji) }}
                 </span>
                 <span class="user-name">{{ userStore.userInfo?.name }}</span>
                 <span class="user-level">Lv.{{ userStore.userInfo?.level }}</span>
@@ -143,6 +143,7 @@ import { computed, ref, watch } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { useUserStore } from '@/stores';
 import { ElMessage } from 'element-plus';
+import { truncateEmoji } from '@/utils/emoji';
 import { 
   User, 
   SwitchButton, 

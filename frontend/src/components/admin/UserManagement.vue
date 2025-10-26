@@ -52,7 +52,7 @@
         <el-table-column label="头像" width="80" align="center">
           <template #default="{ row }">
             <div class="user-emoji-avatar-small">
-              {{ row.emoji || '🙂' }}
+              {{ truncateEmoji(row.emoji) }}
             </div>
           </template>
         </el-table-column>
@@ -218,12 +218,17 @@ import { ref, computed, onMounted } from 'vue';
 import { ElMessage, ElMessageBox, type FormInstance, type FormRules } from 'element-plus';
 import { Search, Refresh, Check } from '@element-plus/icons-vue';
 import { userApi } from '@/api';
+import { truncateEmoji } from '@/utils/emoji';
 import { formatDateTime } from '@/utils/format';
+import { useUserStore } from '@/stores';
 
 // 响应式数据
 const loading = ref(false);
 const users = ref<any[]>([]);
 const searchQuery = ref('');
+
+// 用户store
+const userStore = useUserStore();
 const roleFilter = ref('');
 const sortBy = ref('contribute');
 const sortOrder = ref('desc');
@@ -384,6 +389,11 @@ const saveUserEdit = async () => {
     editLoading.value = true;
     
     await userApi.updateUserInfo(selectedUser.value.id, editForm.value);
+    
+    // 如果更新的是当前登录用户，同步更新store
+    if (userStore.userInfo?.id === selectedUser.value.id) {
+      await userStore.refreshUserInfo();
+    }
     
     ElMessage.success('用户信息更新成功');
     userDialogVisible.value = false;

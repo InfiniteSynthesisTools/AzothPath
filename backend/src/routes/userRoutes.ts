@@ -502,7 +502,7 @@ router.put('/admin/:id', authMiddleware, async (req: AuthRequest, res: Response)
     }
 
     const userId = parseInt(req.params.id);
-    const { name, contribute, level, auth, created_at } = req.body;
+    const { name, contribute, level, auth, emoji, created_at } = req.body;
 
     if (isNaN(userId)) {
       return res.status(400).json({
@@ -516,6 +516,7 @@ router.put('/admin/:id', authMiddleware, async (req: AuthRequest, res: Response)
     if (contribute !== undefined) updates.contribute = contribute;
     if (level !== undefined) updates.level = level;
     if (auth !== undefined) updates.auth = auth;
+    if (emoji !== undefined) updates.emoji = emoji;
     if (created_at !== undefined) updates.created_at = created_at;
 
     if (Object.keys(updates).length === 0) {

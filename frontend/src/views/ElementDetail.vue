@@ -37,7 +37,7 @@
               closable
               @close="removeFromHistory(navigationHistory.indexOf(item))"
             >
-              {{ item.emoji || '🔘' }} {{ item.name }}
+              {{ truncateEmoji(item.emoji) }} {{ item.name }}
             </el-tag>
           </div>
         </div>
@@ -54,7 +54,7 @@
       <!-- 元素头部信息 -->
       <div class="element-header">
         <div class="element-emoji">
-          {{ element.emoji || '🔘' }}
+          {{ truncateEmoji(element.emoji) }}
         </div>
         <div class="element-info">
           <h1 class="element-name">{{ element.name }}</h1>
@@ -93,7 +93,7 @@
           </el-col>
           <el-col :xs="12" :sm="6">
             <div class="stat-card">
-              <div class="stat-icon">{{ element.discoverer_emoji || '👤' }}</div>
+              <div class="stat-icon">{{ truncateEmoji(element.discoverer_emoji) || '👤' }}</div>
               <div class="stat-content">
                 <div class="stat-value">{{ element.discoverer_name || '-' }}</div>
                 <div class="stat-label">发现者</div>
@@ -194,17 +194,17 @@
               <div class="recipe-formula">
                 <div class="ingredient-cards">
                   <div class="ingredient-card" @click="goToElementDetail(recipe.item_a)">
-                    <span class="ingredient-emoji">{{ recipe.item_a_emoji || '🔘' }}</span>
+                    <span class="ingredient-emoji">{{ truncateEmoji(recipe.item_a_emoji) }}</span>
                     <span class="ingredient-name">{{ recipe.item_a }}</span>
                   </div>
                   <span class="operator">+</span>
                   <div class="ingredient-card" @click="goToElementDetail(recipe.item_b)">
-                    <span class="ingredient-emoji">{{ recipe.item_b_emoji || '🔘' }}</span>
+                    <span class="ingredient-emoji">{{ truncateEmoji(recipe.item_b_emoji) }}</span>
                     <span class="ingredient-name">{{ recipe.item_b }}</span>
                   </div>
                   <span class="operator">=</span>
                   <div class="result-card">
-                    <span class="result-emoji">{{ element.emoji || '🔘' }}</span>
+                    <span class="result-emoji">{{ truncateEmoji(element.emoji) }}</span>
                     <span class="result-name">{{ element.name }}</span>
                   </div>
                   <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="toggling[recipe.id] === true">
@@ -272,17 +272,17 @@
               <div class="recipe-formula">
                 <div class="ingredient-cards">
                   <div class="ingredient-card" @click="goToElementDetail(recipe.item_a)">
-                    <span class="ingredient-emoji">{{ recipe.item_a_emoji || '🔘' }}</span>
+                    <span class="ingredient-emoji">{{ truncateEmoji(recipe.item_a_emoji) }}</span>
                     <span class="ingredient-name">{{ recipe.item_a }}</span>
                   </div>
                   <span class="operator">+</span>
                   <div class="ingredient-card" @click="goToElementDetail(recipe.item_b)">
-                    <span class="ingredient-emoji">{{ recipe.item_b_emoji || '🔘' }}</span>
+                    <span class="ingredient-emoji">{{ truncateEmoji(recipe.item_b_emoji) }}</span>
                     <span class="ingredient-name">{{ recipe.item_b }}</span>
                   </div>
                   <span class="operator">=</span>
                   <div class="result-card" @click="goToElementDetail(recipe.result)">
-                    <span class="result-emoji">{{ recipe.result_emoji || '🔘' }}</span>
+                    <span class="result-emoji">{{ truncateEmoji(recipe.result_emoji) }}</span>
                     <span class="result-name">{{ recipe.result }}</span>
                   </div>
                   <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="toggling[recipe.id] === true">
@@ -339,6 +339,7 @@ import CopyIcon from '@/components/icons/CopyIcon.vue';
 import IcicleChart from '@/components/IcicleChart.vue';
 import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
+import { truncateEmoji } from '@/utils/emoji';
 
 interface Element {
   id: number;
@@ -348,6 +349,7 @@ interface Element {
   usage_count?: number;
   recipe_count?: number;
   discoverer_name?: string;
+  discoverer_emoji?: string;
 }
 
 interface RecipeDetail {

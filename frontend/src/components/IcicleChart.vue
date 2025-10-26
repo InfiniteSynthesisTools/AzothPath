@@ -19,7 +19,7 @@
       >
         <!-- 节点内容 -->
         <div class="node-content">
-          <span v-if="node.emoji" class="node-emoji">{{ node.emoji }}</span>
+          <span v-if="node.emoji" class="node-emoji">{{ truncateEmoji(node.emoji) }}</span>
           <span class="node-label">{{ node.name }}</span>
         </div>
       </div>
@@ -30,6 +30,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { IcicleNode } from '@/types'
+import { truncateEmoji } from '@/utils/emoji'
 
 interface Props {
   data: IcicleNode[]

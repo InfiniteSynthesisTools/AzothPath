@@ -404,12 +404,12 @@ const loadUserInfo = async () => {
     // 查看自己的资料，从API获取最新数据而不是只使用缓存
     try {
       const response = await userApi.getCurrentUser();
-      console.log('Current user API response:', response);
+      console.log('当前用户API响应:', response);
       if (response) {
         currentUser.value = response;
         // 同时更新store中的数据以保持同步
         if (userStore.userInfo) {
-          userStore.userInfo = response;
+          userStore.userInfo = response as any;
           localStorage.setItem('user', JSON.stringify(response));
         }
       }
@@ -422,7 +422,7 @@ const loadUserInfo = async () => {
     // 查看其他用户的资料，使用新的 API 获取
     try {
       const response = await userApi.getUser(userId);
-      console.log('User API response:', response);
+      console.log('用户API响应:', response);
       if (response) {
         currentUser.value = response;
       } else {
@@ -453,9 +453,9 @@ const loadUserStats = async () => {
   if (!userId) return;
   
   try {
-    console.log('Loading user stats for user ID:', userId);
+    console.log('正在加载用户统计信息，用户ID:', userId);
     const response = await userApi.getUserStats(userId);
-    console.log('User stats response:', response);
+    console.log('用户统计响应:', response);
     if (response && (response as any).stats) {
       userStats.value = (response as any).stats;
     } else {
@@ -488,8 +488,8 @@ async function loadDiscoveredItems() {
       limit: discoveredItemsLimit.value
     });
     
-    discoveredItems.value = response.items || [];
-    discoveredItemsTotal.value = response.total || 0;
+    discoveredItems.value = (response as any).items || [];
+    discoveredItemsTotal.value = (response as any).total || 0;
   } catch (error) {
     console.error('加载用户发现的元素失败', error);
     ElMessage.error('加载发现的元素失败');
@@ -509,11 +509,11 @@ async function confirmUpdateAvatar() {
     const response = await userApi.updateUserAvatar(selectedEmoji.value);
     
     // 更新当前用户信息
-    if (response.emoji) {
-      currentUser.value.emoji = response.emoji;
+    if ((response as any).emoji) {
+      currentUser.value.emoji = (response as any).emoji;
       if (userStore.userInfo) {
         // 创建新的用户信息对象，确保响应式更新
-        const updatedUserInfo = { ...userStore.userInfo, emoji: response.emoji };
+        const updatedUserInfo = { ...userStore.userInfo, emoji: (response as any).emoji };
         userStore.userInfo = updatedUserInfo;
         // 更新localStorage中的用户信息
         localStorage.setItem('user', JSON.stringify(updatedUserInfo));
@@ -553,10 +553,10 @@ const loadLikedRecipes = async () => {
       limit: likedRecipesLimit.value
     });
     
-    console.log('Liked recipes response:', response);
-    if (response && response.recipes) {
-      likedRecipes.value = response.recipes;
-      likedRecipesTotal.value = response.total;
+    console.log('喜欢的配方响应:', response);
+    if (response && (response as any).recipes) {
+      likedRecipes.value = (response as any).recipes;
+      likedRecipesTotal.value = (response as any).total;
     } else {
       console.error('Invalid liked recipes response structure:', response);
     }

@@ -70,7 +70,9 @@ export const userApi = {
     page?: number; 
     limit?: number; 
     search?: string; 
-    role?: string; 
+    role?: string;
+    sortBy?: string;
+    sortOrder?: string;
   } = {}) {
     return request.get<{
       users: User[];

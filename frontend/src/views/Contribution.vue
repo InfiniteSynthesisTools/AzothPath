@@ -219,21 +219,31 @@ onMounted(() => {
 }
 
 .page-header {
+  margin-bottom: 24px;
   text-align: center;
-  margin-bottom: 30px;
 }
 
-.page-header h1 {
+.page-title {
   font-size: 28px;
+  font-weight: 600;
   color: var(--color-text-primary);
   margin: 0 0 8px 0;
-  font-weight: 500;
 }
 
-.page-header p {
+.title-emoji {
+  font-size: 36px;
+  margin-right: 12px;
+  display: inline-block;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  background-clip: initial !important;
+}
+
+.page-subtitle {
   font-size: 14px;
   color: var(--color-text-secondary);
-  margin: 0;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
 }
 
 /* 排行榜容器 */
@@ -288,7 +298,6 @@ onMounted(() => {
   background: var(--color-bg-surface);
   border-color: var(--color-border-accent);
   box-shadow: var(--shadow-xl);
-  transform: translateY(-2px);
 }
 
 .leaderboard-item.top-three {
@@ -515,6 +524,19 @@ onMounted(() => {
 
 /* 响应式设计 */
 @media (max-width: 768px) {
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .page-subtitle {
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  
+  .page-header {
+    margin-bottom: 20px;
+  }
+  
   .leaderboard-item {
     flex-direction: column;
     align-items: stretch;
@@ -543,6 +565,21 @@ onMounted(() => {
   
   .stat-card {
     padding: 12px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 20px;
+  }
+  
+  .page-subtitle {
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 16px;
   }
 }
 </style>

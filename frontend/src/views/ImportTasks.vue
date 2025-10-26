@@ -3,14 +3,12 @@
     <div class="page-container">
       <!-- 页面头部 -->
       <div class="page-header">
-        <div class="header-left">
-          <h1 class="page-title">
-            <span class="title-emoji">📥</span>
-            导入任务
-          </h1>
-          <p class="page-subtitle">查看和管理您的批量导入任务</p>
-        </div>
-        <div class="header-right">
+        <h1 class="page-title">
+          <span class="title-emoji">📥</span>
+          导入任务
+        </h1>
+        <p class="page-subtitle">查看和管理您的批量导入任务</p>
+        <div class="header-actions">
           <el-button type="primary" @click="$router.push('/import')">
             ➕ 新建导入
           </el-button>
@@ -377,27 +375,37 @@ onMounted(() => {
 }
 
 .page-header {
+  margin-bottom: 24px;
+  text-align: center;
+}
+
+.page-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 8px 0;
+}
+
+.title-emoji {
+  font-size: 36px;
+  margin-right: 12px;
+  display: inline-block;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  background-clip: initial !important;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0 0 20px 0;
+  line-height: 1.5;
+}
+
+.header-actions {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 30px;
-}
-
-.header-left h1 {
-  font-size: 32px;
-  color: #303133;
-  margin: 0 0 10px 0;
-}
-
-.header-left p {
-  font-size: 16px;
-  color: #909399;
-  margin: 0;
-}
-
-.header-right {
-  display: flex;
-  gap: 10px;
+  gap: 12px;
+  justify-content: center;
 }
 
 /* 统计卡片 */
@@ -487,5 +495,46 @@ onMounted(() => {
 /* 任务详情 */
 .task-detail {
   padding: 20px 0;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .page-subtitle {
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  
+  .page-header {
+    margin-bottom: 20px;
+  }
+  
+  .header-actions {
+    flex-direction: column;
+    gap: 8px;
+  }
+}
+
+@media (max-width: 480px) {
+  .page-title {
+    font-size: 20px;
+  }
+  
+  .page-subtitle {
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 16px;
+  }
+  
+  .header-actions .el-button {
+    font-size: 13px;
+    padding: 8px 12px;
+  }
 }
 </style>

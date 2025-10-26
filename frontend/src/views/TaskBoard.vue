@@ -7,6 +7,7 @@
           <span class="title-emoji">📋</span>
           任务看板
         </h1>
+        <p class="page-subtitle">管理和跟踪您的任务进度</p>
         <div class="header-actions">
           <el-button type="primary" @click="showCreateDialog = true" v-if="userStore.isLoggedIn">
             创建任务
@@ -390,22 +391,37 @@ onMounted(() => {
 }
 
 .page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: 24px;
+  text-align: center;
 }
 
-.page-header h1 {
-  font-size: 24px;
+.page-title {
+  font-size: 28px;
+  font-weight: 600;
   color: var(--color-text-primary);
-  margin: 0;
-  font-weight: 500;
+  margin: 0 0 8px 0;
+}
+
+.title-emoji {
+  font-size: 36px;
+  margin-right: 12px;
+  display: inline-block;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  background-clip: initial !important;
+}
+
+.page-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0 0 20px 0;
+  line-height: 1.5;
 }
 
 .header-actions {
   display: flex;
   gap: 12px;
+  justify-content: center;
 }
 
 /* 统计卡片 */
@@ -541,24 +557,22 @@ onMounted(() => {
     padding: 12px;
   }
   
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
+  .page-title {
+    font-size: 24px;
+  }
+  
+  .page-subtitle {
+    font-size: 14px;
     margin-bottom: 16px;
   }
   
-  .page-header h1 {
-    font-size: 20px;
+  .page-header {
+    margin-bottom: 20px;
   }
   
   .header-actions {
-    width: 100%;
-    justify-content: flex-start;
-  }
-  
-  .header-actions .el-button {
-    flex: 1;
+    flex-direction: column;
+    gap: 8px;
   }
   
   .stats-row {
@@ -646,9 +660,17 @@ onMounted(() => {
     padding: 10px;
   }
   
-  .page-header h1 {
-    font-size: 18px;
-    color: var(--color-text-primary);
+  .page-title {
+    font-size: 20px;
+  }
+  
+  .page-subtitle {
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 16px;
   }
   
   .header-actions .el-button {

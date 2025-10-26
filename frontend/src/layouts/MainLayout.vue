@@ -22,10 +22,10 @@
           <el-menu-item index="/">首页</el-menu-item>
           <el-menu-item index="/elements">元素</el-menu-item>
           <el-menu-item index="/tasks">任务</el-menu-item>
-          <el-menu-item index="/import" v-if="userStore.isLoggedIn">导入</el-menu-item>
           <el-menu-item index="/contribution">贡献榜</el-menu-item>
-          <el-menu-item index="/admin" v-if="userStore.isAdmin">管理</el-menu-item>
           <el-menu-item index="/graph">总图显示</el-menu-item>
+          <el-menu-item index="/import" v-if="userStore.isLoggedIn">导入</el-menu-item>
+          <el-menu-item index="/admin" v-if="userStore.isAdmin">管理</el-menu-item>
           <el-menu-item>
             <a href="https://hc.tsdo.in/" target="_blank" style="text-decoration: none; color: inherit;">
               开始游戏 🎮
@@ -97,6 +97,14 @@
           <el-icon><Tickets /></el-icon>
           <span>任务</span>
         </el-menu-item>
+        <el-menu-item index="/contribution">
+          <el-icon><Trophy /></el-icon>
+          <span>贡献榜</span>
+        </el-menu-item>
+        <el-menu-item index="/graph">
+          <el-icon><TrendCharts /></el-icon>
+          <span>总图显示</span>
+        </el-menu-item>
         <el-menu-item index="/import" v-if="userStore.isLoggedIn">
           <el-icon><Upload /></el-icon>
           <span>导入</span>
@@ -104,10 +112,6 @@
         <el-menu-item index="/admin" v-if="userStore.isAdmin">
           <el-icon><Setting /></el-icon>
           <span>管理</span>
-        </el-menu-item>
-        <el-menu-item index="/graph">
-          <el-icon><TrendCharts /></el-icon>
-          <span>总图显示</span>
         </el-menu-item>
         <el-divider />
         <el-menu-item>
@@ -153,7 +157,8 @@ import {
   Tickets, 
   Upload, 
   Setting,
-  TrendCharts
+  TrendCharts,
+  Trophy
 } from '@element-plus/icons-vue';
 import Sidebar from '@/components/Sidebar.vue';
 import ThemeToggle from '@/components/ThemeToggle.vue';

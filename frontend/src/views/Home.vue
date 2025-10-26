@@ -1,13 +1,14 @@
 <template>
   <div class="home">
-    <!-- 页面标题 -->
-    <div class="page-header slide-in-up">
-      <h1 class="page-title">
-        <span class="title-emoji float">🧪</span>
-        Azoth Path
-      </h1>
-      <p class="page-subtitle fade-in">无尽合成工具站</p>
-    </div>
+    <div class="page-container">
+      <!-- 页面标题 -->
+      <div class="page-header">
+        <h1 class="page-title">
+          <span class="title-emoji">🧪</span>
+          Azoth Path
+        </h1>
+        <p class="page-subtitle">无尽合成工具站</p>
+      </div>
 
     <!-- 统计信息 -->
     <div class="stats-section">
@@ -182,6 +183,7 @@
           </el-card>
         </el-col>
       </el-row>
+    </div>
     </div>
   </div>
 </template>
@@ -540,77 +542,47 @@ onUnmounted(() => {
   min-height: 100vh;
 }
 
-.page-header {
-  text-align: center;
-  margin-bottom: 50px;
-  padding: 60px 20px 30px;
+.page-container {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 32px 24px;
 }
 
-.page-header::before {
-  content: '';
-  top: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 100px;
-  height: 4px;
-  background: linear-gradient(90deg, transparent, var(--color-primary-400), transparent);
-  border-radius: 2px;
+.page-header {
+  margin-bottom: 40px;
+  text-align: center;
 }
 
 .page-title {
-  font-size: 48px;
-  font-weight: 900;
+  font-size: 36px;
+  font-weight: 800;
   color: var(--color-text-primary);
-  margin: 0 0 16px 0;
-  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-700) 50%, var(--color-primary-900) 100%);
+  margin: 0 0 12px 0;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 16px;
-  letter-spacing: -0.02em;
-  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .title-emoji {
-  font-size: 48px;
-  animation: float 3s ease-in-out infinite;
-  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
-  transition: transform 0.3s ease;
+  font-size: 36px;
+  margin-right: 12px;
   display: inline-block;
-  line-height: 1;
-  vertical-align: middle;
-  /* 覆盖父元素的透明文字效果 */
   -webkit-text-fill-color: initial !important;
   background: none !important;
   background-clip: initial !important;
 }
 
-.title-emoji:hover {
-  transform: scale(1.1);
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-8px); }
-}
-
 .page-subtitle {
-  font-size: 20px;
+  font-size: 18px;
   color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.5;
-  font-weight: 500;
-  letter-spacing: 0.01em;
-  opacity: 0.9;
+  margin: 0 0 32px 0;
+  line-height: 1.6;
 }
+
 
 .stats-section {
-  max-width: 1400px;
-  margin: 0 auto 40px;
-  padding: 0 20px;
+  margin-bottom: 40px;
 }
 
 .stats-section :deep(.el-card) {
@@ -640,9 +612,7 @@ onUnmounted(() => {
 }
 
 .cards-section {
-  max-width: 1400px;
-  margin: 40px auto 60px;
-  padding: 0 20px;
+  margin: 40px 0 60px;
 }
 
 .explore-card {
@@ -1032,26 +1002,17 @@ onUnmounted(() => {
 
 /* 移动端 */
 @media (max-width: 768px) {
-  .page-header {
-    padding: 40px 16px 20px;
-    margin-bottom: 30px;
-  }
-
   .page-title {
-    font-size: 36px;
-    gap: 12px;
+    font-size: 24px;
   }
-
-  .title-emoji {
-    font-size: 36px;
-    /* 覆盖父元素的透明文字效果 */
-    -webkit-text-fill-color: initial !important;
-    background: none !important;
-    background-clip: initial !important;
-  }
-
+  
   .page-subtitle {
-    font-size: 18px;
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  
+  .page-header {
+    margin-bottom: 20px;
   }
 
   .stats-section,
@@ -1173,22 +1134,17 @@ onUnmounted(() => {
 
 /* 小屏手机 */
 @media (max-width: 414px) {
-  .page-header {
-    padding: 30px 12px 15px;
-    margin-bottom: 25px;
-  }
-
   .page-title {
-    font-size: 28px;
-    gap: 8px;
+    font-size: 20px;
   }
-
-  .title-emoji {
-    font-size: 28px;
-  }
-
+  
   .page-subtitle {
-    font-size: 16px;
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 16px;
   }
 
   .explore-card :deep(.el-card__body) {
@@ -1301,22 +1257,17 @@ onUnmounted(() => {
 
 /* 超小屏手机 */
 @media (max-width: 375px) {
-  .page-header {
-    padding: 25px 10px 12px;
-    margin-bottom: 20px;
-  }
-
   .page-title {
-    font-size: 24px;
-    gap: 6px;
+    font-size: 18px;
   }
-
-  .title-emoji {
-    font-size: 24px;
-  }
-
+  
   .page-subtitle {
-    font-size: 14px;
+    font-size: 12px;
+    margin-bottom: 10px;
+  }
+  
+  .page-header {
+    margin-bottom: 12px;
   }
 
   .explore-card :deep(.el-card__body) {

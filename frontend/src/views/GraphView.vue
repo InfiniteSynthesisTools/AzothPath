@@ -320,41 +320,31 @@ onUnmounted(() => {
 }
 
 .page-header {
+  margin-bottom: 24px;
   text-align: center;
-  margin-bottom: 40px;
-  padding: 40px 20px 20px;
 }
 
 .page-title {
-  font-size: 32px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 600;
   color: var(--color-text-primary);
-  margin: 0 0 12px 0;
-  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-700) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
+  margin: 0 0 8px 0;
 }
 
 .title-emoji {
   font-size: 36px;
-  animation: float 3s ease-in-out infinite;
-}
-
-@keyframes float {
-  0%, 100% { transform: translateY(0px); }
-  50% { transform: translateY(-6px); }
+  margin-right: 12px;
+  display: inline-block;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  background-clip: initial !important;
 }
 
 .page-subtitle {
-  font-size: 18px;
+  font-size: 14px;
   color: var(--color-text-secondary);
-  margin: 0;
-  line-height: 1.6;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
 }
 
 .stats-section {
@@ -483,14 +473,17 @@ onUnmounted(() => {
     padding: 10px;
   }
   
-  .page-header {
-    padding: 30px 15px;
-    margin-bottom: 20px;
+  .page-title {
+    font-size: 24px;
   }
   
-  .page-header h1 {
-    font-size: 24px;
-    color: var(--color-text-primary);
+  .page-subtitle {
+    font-size: 14px;
+    margin-bottom: 16px;
+  }
+  
+  .page-header {
+    margin-bottom: 20px;
   }
   
   .tab-content {
@@ -524,17 +517,17 @@ onUnmounted(() => {
 }
 
 @media (max-width: 480px) {
-  .page-header {
-    padding: 20px 12px;
-  }
-  
-  .page-header h1 {
+  .page-title {
     font-size: 20px;
-    color: var(--color-text-primary);
   }
   
   .page-subtitle {
-    color: var(--color-text-secondary);
+    font-size: 13px;
+    margin-bottom: 12px;
+  }
+  
+  .page-header {
+    margin-bottom: 16px;
   }
   
   .dag-chart-content {

@@ -239,26 +239,22 @@ onMounted(() => {
 }
 
 .page-header {
-  margin-bottom: 40px;
+  margin-bottom: 24px;
   text-align: center;
 }
 
 .page-title {
-  font-size: 36px;
-  font-weight: 800;
+  font-size: 28px;
+  font-weight: 600;
   color: var(--color-text-primary);
-  margin: 0 0 12px 0;
-  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  margin: 0 0 8px 0;
 }
 
 .page-subtitle {
-  font-size: 18px;
+  font-size: 14px;
   color: var(--color-text-secondary);
-  margin: 0 0 32px 0;
-  line-height: 1.6;
+  margin: 0 0 24px 0;
+  line-height: 1.5;
 }
 
 .search-section {
@@ -601,16 +597,16 @@ onMounted(() => {
   }
   
   .page-title {
-    font-size: 24px;
+    font-size: 22px;
   }
   
   .page-subtitle {
-    font-size: 14px;
+    font-size: 13px;
     margin-bottom: 16px;
   }
   
   .page-header {
-    margin-bottom: 20px;
+    margin-bottom: 16px;
   }
   
   .search-section {

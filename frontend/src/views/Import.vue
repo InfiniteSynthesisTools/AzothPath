@@ -165,26 +165,31 @@ const handleReset = () => {
 }
 
 .page-header {
+  margin-bottom: 24px;
   text-align: center;
-  margin-bottom: 40px;
 }
 
-.page-header h1 {
+.page-title {
+  font-size: 28px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  margin: 0 0 8px 0;
+}
+
+.title-emoji {
   font-size: 36px;
-  font-weight: 800;
-  color: var(--color-primary-700);
-  margin: 0 0 12px 0;
-  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  margin-right: 12px;
+  display: inline-block;
+  -webkit-text-fill-color: initial !important;
+  background: none !important;
+  background-clip: initial !important;
 }
 
-.page-header p {
-  font-size: 18px;
-  color: var(--color-gray-600);
-  margin: 0;
-  line-height: 1.6;
+.page-subtitle {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  margin: 0 0 24px 0;
+  line-height: 1.5;
 }
 
 .import-card {

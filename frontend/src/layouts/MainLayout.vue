@@ -155,7 +155,6 @@ import {
   HomeFilled, 
   Document, 
   Tickets, 
-  Upload, 
   Setting,
   TrendCharts,
   Trophy

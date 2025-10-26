@@ -399,17 +399,23 @@ export class ImportService {
     }
 
     // 只有已完成的任务才能删除通知
-    if (task.status !== 'completed') {
-      throw new Error('只有已完成的任务才能删除通知');
+    if (task.status !== 'completed' && task.status !== 'failed') {
+      throw new Error('只有已完成或失败的任务才能删除通知');
     }
 
-    // 更新通知删除状态
+    // 删除任务内容
     await database.run(
-      'UPDATE import_tasks SET notification_deleted = 1, updated_at = ? WHERE id = ?',
-      [getCurrentUTC8TimeForDB(), taskId]
+      'DELETE FROM import_tasks_content WHERE task_id = ?',
+      [taskId]
     );
 
-    logger.info(`用户 ${userId} 删除了任务 ${taskId} 的通知`);
+    // 删除任务本身
+    await database.run(
+      'DELETE FROM import_tasks WHERE id = ?',
+      [taskId]
+    );
+
+    logger.info(`用户 ${userId} 删除了任务 ${taskId} 及其所有内容`);
   }
 
   /**

@@ -25,6 +25,7 @@
           <el-menu-item index="/contribution">贡献榜</el-menu-item>
           <el-menu-item index="/graph">总图显示</el-menu-item>
           <el-menu-item index="/import" v-if="userStore.isLoggedIn">导入</el-menu-item>
+          <el-menu-item index="/import-tasks" v-if="userStore.isLoggedIn">导入任务</el-menu-item>
           <el-menu-item index="/admin" v-if="userStore.isAdmin">管理</el-menu-item>
           <el-menu-item>
             <a href="https://hc.tsdo.in/" target="_blank" style="text-decoration: none; color: inherit;">
@@ -108,6 +109,10 @@
         <el-menu-item index="/import" v-if="userStore.isLoggedIn">
           <el-icon><Upload /></el-icon>
           <span>导入</span>
+        </el-menu-item>
+        <el-menu-item index="/import-tasks" v-if="userStore.isLoggedIn">
+          <el-icon><List /></el-icon>
+          <span>导入任务</span>
         </el-menu-item>
         <el-menu-item index="/admin" v-if="userStore.isAdmin">
           <el-icon><Setting /></el-icon>

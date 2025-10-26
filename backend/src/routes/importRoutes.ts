@@ -363,4 +363,98 @@ router.post('/:id/retry', authMiddleware, async (req: AuthRequest, res: Response
   }
 });
 
+/**
+ * POST /api/import-tasks/:id/fix-status
+ * 修复任务状态（管理员权限）
+ */
+router.post('/:id/fix-status', authMiddleware, async (req: AuthRequest, res: Response) => {
+  try {
+    const taskId = parseInt(req.params.id);
+
+    if (isNaN(taskId)) {
+      return res.status(400).json({
+        code: 400,
+        message: '无效的任务 ID'
+      });
+    }
+
+    // 检查管理员权限
+    if (req.userRole !== 'admin') {
+      return res.status(403).json({
+        code: 403,
+        message: '需要管理员权限'
+      });
+    }
+
+    // 检查任务是否存在
+    const task = await importService.getImportTask(taskId);
+    if (!task) {
+      return res.status(404).json({
+        code: 404,
+        message: '任务不存在'
+      });
+    }
+
+    // 重新计算任务状态
+    const stats = await database.get<{
+      total: number;
+      success: number;
+      failed: number;
+      duplicate: number;
+    }>(
+      `SELECT 
+        COUNT(*) as total,
+        SUM(CASE WHEN status = 'success' THEN 1 ELSE 0 END) as success,
+        SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed,
+        SUM(CASE WHEN status = 'duplicate' THEN 1 ELSE 0 END) as duplicate
+       FROM import_tasks_content 
+       WHERE task_id = ?`,
+      [taskId]
+    );
+
+    if (!stats) {
+      return res.status(404).json({
+        code: 404,
+        message: '无法获取任务统计信息'
+      });
+    }
+
+    const pending = stats.total - stats.success - stats.failed - stats.duplicate;
+    const taskStatus = pending > 0 ? 'processing' : 'completed';
+
+    // 更新任务状态
+    await database.run(
+      `UPDATE import_tasks 
+       SET success_count = ?, failed_count = ?, duplicate_count = ?, 
+           status = ?, updated_at = ? 
+       WHERE id = ?`,
+      [stats.success, stats.failed, stats.duplicate, taskStatus, getCurrentUTC8TimeForDB(), taskId]
+    );
+
+    logger.info(`任务${taskId}状态已修复: ${stats.success}成功, ${stats.failed}失败, ${stats.duplicate}重复, ${pending}待处理, 状态: ${taskStatus}`);
+
+    res.json({
+      code: 200,
+      message: '任务状态已修复',
+      data: {
+        taskId,
+        status: taskStatus,
+        stats: {
+          total: stats.total,
+          success: stats.success,
+          failed: stats.failed,
+          duplicate: stats.duplicate,
+          pending
+        }
+      }
+    });
+  } catch (error: any) {
+    logger.error('修复任务状态失败', error);
+    res.status(500).json({
+      code: 500,
+      message: error.message || '修复任务状态失败'
+    });
+  }
+});
+
 export default router;

@@ -2,8 +2,11 @@
   <div class="admin-page">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h1>🔧 管理后台</h1>
-      <p>系统管理、数据监控和用户管理</p>
+      <h1 class="page-title">
+        <span class="title-emoji">🔧</span>
+        管理后台
+      </h1>
+      <p class="page-subtitle">系统管理、数据监控和用户管理</p>
     </div>
 
     <!-- 统计概览 -->

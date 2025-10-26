@@ -10,6 +10,7 @@
 import { onMounted } from 'vue';
 import { useUserStore } from '@/stores';
 import '@/styles/mobile.css';
+import '@/styles/design-system.css';
 
 const userStore = useUserStore();
 

@@ -4,8 +4,11 @@
       <!-- 页面头部 -->
       <div class="page-header">
         <div class="header-left">
-          <h1>📥 导入任务</h1>
-          <p>查看和管理您的批量导入任务</p>
+          <h1 class="page-title">
+            <span class="title-emoji">📥</span>
+            导入任务
+          </h1>
+          <p class="page-subtitle">查看和管理您的批量导入任务</p>
         </div>
         <div class="header-right">
           <el-button type="primary" @click="$router.push('/import')">
@@ -429,7 +432,7 @@ onMounted(() => {
 }
 
 .stat-icon.total {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
 }
 
 .stat-icon.processing {

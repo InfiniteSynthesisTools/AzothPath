@@ -1,8 +1,11 @@
 <template>
   <div class="contribution-page">
     <div class="page-header">
-      <h1>🏆 贡献榜</h1>
-      <p>感谢所有为社区做出贡献的用户</p>
+      <h1 class="page-title">
+        <span class="title-emoji">🏆</span>
+        贡献榜
+      </h1>
+      <p class="page-subtitle">感谢所有为社区做出贡献的用户</p>
     </div>
 
     <!-- 统计信息 -->

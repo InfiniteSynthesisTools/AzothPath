@@ -1,9 +1,12 @@
 <template>
   <div class="home">
-    <!-- Hero 横幅 -->
-    <div class="hero-section">
-      <h2>Azoth Path</h2>
-      <p>无尽合成工具站</p>
+    <!-- 页面标题 -->
+    <div class="page-header">
+      <h1 class="page-title">
+        <span class="title-emoji">🧪</span>
+        Azoth Path
+      </h1>
+      <p class="page-subtitle">无尽合成工具站</p>
     </div>
 
     <!-- 统计信息 -->
@@ -53,7 +56,7 @@
           <el-card class="explore-card" shadow="hover">
             <div class="explore-content">
               <div class="explore-left">
-                <el-icon size="32" color="#667eea">
+                <el-icon size="32" color="#10b981">
                   <StarFilled />
                 </el-icon>
                 <div class="explore-text">
@@ -448,31 +451,67 @@ onMounted(() => {
 
 <style scoped>
 .home {
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-gray-50) 100%);
+  min-height: 100vh;
 }
 
-.hero-section {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 60px 20px;
+.page-header {
   text-align: center;
+  margin-bottom: 40px;
+  padding: 40px 20px 20px;
 }
 
-.hero-section h2 {
+.page-title {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--color-primary-700);
+  margin: 0 0 12px 0;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+}
+
+.title-emoji {
   font-size: 36px;
-  margin-bottom: 10px;
+  animation: float 3s ease-in-out infinite;
 }
 
-.hero-section p {
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.page-subtitle {
   font-size: 18px;
-  opacity: 0.9;
-  margin-bottom: 30px;
+  color: var(--color-gray-600);
+  margin: 0;
+  line-height: 1.6;
 }
 
 .stats-section {
   max-width: 1400px;
-  margin: 40px auto;
+  margin: 0 auto 40px;
   padding: 0 20px;
+}
+
+.stats-section :deep(.el-card) {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+.stats-section :deep(.el-card:hover) {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
 .cards-section {
@@ -483,40 +522,63 @@ onMounted(() => {
 
 .explore-card {
   margin-bottom: 20px;
-  background: linear-gradient(135deg, #f5f7fa 0%, #ffffff 100%);
-  border: 1px solid #e4e7ed;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+.explore-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
 .explore-card :deep(.el-card__body) {
-  padding: 20px;
+  padding: 24px;
 }
 
 .explore-content {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
+  gap: 24px;
 }
 
 .explore-left {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: 20px;
   flex: 1;
   min-width: 0;
 }
 
+.explore-left .el-icon {
+  background: linear-gradient(135deg, var(--color-primary-100) 0%, var(--color-primary-200) 100%);
+  border-radius: var(--radius-full);
+  padding: 12px;
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.explore-left .el-icon:hover {
+  transform: rotate(15deg) scale(1.1);
+}
+
 .explore-text h3 {
-  margin: 0 0 4px 0;
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
+  margin: 0 0 6px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary-700);
 }
 
 .explore-text p {
   margin: 0;
-  font-size: 14px;
-  color: #909399;
+  font-size: 15px;
+  color: var(--color-gray-600);
+  line-height: 1.5;
 }
 
 .feature-card {
@@ -524,35 +586,52 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   min-height: 360px;
-  /* allow content + footer */
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+.feature-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-xl);
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
 .card-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding: 16px 20px;
+  border-bottom: 1px solid rgba(34, 197, 94, 0.1);
 }
 
 .card-header h3 {
   margin: 0;
-  font-size: 16px;
-  color: #303133;
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--color-primary-700);
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .card-content {
   flex: 1 1 auto;
   overflow-y: auto;
-  padding-bottom: 8px;
-  /* space before footer */
+  padding: 20px;
 }
 
 .card-footer {
-  padding: 10px 16px;
-  border-top: 1px solid #f0f0f0;
+  padding: 16px 20px;
+  border-top: 1px solid rgba(34, 197, 94, 0.1);
   display: flex;
   justify-content: center;
   align-items: center;
-  background: #fafbfc;
+  background: rgba(34, 197, 94, 0.05);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
 }
 
 .placeholder {
@@ -584,22 +663,25 @@ onMounted(() => {
 }
 
 .recipe-item {
-  padding: 8px;
-  background: #fafbfc;
-  border: 1px solid #e8eaed;
-  border-radius: 6px;
-  transition: all 0.3s;
-  /* 使用网格确保三列固定在同一行：配方内容 | 按钮 | 时间 */
+  padding: 12px;
+  background: rgba(255, 255, 255, 0.8);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(34, 197, 94, 0.1);
+  border-radius: var(--radius-lg);
+  transition: all var(--transition-base);
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
-  column-gap: 8px;
+  column-gap: 12px;
   row-gap: 0;
+  box-shadow: var(--shadow-sm);
 }
 
 .recipe-item:hover {
-  background: #f0f2f5;
-  border-color: #d0d7de;
+  background: rgba(255, 255, 255, 0.95);
+  border-color: rgba(34, 197, 94, 0.3);
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
 }
 
 .recipe-left {
@@ -620,12 +702,12 @@ onMounted(() => {
 }
 
 .material {
-  padding: 2px 6px;
-  background: white;
-  border: 1px solid #d0d7de;
-  border-radius: 4px;
-  color: #606266;
-  /* 宽度与文字内容相当 */
+  padding: 4px 8px;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: var(--radius-base);
+  color: var(--color-primary-700);
+  font-weight: 500;
   display: inline-flex;
   align-items: center;
   flex: 0 1 auto;
@@ -633,17 +715,19 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 150px;
+  transition: all var(--transition-base);
 }
 
 .material.clickable {
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .material.clickable:hover {
-  background: #f0f2f5;
-  border-color: #409eff;
-  color: #409eff;
+  background: rgba(34, 197, 94, 0.2);
+  border-color: var(--color-primary-400);
+  color: var(--color-primary-800);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .plus,
@@ -656,13 +740,11 @@ onMounted(() => {
 }
 
 .result {
-  padding: 2px 6px;
-  background: #e8f3ff;
-  /* 浅色底 */
-  color: #0969da;
-  /* 与品牌色协调 */
-  border-radius: 4px;
-  font-weight: 500;
+  padding: 4px 8px;
+  background: linear-gradient(135deg, var(--color-primary-100) 0%, var(--color-primary-200) 100%);
+  color: var(--color-primary-800);
+  border-radius: var(--radius-base);
+  font-weight: 600;
   display: inline-flex;
   align-items: center;
   flex: 0 1 auto;
@@ -670,16 +752,19 @@ onMounted(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   max-width: 150px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  transition: all var(--transition-base);
 }
 
 .result.clickable {
   cursor: pointer;
-  transition: all 0.2s;
 }
 
 .result.clickable:hover {
-  background: #d0e8ff;
-  color: #0052b3;
+  background: linear-gradient(135deg, var(--color-primary-200) 0%, var(--color-primary-300) 100%);
+  color: var(--color-primary-900);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
 }
 
 .emoji {
@@ -719,11 +804,11 @@ onMounted(() => {
 }
 
 .like-btn {
-  border: 1px solid #e0e3e7;
-  background: #ffffff;
-  color: #f85149;
-  border-radius: 12px;
-  padding: 3px 8px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  color: #ef4444;
+  border-radius: var(--radius-full);
+  padding: 6px 12px;
   line-height: 1;
   font-size: 12px;
   cursor: pointer;
@@ -731,28 +816,29 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  transition: all 0.3s ease;
-  min-width: 40px;
-  height: 28px;
+  transition: all var(--transition-bounce);
+  min-width: 44px;
+  height: 32px;
+  font-weight: 600;
 }
 
 .like-btn:hover:not(:disabled) {
-  background: #fff5f5;
-  border-color: #f85149;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(248, 81, 73, 0.15);
+  background: rgba(254, 226, 226, 0.9);
+  border-color: #ef4444;
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
 .like-btn.liked {
-  background: #ffe4e4;
-  border-color: #ffc2c2;
-  color: #f85149;
+  background: linear-gradient(135deg, #fecaca 0%, #fca5a5 100%);
+  border-color: #f87171;
+  color: #dc2626;
 }
 
 .like-btn.liked:hover:not(:disabled) {
-  background: #ffd4d0;
-  border-color: #f85149;
-  box-shadow: 0 2px 8px rgba(248, 81, 73, 0.2);
+  background: linear-gradient(135deg, #fca5a5 0%, #f87171 100%);
+  border-color: #ef4444;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
 }
 
 .like-btn:disabled {
@@ -765,11 +851,11 @@ onMounted(() => {
 }
 
 .copy-btn {
-  border: 1px solid #e0e3e7;
-  background: #ffffff;
-  color: #606266;
-  border-radius: 12px;
-  padding: 4px 8px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--color-primary-600);
+  border-radius: var(--radius-full);
+  padding: 6px;
   line-height: 1;
   font-size: 12px;
   cursor: pointer;
@@ -777,21 +863,21 @@ onMounted(() => {
   align-items: center;
   justify-content: center;
   gap: 4px;
-  transition: all 0.3s ease;
-  width: 28px;
-  height: 28px;
+  transition: all var(--transition-bounce);
+  width: 32px;
+  height: 32px;
 }
 
 .copy-btn:hover {
-  background: #f0f9ff;
-  border-color: #409eff;
-  color: #409eff;
-  transform: translateY(-2px);
-  box-shadow: 0 2px 8px rgba(64, 158, 255, 0.15);
+  background: rgba(34, 197, 94, 0.1);
+  border-color: var(--color-primary-400);
+  color: var(--color-primary-700);
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(34, 197, 94, 0.2);
 }
 
 .copy-btn:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(1);
 }
 
 /* ========== 响应式设计 ========== */

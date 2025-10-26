@@ -3,7 +3,10 @@
     <div class="page-container">
       <!-- 页面头部 -->
       <div class="page-header">
-        <h1>📋 任务看板</h1>
+        <h1 class="page-title">
+          <span class="title-emoji">📋</span>
+          任务看板
+        </h1>
         <div class="header-actions">
           <el-button type="primary" @click="showCreateDialog = true" v-if="userStore.isLoggedIn">
             创建任务

@@ -2,8 +2,11 @@
   <div class="graph-view">
     <!-- 页面标题 -->
     <div class="page-header">
-      <h1>🗺️ 总图显示</h1>
-      <p>可视化合成元素的层级结构和关系图谱</p>
+      <h1 class="page-title">
+        <span class="title-emoji">🗺️</span>
+        总图显示
+      </h1>
+      <p class="page-subtitle">可视化合成元素的层级结构和关系图谱</p>
     </div>
 
     <!-- 统计信息 -->
@@ -310,34 +313,53 @@ onUnmounted(() => {
 
 <style scoped>
 .graph-view {
-  background-color: #f5f7fa;
+  background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-gray-50) 100%);
   min-height: 100vh;
   padding: 20px;
 }
 
 .page-header {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  padding: 40px 20px;
   text-align: center;
-  border-radius: 12px;
-  margin-bottom: 30px;
+  margin-bottom: 40px;
+  padding: 40px 20px 20px;
 }
 
-.page-header h1 {
+.page-title {
   font-size: 32px;
-  margin-bottom: 10px;
-  font-weight: 600;
+  font-weight: 800;
+  color: var(--color-primary-700);
+  margin: 0 0 12px 0;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
 }
 
-.page-header p {
-  font-size: 16px;
-  opacity: 0.9;
+.title-emoji {
+  font-size: 36px;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+.page-subtitle {
+  font-size: 18px;
+  color: var(--color-gray-600);
+  margin: 0;
+  line-height: 1.6;
 }
 
 .stats-section {
   max-width: 1400px;
-  margin: 0 auto 30px;
+  margin: 0 auto 40px;
+  padding: 0 20px;
 }
 
 .tabs-section {

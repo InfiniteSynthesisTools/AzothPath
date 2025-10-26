@@ -2,7 +2,10 @@
   <div class="element-list-page">
     <!-- 页面标题和搜索栏 -->
     <div class="page-header">
-      <h1 class="page-title">元素列表</h1>
+      <h1 class="page-title">
+        <span class="title-emoji">🔍</span>
+        元素列表
+      </h1>
       <p class="page-subtitle">探索无尽合成世界中的所有元素</p>
       
       <!-- 搜索和筛选区域 -->
@@ -228,32 +231,38 @@ onMounted(() => {
 .element-list-page {
   max-width: 1400px;
   margin: 0 auto;
-  padding: 24px;
+  padding: 32px 24px;
   min-height: calc(100vh - 60px);
+  background: linear-gradient(135deg, var(--color-primary-50) 0%, var(--color-gray-50) 100%);
 }
 
 .page-header {
-  margin-bottom: 32px;
+  margin-bottom: 40px;
   text-align: center;
 }
 
 .page-title {
-  font-size: 32px;
-  font-weight: 700;
-  color: #303133;
-  margin: 0 0 8px 0;
+  font-size: 36px;
+  font-weight: 800;
+  color: var(--color-primary-700);
+  margin: 0 0 12px 0;
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-800) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
 }
 
 .page-subtitle {
-  font-size: 16px;
-  color: #909399;
-  margin: 0 0 24px 0;
+  font-size: 18px;
+  color: var(--color-gray-600);
+  margin: 0 0 32px 0;
+  line-height: 1.6;
 }
 
 .search-section {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 20px;
   max-width: 900px;
   margin: 0 auto;
 }
@@ -264,27 +273,32 @@ onMounted(() => {
 
 .search-input {
   width: 100%;
-  --el-input-border-radius: 24px;
+  --el-input-border-radius: var(--radius-2xl);
 }
 
 .search-input :deep(.el-input__wrapper) {
-  border-radius: 24px;
-  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-  transition: all 0.3s;
-  background: #ffffff;
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
 }
 
 .search-input :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.12);
+  box-shadow: var(--shadow-xl);
+  transform: translateY(-2px);
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
 .search-input :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 4px 20px rgba(103, 194, 58, 0.2);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1), var(--shadow-xl);
+  border-color: var(--color-primary-400);
 }
 
 .filters-wrapper {
   display: flex;
-  gap: 12px;
+  gap: 16px;
   justify-content: center;
   flex-wrap: wrap;
 }
@@ -296,19 +310,23 @@ onMounted(() => {
 }
 
 .sort-select :deep(.el-input__wrapper) {
-  border-radius: 12px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s;
-  background: #ffffff;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
 }
 
 .sort-select :deep(.el-input__wrapper:hover) {
-  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
-  transform: translateY(-1px);
+  box-shadow: var(--shadow-lg);
+  transform: translateY(-2px);
+  border-color: rgba(34, 197, 94, 0.3);
 }
 
 .sort-select :deep(.el-input__wrapper.is-focus) {
-  box-shadow: 0 3px 12px rgba(103, 194, 58, 0.15);
+  box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.1), var(--shadow-lg);
+  border-color: var(--color-primary-400);
 }
 
 .option-emoji {
@@ -330,43 +348,56 @@ onMounted(() => {
 
 .elements-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 24px;
+  margin-bottom: 40px;
 }
 
 .element-card {
-  transition: all 0.3s ease;
-  border-radius: 12px;
+  transition: all var(--transition-bounce);
+  border-radius: var(--radius-xl);
   cursor: pointer;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-lg);
 }
 
 .element-card :deep(.el-card__body) {
-  padding: 16px;
+  padding: 20px;
 }
 
 .element-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: var(--shadow-2xl);
+  border-color: rgba(34, 197, 94, 0.4);
 }
 
 .element-header {
   display: flex;
   align-items: flex-start;
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 16px;
+  margin-bottom: 20px;
 }
 
 .element-emoji {
-  font-size: 32px;
-  width: 48px;
-  height: 48px;
+  font-size: 36px;
+  width: 56px;
+  height: 56px;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #f5f7fa;
-  border-radius: 8px;
+  background: linear-gradient(135deg, var(--color-primary-100) 0%, var(--color-primary-200) 100%);
+  border-radius: var(--radius-lg);
   flex-shrink: 0;
+  border: 2px solid rgba(34, 197, 94, 0.2);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.element-card:hover .element-emoji {
+  transform: rotate(10deg) scale(1.1);
+  box-shadow: var(--shadow-lg);
 }
 
 .element-info {
@@ -375,11 +406,14 @@ onMounted(() => {
 }
 
 .element-name {
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
-  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--color-primary-700);
+  margin: 0 0 6px 0;
   word-break: break-all;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .element-meta {
@@ -390,28 +424,37 @@ onMounted(() => {
 
 .element-type {
   font-size: 12px;
-  padding: 2px 8px;
-  border-radius: 12px;
-  font-weight: 500;
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+  transition: all var(--transition-base);
 }
 
 .element-type.base {
-  background: #e8f4fd;
-  color: #409eff;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1d4ed8;
+  border: 1px solid rgba(59, 130, 246, 0.3);
 }
 
 .element-type.synthetic {
-  background: #f0f9ff;
-  color: #67c23a;
+  background: linear-gradient(135deg, var(--color-primary-100) 0%, var(--color-primary-200) 100%);
+  color: var(--color-primary-700);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
+.element-card:hover .element-type {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .element-stats {
   display: flex;
-  gap: 16px;
+  gap: 20px;
   margin-bottom: 16px;
-  padding: 12px 0;
-  border-top: 1px solid #f0f0f0;
-  border-bottom: 1px solid #f0f0f0;
+  padding: 16px 0;
+  border-top: 1px solid rgba(34, 197, 94, 0.1);
+  border-bottom: 1px solid rgba(34, 197, 94, 0.1);
 }
 
 .stat-item {
@@ -419,18 +462,24 @@ onMounted(() => {
   flex-direction: column;
   align-items: center;
   flex: 1;
+  transition: all var(--transition-base);
+}
+
+.element-card:hover .stat-item {
+  transform: translateY(-2px);
 }
 
 .stat-label {
   font-size: 12px;
-  color: #909399;
-  margin-bottom: 4px;
+  color: var(--color-gray-600);
+  margin-bottom: 6px;
+  font-weight: 500;
 }
 
 .stat-value {
-  font-size: 16px;
-  font-weight: 600;
-  color: #303133;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--color-primary-600);
 }
 
 .element-actions {
@@ -445,7 +494,34 @@ onMounted(() => {
 .pagination-container {
   display: flex;
   justify-content: center;
-  margin-top: 32px;
+  margin-top: 40px;
+}
+
+.pagination-container :deep(.el-pagination) {
+  --el-pagination-bg-color: var(--glass-bg);
+  --el-pagination-border-radius: var(--radius-lg);
+  --el-pagination-button-bg-color: var(--glass-bg);
+  --el-pagination-button-border-color: var(--glass-border);
+}
+
+.pagination-container :deep(.el-pagination .btn-prev),
+.pagination-container :deep(.el-pagination .btn-next),
+.pagination-container :deep(.el-pagination .number) {
+  border-radius: var(--radius-base);
+  transition: all var(--transition-base);
+}
+
+.pagination-container :deep(.el-pagination .number:hover) {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: var(--color-primary-400);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-sm);
+}
+
+.pagination-container :deep(.el-pagination .number.is-active) {
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+  border-color: var(--color-primary-500);
+  color: white;
 }
 
 /* 响应式设计 */

@@ -1669,10 +1669,13 @@ export class RecipeService {
 
       // 基础材料
       if (baseItems.includes(itemName)) {
+        const emoji = itemEmojiMap[itemName];
+        // 保持与正常情况一致的名称格式：emoji + 空格 + 名称
+        const displayName = emoji ? `${emoji} ${itemName}` : itemName;
         const node: IcicleNode = {
           id: `base_${itemName}`,
-          name: itemName,
-          emoji: itemEmojiMap[itemName],
+          name: displayName,
+          emoji: emoji ? truncateEmoji(emoji) : undefined,
           isBase: true,
           value: 1
         };
@@ -1700,10 +1703,12 @@ export class RecipeService {
           // 找到可行的配方
           const value = childA.value + childB.value;
           const emoji = itemEmojiMap[itemName];
+          // 保持与正常情况一致的名称格式：emoji + 空格 + 名称
+          const displayName = emoji ? `${emoji} ${itemName}` : itemName;
 
           const node: IcicleNode = {
             id: `synthetic_${itemName}`,
-            name: itemName,
+            name: displayName,
             emoji: emoji ? truncateEmoji(emoji) : undefined,
             isBase: false,
             value,
@@ -2388,9 +2393,11 @@ export class RecipeService {
         logger.warn(`冰柱树生成超时：物品 "${itemName}" 耗时超过 2 秒`);
         // 返回降级方案
         const emoji = itemEmojiMap[itemName];
+        // 保持与正常情况一致的名称格式：emoji + 空格 + 名称
+        const displayName = emoji ? `${emoji} ${itemName}` : itemName;
         resolve({
           id: `leaf_${itemName}`,
-          name: itemName,
+          name: displayName,
           emoji: emoji ? truncateEmoji(emoji) : undefined,
           isBase: false,
           value: 1
@@ -2415,9 +2422,11 @@ export class RecipeService {
           logger.error(`冰柱树生成失败：物品 "${itemName}"`, error);
           // 返回降级方案
           const emoji = itemEmojiMap[itemName];
+          // 保持与正常情况一致的名称格式：emoji + 空格 + 名称
+          const displayName = emoji ? `${emoji} ${itemName}` : itemName;
           resolve({
             id: `leaf_${itemName}`,
-            name: itemName,
+            name: displayName,
             emoji: emoji ? truncateEmoji(emoji) : undefined,
             isBase: false,
             value: 1

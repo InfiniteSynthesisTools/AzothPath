@@ -599,6 +599,29 @@ const fetchElementDetail = async () => {
   }
 };
 
+// 从包含emoji的节点名称中提取纯文本元素名称
+const extractElementName = (nodeName: string): string => {
+  console.log('开始提取元素名称:', nodeName);
+  
+  try {
+    // 简单方法：使用空格分割，取最后一个非空部分
+    const parts = nodeName.split(' ');
+    // 过滤掉空字符串和只包含特殊字符的部分
+    const validParts = parts.filter(part => {
+      const trimmed = part.trim();
+      return trimmed && !/^[\s\u200B-\u200D\uFEFF\xA0]+$/.test(trimmed);
+    });
+    const elementName = validParts[validParts.length - 1] || nodeName;
+    
+    console.log('提取结果:', { original: nodeName, parts, validParts, elementName });
+    return elementName;
+  } catch (error) {
+    console.error('提取元素名称失败:', error);
+    // 最终备用方法：返回原始名称
+    return nodeName;
+  }
+};
+
 // 检测是否为自合成配方
 const isSelfCraftRecipe = (recipe: RecipeDetail): boolean => {
   // a+a=a 类型：两个材料相同且等于结果
@@ -732,7 +755,37 @@ const handleIcicleNodeClick = async (node: IcicleNode) => {
     
     // 如果点击的不是当前元素，尝试跳转到该元素的详情页
     if (node.name !== element.value?.name) {
-      await goToElementDetail(node.name);
+      // 优先使用节点的 id 字段，它通常是纯文本元素名称
+      let elementName = node.id;
+      
+      // 如果 id 是带前缀的（base_, synthetic_, leaf_），则从名称中提取
+      if (elementName.startsWith('base_') || elementName.startsWith('synthetic_') || elementName.startsWith('leaf_')) {
+        elementName = extractElementName(node.name);
+      }
+      
+      // 最终备用方案：如果提取的名称仍然有问题，使用节点的原始名称
+      if (!elementName || elementName.includes('️') || /^[\s\u200B-\u200D\uFEFF\xA0]+$/.test(elementName)) {
+        console.warn('提取的元素名称有问题，使用原始名称:', elementName);
+        elementName = node.name;
+      }
+      
+      console.log('提取元素名称:', { 
+        original: node.name, 
+        extracted: elementName,
+        nodeId: node.id,
+        isBase: node.isBase
+      });
+      
+      // 添加更详细的调试信息
+      console.log('节点详细信息:', {
+        name: node.name,
+        emoji: node.emoji,
+        id: node.id,
+        isBase: node.isBase,
+        value: node.value
+      });
+      
+      await goToElementDetail(elementName);
     }
   } catch (error) {
     console.error('处理冰柱图节点点击失败:', error);
@@ -742,21 +795,31 @@ const handleIcicleNodeClick = async (node: IcicleNode) => {
 // 跳转到元素详情页面
 const goToElementDetail = async (elementName: string) => {
   try {
+    console.log('开始搜索元素:', elementName);
+    
     // 通过搜索API获取元素列表，使用精确匹配参数
     const response = await recipeApi.getItems({ 
       search: elementName, 
       limit: 1,
       exact: true // 使用精确匹配
     });
+    
+    console.log('搜索API响应:', response);
+    
     if (response && response.items && response.items.length > 0) {
       const elementData = response.items[0]; // 精确匹配应该只有一个结果
+      console.log('找到元素数据:', elementData);
+      
       if (elementData && elementData.id) {
         // 使用 replace 而不是 push 来确保页面重新加载
+        console.log('跳转到元素详情页:', elementData.id);
         router.replace(`/element/${elementData.id}`);
       } else {
+        console.warn('元素数据无效:', elementData);
         ElMessage.warning(`未找到元素: ${elementName}`);
       }
     } else {
+      console.warn('搜索API返回空结果:', { elementName, response });
       ElMessage.warning(`未找到元素: ${elementName}`);
     }
   } catch (error) {

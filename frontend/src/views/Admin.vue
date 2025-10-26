@@ -13,36 +13,56 @@
     <div class="stats-overview">
       <el-row :gutter="20">
         <el-col :span="6">
-          <StatCard 
-            type="primary"
-            emoji="📋"
-            :value="systemStats.total_recipes"
-            label="配方总数"
-          />
+          <el-card shadow="hover" class="stat-card">
+            <el-statistic 
+              :value="systemStats.total_recipes" 
+              title="配方总数"
+              :precision="0"
+            >
+              <template #prefix>
+                <el-icon><Document /></el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
         <el-col :span="6">
-          <StatCard 
-            type="success"
-            emoji="🧪"
-            :value="systemStats.total_items"
-            label="元素总数"
-          />
+          <el-card shadow="hover" class="stat-card">
+            <el-statistic 
+              :value="systemStats.total_items" 
+              title="元素总数"
+              :precision="0"
+            >
+              <template #prefix>
+                <el-icon><Box /></el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
         <el-col :span="6">
-          <StatCard 
-            type="info"
-            emoji="👥"
-            :value="systemStats.total_users"
-            label="用户总数"
-          />
+          <el-card shadow="hover" class="stat-card">
+            <el-statistic 
+              :value="systemStats.total_users" 
+              title="用户总数"
+              :precision="0"
+            >
+              <template #prefix>
+                <el-icon><User /></el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
         <el-col :span="6">
-          <StatCard 
-            type="warning"
-            emoji="🔄"
-            :value="systemStats.active_tasks"
-            label="活跃任务"
-          />
+          <el-card shadow="hover" class="stat-card">
+            <el-statistic 
+              :value="systemStats.active_tasks" 
+              title="活跃任务"
+              :precision="0"
+            >
+              <template #prefix>
+                <el-icon><Clock /></el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
       </el-row>
     </div>
@@ -86,9 +106,8 @@
 <script setup lang="ts">
 import { ref, onMounted } from 'vue';
 import { ElMessage } from 'element-plus';
-
+import { Document, Box, User, Clock } from '@element-plus/icons-vue';
 import { recipeApi, taskApi, userApi } from '@/api';
-import StatCard from '@/components/StatCard.vue';
 import UserManagement from '@/components/admin/UserManagement.vue';
 import RecipeManagement from '@/components/admin/RecipeManagement.vue';
 import TaskManagement from '@/components/admin/TaskManagement.vue';
@@ -181,6 +200,22 @@ onMounted(() => {
 
 .stats-overview {
   margin-bottom: 30px;
+}
+
+.stat-card {
+  text-align: center;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-md);
+  transition: all var(--transition-base);
+}
+
+.stat-card:hover {
+  background: var(--color-bg-surface);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-border-accent);
 }
 
 .admin-tabs {

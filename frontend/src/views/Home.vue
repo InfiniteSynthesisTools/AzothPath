@@ -14,28 +14,37 @@
     <div class="stats-section">
       <el-row :gutter="20">
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <StatCard 
-            type="primary"
-            emoji="📋"
-            :value="stats.total_recipes"
-            label="配方总数"
-          />
+          <el-card shadow="hover" class="card-scale">
+            <el-statistic :value="stats.total_recipes" title="配方总数">
+              <template #prefix>
+                <el-icon>
+                  <Document />
+                </el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <StatCard 
-            type="success"
-            emoji="🧪"
-            :value="stats.total_items"
-            label="物品总数"
-          />
+          <el-card shadow="hover" class="card-scale">
+            <el-statistic :value="stats.total_items" title="物品总数">
+              <template #prefix>
+                <el-icon>
+                  <Box />
+                </el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <StatCard 
-            type="info"
-            emoji="✅"
-            :value="stats.reachable_items"
-            label="可合成物品"
-          />
+          <el-card shadow="hover" class="card-scale">
+            <el-statistic :value="stats.reachable_items" title="可合成物品">
+              <template #prefix>
+                <el-icon>
+                  <CircleCheck />
+                </el-icon>
+              </template>
+            </el-statistic>
+          </el-card>
         </el-col>
       </el-row>
     </div>
@@ -183,9 +192,8 @@
 import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { StarFilled, Loading } from '@element-plus/icons-vue';
+import { Box, CircleCheck, StarFilled, Loading } from '@element-plus/icons-vue';
 import CopyIcon from '@/components/icons/CopyIcon.vue';
-import StatCard from '@/components/StatCard.vue';
 import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
@@ -575,6 +583,32 @@ onUnmounted(() => {
 
 .stats-section {
   margin-bottom: 40px;
+}
+
+.stats-section :deep(.el-card) {
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+  transition: all var(--transition-base);
+}
+
+.stats-section :deep(.el-card:hover) {
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary-300);
+}
+
+.stats-section :deep(.el-statistic__content) {
+  color: var(--color-text-primary);
+}
+
+.stats-section :deep(.el-statistic__title) {
+  color: var(--color-text-secondary);
+}
+
+.stats-section :deep(.el-icon) {
+  color: var(--color-primary-500);
 }
 
 .cards-section {

@@ -164,8 +164,22 @@ import { useImportStore } from '@/stores/import';
 import { formatDateTime } from '@/utils/format';
 import { notificationApi } from '@/api';
 
-// 侧边栏状态
-const isOpen = ref(false);
+// 定义props
+const props = defineProps<{
+  visible?: boolean;
+  hasUnreadNotifications?: boolean;
+}>();
+
+// 定义emits
+const emit = defineEmits<{
+  'update:visible': [value: boolean];
+}>();
+
+// 侧边栏状态 - 使用props或内部状态
+const isOpen = computed({
+  get: () => props.visible ?? false,
+  set: (value: boolean) => emit('update:visible', value)
+});
 
 // 导入任务存储
 const importStore = useImportStore();
@@ -226,6 +240,10 @@ const unarchivedNotifications = computed(() => {
 });
 
 const hasNotifications = computed(() => {
+  // 优先使用props，如果没有则使用计算值
+  if (props.hasUnreadNotifications !== undefined) {
+    return props.hasUnreadNotifications;
+  }
   return unarchivedNotifications.value.some((n: any) => n.is_read === 0) || uploadTasks.value.some((t: any) => t.status === 'processing');
 });
 

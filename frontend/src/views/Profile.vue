@@ -91,40 +91,48 @@
           <div class="stats-section">
             <el-row :gutter="20">
               <el-col :xs="12" :sm="6" :md="6" :lg="6">
-                <el-statistic :value="userStats.recipe_count || 0" title="提交配方">
-                  <template #prefix>
-                    <el-icon>
-                      <Document />
-                    </el-icon>
-                  </template>
-                </el-statistic>
+                <el-card class="stat-card card-scale" shadow="hover">
+                  <div class="stat-content">
+                    <div class="stat-icon recipes">📋</div>
+                    <div class="stat-info">
+                      <div class="stat-value">{{ userStats.recipe_count || 0 }}</div>
+                      <div class="stat-label">提交配方</div>
+                    </div>
+                  </div>
+                </el-card>
               </el-col>
               <el-col :xs="12" :sm="6" :md="6" :lg="6">
-                <el-statistic :value="userStats.item_count || 0" title="发现物品">
-                  <template #prefix>
-                    <el-icon>
-                      <Box />
-                    </el-icon>
-                  </template>
-                </el-statistic>
+                <el-card class="stat-card card-scale" shadow="hover">
+                  <div class="stat-content">
+                    <div class="stat-icon items">🧪</div>
+                    <div class="stat-info">
+                      <div class="stat-value">{{ userStats.item_count || 0 }}</div>
+                      <div class="stat-label">发现物品</div>
+                    </div>
+                  </div>
+                </el-card>
               </el-col>
               <el-col :xs="12" :sm="6" :md="6" :lg="6">
-                <el-statistic :value="userStats.task_completed || 0" title="完成任务">
-                  <template #prefix>
-                    <el-icon>
-                      <CircleCheck />
-                    </el-icon>
-                  </template>
-                </el-statistic>
+                <el-card class="stat-card card-scale" shadow="hover">
+                  <div class="stat-content">
+                    <div class="stat-icon tasks">✅</div>
+                    <div class="stat-info">
+                      <div class="stat-value">{{ userStats.task_completed || 0 }}</div>
+                      <div class="stat-label">完成任务</div>
+                    </div>
+                  </div>
+                </el-card>
               </el-col>
               <el-col :xs="12" :sm="6" :md="6" :lg="6">
-                <el-statistic :value="userStats.total_contribution || 0" title="总贡献">
-                  <template #prefix>
-                    <el-icon>
-                      <Medal />
-                    </el-icon>
-                  </template>
-                </el-statistic>
+                <el-card class="stat-card card-scale" shadow="hover">
+                  <div class="stat-content">
+                    <div class="stat-icon contributions">🏆</div>
+                    <div class="stat-info">
+                      <div class="stat-value">{{ userStats.total_contribution || 0 }}</div>
+                      <div class="stat-label">总贡献</div>
+                    </div>
+                  </div>
+                </el-card>
               </el-col>
             </el-row>
           </div>
@@ -385,7 +393,7 @@ import { useRoute, useRouter } from 'vue-router';
 import { useUserStore } from '@/stores';
 import { userApi, recipeApi } from '@/api';
 import { ElMessage, ElDialog } from 'element-plus';
-import { Document, Box, CircleCheck, Medal } from '@element-plus/icons-vue';
+
 import { formatDate, formatDateTime } from '@/utils/format';
 import CopyIcon from '@/components/icons/CopyIcon.vue';
 import { copyToClipboard } from '@/composables/useClipboard';

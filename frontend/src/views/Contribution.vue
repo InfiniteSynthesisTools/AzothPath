@@ -14,37 +14,28 @@
     <div class="stats-section">
       <el-row :gutter="20">
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <el-card shadow="hover" class="card-scale">
-            <el-statistic :value="stats.totalUsers" title="总用户数">
-              <template #prefix>
-                <el-icon>
-                  <User />
-                </el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            type="primary"
+            emoji="👥"
+            :value="stats.totalUsers"
+            label="总用户数"
+          />
         </el-col>
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <el-card shadow="hover" class="card-scale">
-            <el-statistic :value="stats.totalContributions" title="总贡献分">
-              <template #prefix>
-                <el-icon>
-                  <Medal />
-                </el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            type="success"
+            emoji="🏆"
+            :value="stats.totalContributions"
+            label="总贡献分"
+          />
         </el-col>
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <el-card shadow="hover" class="card-scale">
-            <el-statistic :value="stats.avgLevel.toFixed(1)" title="平均等级">
-              <template #prefix>
-                <el-icon>
-                  <Star />
-                </el-icon>
-              </template>
-            </el-statistic>
-          </el-card>
+          <StatCard 
+            type="warning"
+            emoji="⭐"
+            :value="stats.avgLevel.toFixed(1)"
+            label="平均等级"
+          />
         </el-col>
       </el-row>
     </div>
@@ -74,10 +65,12 @@
             >
               <!-- 排名 -->
               <div class="rank-section">
-                <div class="rank-badge" :class="getRankClass(getGlobalRank(index) - 1)">
-                  <span v-if="getGlobalRank(index) <= 3" class="rank-icon">{{ getRankIcon(getGlobalRank(index) - 1) }}</span>
-                  <span v-else class="rank-number">{{ getGlobalRank(index) }}</span>
-                </div>
+                <Badge 
+                  :type="getRankType(getGlobalRank(index) - 1)"
+                  size="lg"
+                  :emoji="getRankIcon(getGlobalRank(index) - 1)"
+                  :text="getGlobalRank(index) <= 3 ? '' : getGlobalRank(index).toString()"
+                />
               </div>
 
               <!-- 用户信息 -->
@@ -95,22 +88,30 @@
 
               <!-- 统计数据 -->
               <div class="user-stats-section">
-                <div class="user-stat-item primary">
-                  <span class="user-stat-value">{{ user.contribute }}</span>
-                  <span class="user-stat-label">贡献分</span>
-                </div>
-                <div class="user-stat-item">
-                  <span class="user-stat-value">{{ user.recipe_count || 0 }}</span>
-                  <span class="user-stat-label">配方</span>
-                </div>
-                <div class="user-stat-item">
-                  <span class="user-stat-value">{{ user.item_count || 0 }}</span>
-                  <span class="user-stat-label">物品</span>
-                </div>
-                <div class="user-stat-item">
-                  <span class="user-stat-value">Lv.{{ user.level }}</span>
-                  <span class="user-stat-label">等级</span>
-                </div>
+                <Badge 
+                  type="success" 
+                  size="sm"
+                  emoji="🏆"
+                  :text="`${user.contribute} 贡献分`"
+                />
+                <Badge 
+                  type="primary" 
+                  size="sm"
+                  emoji="📋"
+                  :text="`${user.recipe_count || 0} 配方`"
+                />
+                <Badge 
+                  type="info" 
+                  size="sm"
+                  emoji="🧪"
+                  :text="`${user.item_count || 0} 物品`"
+                />
+                <Badge 
+                  type="warning" 
+                  size="sm"
+                  emoji="⭐"
+                  :text="`Lv.${user.level}`"
+                />
               </div>
 
               <!-- 操作按钮 -->
@@ -150,9 +151,11 @@
 import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { userApi } from '@/api';
+import StatCard from '@/components/StatCard.vue';
+import Badge from '@/components/Badge.vue';
 import { formatDate } from '@/utils/format';
 import { ElMessage } from 'element-plus';
-import { User, Medal, Star } from '@element-plus/icons-vue';
+
 
 const router = useRouter();
 
@@ -208,12 +211,12 @@ const getGlobalRank = (index: number) => {
   return (currentPage.value - 1) * pageSize.value + index + 1;
 };
 
-// 获取排名样式
-const getRankClass = (index: number) => {
-  if (index === 0) return 'rank-gold';
-  if (index === 1) return 'rank-silver';
-  if (index === 2) return 'rank-bronze';
-  return '';
+// 获取排名类型
+const getRankType = (index: number) => {
+  if (index === 0) return 'warning';
+  if (index === 1) return 'default';
+  if (index === 2) return 'info';
+  return 'primary';
 };
 
 // 获取排名图标
@@ -278,32 +281,6 @@ onMounted(() => {
 
 .stats-section {
   margin-bottom: 40px;
-}
-
-.stats-section :deep(.el-card) {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg);
-  transition: all var(--transition-base);
-}
-
-.stats-section :deep(.el-card:hover) {
-  box-shadow: var(--shadow-lg);
-  border-color: var(--color-primary-300);
-}
-
-.stats-section :deep(.el-statistic__content) {
-  color: var(--color-text-primary);
-}
-
-.stats-section :deep(.el-statistic__title) {
-  color: var(--color-text-secondary);
-}
-
-.stats-section :deep(.el-icon) {
-  color: var(--color-primary-500);
 }
 
 .cards-section {
@@ -387,46 +364,6 @@ onMounted(() => {
   flex-shrink: 0;
 }
 
-.rank-badge {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  font-weight: 600;
-  font-size: 16px;
-  box-shadow: var(--shadow-sm);
-}
-
-.rank-gold {
-  background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-  color: #856404;
-  border: 2px solid #ffd700;
-}
-
-.rank-silver {
-  background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
-  color: #4a5568;
-  border: 2px solid #c0c0c0;
-}
-
-.rank-bronze {
-  background: linear-gradient(135deg, #cd7f32 0%, #e9b384 100%);
-  color: #7c2d12;
-  border: 2px solid #cd7f32;
-}
-
-.rank-number {
-  color: var(--color-text-secondary);
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-primary);
-}
-
-.rank-icon {
-  font-size: 20px;
-}
-
 /* 用户信息区域 */
 .user-section {
   display: flex;
@@ -477,46 +414,9 @@ onMounted(() => {
 /* 用户统计数据区域 */
 .user-stats-section {
   display: flex;
-  gap: 16px;
+  gap: 12px;
   flex-shrink: 0;
-}
-
-.user-stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  min-width: 50px;
-  height: 48px;
-  padding: 6px 8px;
-  border-radius: var(--radius-base);
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border: 1px solid var(--glass-border);
-  box-shadow: var(--shadow-sm);
-}
-
-.user-stat-item.primary {
-  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
-  color: white;
-  border-color: var(--color-primary-600);
-}
-
-.user-stat-value {
-  font-size: 14px;
-  font-weight: 500;
-  line-height: 1;
-  margin-bottom: 2px;
-}
-
-.user-stat-label {
-  font-size: 11px;
-  color: var(--color-text-secondary);
-  line-height: 1;
-}
-
-.user-stat-item.primary .user-stat-label {
-  color: rgba(255, 255, 255, 0.8);
+  flex-wrap: wrap;
 }
 
 /* 操作区域 */

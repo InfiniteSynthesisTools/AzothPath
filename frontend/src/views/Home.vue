@@ -119,12 +119,13 @@
               </div>
 
             </div>
-            <!-- 卡片底部：加载更多按钮（固定显示，不在滚动区域内） -->
-            <div class="card-footer">
-              <div class="load-more" v-if="latestHasMore">
-                <el-button type="primary" size="small" :loading="latestLoadingMore"
-                  @click="loadMoreLatest">加载更多</el-button>
+            <!-- 自动加载观察元素 -->
+            <div class="auto-load-observer" v-if="latestHasMore">
+              <div class="load-indicator" v-if="latestLoadingMore">
+                <el-icon class="loading-icon"><Loading /></el-icon>
+                <span>正在加载更多配方...</span>
               </div>
+              <div ref="latestObserverTarget" class="observer-target"></div>
             </div>
           </el-card>
         </el-col>
@@ -170,12 +171,13 @@
               </div>
 
             </div>
-            <!-- 卡片底部：加载更多按钮（固定显示，不在滚动区域内） -->
-            <div class="card-footer">
-              <div class="load-more" v-if="popularHasMore">
-                <el-button type="primary" size="small" :loading="popularLoadingMore"
-                  @click="loadMorePopular">加载更多</el-button>
+            <!-- 自动加载观察元素 -->
+            <div class="auto-load-observer" v-if="popularHasMore">
+              <div class="load-indicator" v-if="popularLoadingMore">
+                <el-icon class="loading-icon"><Loading /></el-icon>
+                <span>正在加载更多配方...</span>
               </div>
+              <div ref="popularObserverTarget" class="observer-target"></div>
             </div>
           </el-card>
         </el-col>
@@ -185,10 +187,10 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
-import { Box, CircleCheck, StarFilled } from '@element-plus/icons-vue';
+import { Box, CircleCheck, StarFilled, Loading } from '@element-plus/icons-vue';
 import CopyIcon from '@/components/icons/CopyIcon.vue';
 import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
@@ -240,6 +242,18 @@ const stats = ref({
 
 const latestRecipes = ref<RecipeWithEmoji[]>([]);
 const popularRecipes = ref<RecipeWithEmoji[]>([]);
+
+// 观察器引用
+const latestObserverTarget = ref<HTMLElement | null>(null);
+const popularObserverTarget = ref<HTMLElement | null>(null);
+
+// 观察器实例
+let latestObserver: IntersectionObserver | null = null;
+let popularObserver: IntersectionObserver | null = null;
+
+// 防抖变量
+let latestLoadDebounce: NodeJS.Timeout | null = null;
+let popularLoadDebounce: NodeJS.Timeout | null = null;
 
 // 点赞交互（调用后端 POST /api/recipes/:id/like）
 const togglingIds = new Set<number>();
@@ -373,14 +387,15 @@ const loadPopularRecipes = async (page: number = 1, append = false) => {
   }
 };
 
-// 加载更多处理
-const loadMoreLatest = async () => {
+// 自动加载最新配方
+const autoLoadMoreLatest = async () => {
   if (latestLoadingMore.value || !latestHasMore.value) return;
   latestLoadingMore.value = true;
   await loadLatestRecipes(latestPage.value + 1, true);
 };
 
-const loadMorePopular = async () => {
+// 自动加载最热配方
+const autoLoadMorePopular = async () => {
   if (popularLoadingMore.value || !popularHasMore.value) return;
   popularLoadingMore.value = true;
   await loadPopularRecipes(popularPage.value + 1, true);
@@ -442,10 +457,80 @@ const refreshLatest = async () => {
   }
 };
 
+// 初始化观察器
+const initObservers = () => {
+  // 清理旧的观察器
+  if (latestObserver) latestObserver.disconnect();
+  if (popularObserver) popularObserver.disconnect();
+
+  // 创建最新配方观察器
+  if (latestObserverTarget.value) {
+    latestObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && latestHasMore.value && !latestLoadingMore.value) {
+          // 防抖处理，避免频繁触发
+          if (latestLoadDebounce) clearTimeout(latestLoadDebounce);
+          latestLoadDebounce = setTimeout(() => {
+            autoLoadMoreLatest();
+          }, 300);
+        }
+      });
+    }, {
+      rootMargin: '100px 0px', // 提前100px触发
+      threshold: 0.1
+    });
+    
+    latestObserver.observe(latestObserverTarget.value);
+  }
+
+  // 创建最热配方观察器
+  if (popularObserverTarget.value) {
+    popularObserver = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && popularHasMore.value && !popularLoadingMore.value) {
+          // 防抖处理，避免频繁触发
+          if (popularLoadDebounce) clearTimeout(popularLoadDebounce);
+          popularLoadDebounce = setTimeout(() => {
+            autoLoadMorePopular();
+          }, 300);
+        }
+      });
+    }, {
+      rootMargin: '100px 0px', // 提前100px触发
+      threshold: 0.1
+    });
+    
+    popularObserver.observe(popularObserverTarget.value);
+  }
+};
+
+// 清理观察器
+const cleanupObservers = () => {
+  if (latestObserver) {
+    latestObserver.disconnect();
+    latestObserver = null;
+  }
+  if (popularObserver) {
+    popularObserver.disconnect();
+    popularObserver = null;
+  }
+  if (latestLoadDebounce) clearTimeout(latestLoadDebounce);
+  if (popularLoadDebounce) clearTimeout(popularLoadDebounce);
+};
+
 onMounted(() => {
   loadStats();
   loadLatestRecipes(1, false);
   loadPopularRecipes(1, false);
+  
+  // 延迟初始化观察器，确保DOM已渲染
+  setTimeout(() => {
+    initObservers();
+  }, 100);
+});
+
+onUnmounted(() => {
+  cleanupObservers();
 });
 </script>
 
@@ -1141,6 +1226,41 @@ onMounted(() => {
     display: none;
     /* 超小屏隐藏时间 */
   }
+}
+
+/* 自动加载观察器样式 */
+.auto-load-observer {
+  padding: 20px;
+  text-align: center;
+  border-top: 1px solid var(--color-border-primary);
+  background: var(--color-bg-tertiary);
+  border-radius: 0 0 var(--radius-xl) var(--radius-xl);
+}
+
+.load-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  padding: 12px 0;
+}
+
+.loading-icon {
+  animation: spin 1s linear infinite;
+  color: var(--color-primary-500);
+}
+
+.observer-target {
+  height: 1px;
+  width: 100%;
+  pointer-events: none;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
 }
 
 /* 超小屏手机 */

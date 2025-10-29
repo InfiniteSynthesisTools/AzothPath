@@ -218,7 +218,6 @@ const handleReset = () => {
 .glass-upload :deep(.el-upload-dragger:hover) {
   border-color: var(--color-primary-400);
   background: var(--color-primary-50);
-  transform: translateY(-2px);
   box-shadow: var(--shadow-md);
 }
 

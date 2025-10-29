@@ -316,7 +316,7 @@
 
 .emoji-option:hover {
   background: #ecf5ff;
-  transform: translateY(-2px);
+  transform: scale(1.1);
 }
 
 .emoji-option.selected {
@@ -971,7 +971,6 @@ onMounted(async () => {
   background: var(--color-bg-surface);
   border-color: var(--color-border-accent);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 
 .recipe-display {
@@ -1093,7 +1092,7 @@ onMounted(async () => {
 .like-btn:hover:not(:disabled) {
   background: rgba(254, 226, 226, 0.9);
   border-color: #ef4444;
-  transform: translateY(-2px) scale(1.05);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
@@ -1140,12 +1139,12 @@ onMounted(async () => {
   background: var(--color-primary-100);
   border-color: var(--color-primary-400);
   color: var(--color-primary-700);
-  transform: translateY(-2px) scale(1.05);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px var(--color-primary-200);
 }
 
 .copy-btn:active {
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
 }
 
 /* 分页 */

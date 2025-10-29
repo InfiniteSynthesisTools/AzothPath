@@ -12,13 +12,14 @@
 
     <!-- 统计信息 -->
     <div class="stats-section">
-      <el-row :gutter="20">
+      <el-row :gutter="20" class="stats-row">
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
           <StatCard 
             type="primary"
             emoji="👥"
             :value="stats.totalUsers"
             label="总用户数"
+            :compact="true"
           />
         </el-col>
         <el-col :xs="24" :sm="8" :md="8" :lg="8">
@@ -27,14 +28,7 @@
             emoji="🏆"
             :value="stats.totalContributions"
             label="总贡献分"
-          />
-        </el-col>
-        <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <StatCard 
-            type="warning"
-            emoji="⭐"
-            :value="stats.avgLevel.toFixed(1)"
-            label="平均等级"
+            :compact="true"
           />
         </el-col>
       </el-row>
@@ -46,12 +40,7 @@
         <template #header>
           <div class="card-header">
             <h3>🏆 排行榜</h3>
-            <div class="card-actions">
-              <el-select v-model="sortBy" placeholder="排序方式" style="width: 150px">
-                <el-option label="贡献分" value="contribute" />
-                <el-option label="等级" value="level" />
-              </el-select>
-            </div>
+            <div class="card-actions"></div>
           </div>
         </template>
         <div class="card-content">
@@ -106,12 +95,7 @@
                   emoji="🧪"
                   :text="`${user.item_count || 0} 物品`"
                 />
-                <Badge 
-                  type="warning" 
-                  size="sm"
-                  emoji="⭐"
-                  :text="`Lv.${user.level}`"
-                />
+                
               </div>
 
               <!-- 操作按钮 -->
@@ -129,17 +113,29 @@
         </div>
         </div>
 
-        <!-- 分页 -->
-        <div class="pagination">
+        <!-- 桌面端分页 -->
+        <div class="pagination" v-if="!isMobile">
           <el-pagination
             v-model:current-page="currentPage"
             v-model:page-size="pageSize"
             :page-sizes="[20, 40, 60]"
             :total="total"
             layout="total, prev, pager, next"
-            @size-change="loadData"
-            @current-change="loadData"
+            @size-change="handlePageSizeChange"
+            @current-change="handlePageChange"
           />
+        </div>
+
+        <!-- 移动端加载更多 -->
+        <div class="mobile-load-more" v-else>
+          <el-button
+            v-if="hasMore"
+            type="primary"
+            size="small"
+            :loading="loading"
+            @click="loadMoreMobile"
+          >加载更多</el-button>
+          <span v-else class="no-more">没有更多了</span>
         </div>
       </el-card>
     </div>
@@ -148,7 +144,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { userApi } from '@/api';
 import StatCard from '@/components/StatCard.vue';
@@ -164,12 +160,12 @@ const contributionRanks = ref<any[]>([]);
 const currentPage = ref(1);
 const pageSize = ref(20);
 const total = ref(0);
-const sortBy = ref('contribute');
+// 排序筛选已移除，按后端默认排序展示
+const isMobile = ref(window.innerWidth <= 768);
 
 const stats = ref({
   totalUsers: 0,
-  totalContributions: 0,
-  avgLevel: 0
+  totalContributions: 0
 });
 
 // 加载排行榜数据
@@ -191,10 +187,6 @@ const loadData = async () => {
         (sum: number, item: any) => sum + (item.contribute || 0), 
         0
       );
-      stats.value.avgLevel = response.users.reduce(
-        (sum: number, item: any) => sum + (item.level || 0), 
-        0
-      ) / response.users.length;
     }
   } catch (error) {
     console.error('加载贡献榜失败:', error);
@@ -232,7 +224,41 @@ const viewProfile = (userId: number) => {
 
 onMounted(() => {
   loadData();
+  window.addEventListener('resize', () => {
+    isMobile.value = window.innerWidth <= 768;
+  });
 });
+
+const hasMore = computed(() => contributionRanks.value.length < total.value);
+
+const loadMoreMobile = async () => {
+  if (loading.value || !hasMore.value) return;
+  loading.value = true;
+  try {
+    currentPage.value += 1;
+    const response = await userApi.getContributionRank({
+      page: currentPage.value,
+      limit: pageSize.value
+    }) as any;
+    const next = response.users || [];
+    contributionRanks.value = contributionRanks.value.concat(next);
+    total.value = response.total || total.value;
+  } catch (e) {
+    console.error('加载更多失败:', e);
+  } finally {
+    loading.value = false;
+  }
+};
+
+const handlePageChange = async () => {
+  await loadData();
+};
+
+const handlePageSizeChange = async (size: number) => {
+  pageSize.value = size;
+  currentPage.value = 1;
+  await loadData();
+};
 </script>
 
 <style scoped>
@@ -281,6 +307,27 @@ onMounted(() => {
 
 .stats-section {
   margin-bottom: 40px;
+}
+
+.stats-row :deep(.el-col) {
+  display: flex;
+}
+.stats-row :deep(.el-col > *) {
+  width: 100%;
+}
+
+.stats-row {
+  align-items: stretch;
+}
+
+/* 统一统计卡片高度，保证两个卡片始终等高（仅在贡献榜页面生效） */
+.contribution-page .stats-section :deep(.stat-card) {
+  min-height: 180px;
+}
+@media (max-width: 768px) {
+  .contribution-page .stats-section :deep(.stat-card) {
+    min-height: 120px;
+  }
 }
 
 .cards-section {
@@ -334,7 +381,8 @@ onMounted(() => {
 
 /* 排行榜项目 */
 .leaderboard-item {
-  display: flex;
+  display: grid;
+  grid-template-columns: 64px minmax(0,1fr) auto auto; /* 排名 | 用户信息 | 统计 | 操作 */
   align-items: center;
   padding: 16px 20px;
   background: var(--glass-bg);
@@ -342,7 +390,7 @@ onMounted(() => {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   cursor: pointer;
-  gap: 20px;
+  gap: 16px 20px;
   transition: all var(--transition-base);
   box-shadow: var(--shadow-sm);
 }
@@ -351,7 +399,6 @@ onMounted(() => {
   background: var(--color-bg-surface);
   border-color: var(--color-border-accent);
   box-shadow: var(--shadow-xl);
-  transform: translateY(-2px);
 }
 
 .leaderboard-item.top-three {
@@ -360,16 +407,13 @@ onMounted(() => {
 }
 
 /* 排名区域 */
-.rank-section {
-  flex-shrink: 0;
-}
+.rank-section { display: flex; justify-content: center; align-items: center; }
 
 /* 用户信息区域 */
 .user-section {
   display: flex;
   align-items: center;
   gap: 12px;
-  flex: 1;
   min-width: 0;
 }
 
@@ -402,6 +446,9 @@ onMounted(() => {
   color: var(--color-text-primary);
   margin: 0 0 2px 0;
   line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .join-date {
@@ -414,10 +461,11 @@ onMounted(() => {
 /* 用户统计数据区域 */
 .user-stats-section {
   display: flex;
-  gap: 12px;
-  flex-shrink: 0;
-  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: nowrap; /* 三个标签同一行 */
 }
+.user-stats-section :deep(.badge) { white-space: nowrap; }
 
 /* 操作区域 */
 .action-section {
@@ -441,6 +489,17 @@ onMounted(() => {
   justify-content: center;
 }
 
+.mobile-load-more {
+  display: flex;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.mobile-load-more .no-more {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+}
+
 /* 响应式设计 */
 @media (max-width: 768px) {
   .page-title {
@@ -456,11 +515,9 @@ onMounted(() => {
     margin-bottom: 20px;
   }
   
-  .leaderboard-item {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 16px;
-  }
+  .leaderboard-item { grid-template-columns: 48px 1fr; }
+  .user-stats-section { grid-column: 1 / -1; justify-content: center; flex-wrap: nowrap; }
+  .action-section { grid-column: 1 / -1; justify-self: center; }
   
   .user-section {
     justify-content: center;
@@ -477,6 +534,13 @@ onMounted(() => {
     height: 44px;
   }
 }
+
+/* 深色主题：排行榜下拉选择器适配 */
+/* 排序筛选已移除 */
+</style>
+
+<style>
+/* 排序筛选已移除，相关暗黑弹层样式不再需要 */
 
 @media (max-width: 480px) {
   .page-title {

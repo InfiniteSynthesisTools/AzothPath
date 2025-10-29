@@ -18,41 +18,31 @@
         </div>
       </div>
 
-      <!-- 统计卡片 -->
-      <el-row :gutter="20" class="stats-row">
-        <el-col :xs="12" :sm="12" :md="6" :lg="6">
-          <StatCard 
-            type="primary"
-            emoji="📊"
-            :value="stats.total"
-            label="总任务数"
-          />
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6" :lg="6">
-          <StatCard 
-            type="success"
-            emoji="🎯"
-            :value="stats.active"
-            label="活跃任务"
-          />
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6" :lg="6">
-          <StatCard 
-            type="info"
-            emoji="✅"
-            :value="stats.completed"
-            label="已完成"
-          />
-        </el-col>
-        <el-col :xs="12" :sm="12" :md="6" :lg="6">
-          <StatCard 
-            type="warning"
-            emoji="💰"
-            :value="stats.total_prize"
-            label="待领奖励"
-          />
-        </el-col>
-      </el-row>
+      <!-- 统计卡片 - 紧凑横向布局 -->
+      <div class="stats-compact-section">
+        <div class="stats-compact-row">
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">📊</span>
+            <span class="stat-compact-label">总任务数</span>
+            <span class="stat-compact-value">{{ stats.total }}</span>
+          </div>
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">🎯</span>
+            <span class="stat-compact-label">活跃任务</span>
+            <span class="stat-compact-value">{{ stats.active }}</span>
+          </div>
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">✅</span>
+            <span class="stat-compact-label">已完成</span>
+            <span class="stat-compact-value">{{ stats.completed }}</span>
+          </div>
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">💰</span>
+            <span class="stat-compact-label">待领奖励</span>
+            <span class="stat-compact-value">{{ stats.total_prize }}</span>
+          </div>
+        </div>
+      </div>
 
       <!-- 任务状态切换 -->
       <div class="status-tabs">
@@ -80,8 +70,8 @@
         <el-row :gutter="20" v-else>
           <el-col 
             :xs="24" 
-            :sm="12" 
-            :md="8" 
+            :sm="24" 
+            :md="12" 
             :lg="8"
             v-for="task in tasks" 
             :key="task.id"
@@ -207,7 +197,6 @@ import { ElMessage, ElMessageBox } from 'element-plus';
 import { taskApi, type Task, type TaskWithDetails, type TaskStats } from '@/api/task';
 import { useUserStore } from '@/stores/user';
 import TaskCard from '@/components/TaskCard.vue';
-import StatCard from '@/components/StatCard.vue';
 import { formatDateTime } from '@/utils/format';
 
 const userStore = useUserStore();
@@ -413,7 +402,58 @@ onMounted(() => {
   justify-content: center;
 }
 
-/* 统计卡片 */
+/* 统计卡片 - 紧凑横向布局 */
+.stats-compact-section {
+  margin-bottom: 20px;
+}
+
+.stats-compact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.stat-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.stat-compact-icon {
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-base);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+}
+
+.stat-compact-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.stat-compact-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* 统计卡片（旧样式，保留兼容） */
 .stats-row {
   margin-bottom: 20px;
 }
@@ -492,6 +532,63 @@ onMounted(() => {
 }
 
 /* 响应式设计 */
+
+/* 平板端 (iPad 尺寸优化) */
+@media (max-width: 1024px) and (min-width: 769px) {
+  .page-container {
+    padding: 16px;
+  }
+  
+  .page-title {
+    font-size: 26px;
+  }
+  
+  .page-subtitle {
+    font-size: 15px;
+  }
+  
+  /* 统计信息优化 */
+  .stats-compact-row {
+    padding: 14px 18px;
+    gap: 14px;
+  }
+  
+  .stat-compact-item {
+    flex: 0 1 auto;
+  }
+  
+  .stat-compact-icon {
+    font-size: 19px;
+    width: 30px;
+    height: 30px;
+  }
+  
+  .stat-compact-label {
+    font-size: 12px;
+  }
+  
+  .stat-compact-value {
+    font-size: 15px;
+  }
+  
+  /* 任务卡片 - iPad 两列布局 */
+  .task-col {
+    margin-bottom: 18px;
+  }
+  
+  /* 分页优化 */
+  .pagination-wrapper {
+    margin-top: 24px;
+  }
+  
+  .pagination-wrapper :deep(.el-pagination) {
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+}
+
+/* 移动端 */
 @media (max-width: 768px) {
   .page-container {
     padding: 12px;
@@ -513,6 +610,31 @@ onMounted(() => {
   .header-actions {
     flex-direction: column;
     gap: 8px;
+  }
+  
+  /* 紧凑型统计行移动端优化 */
+  .stats-compact-row {
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  
+  .stat-compact-item {
+    flex: 1 1 calc(50% - 6px);
+    min-width: calc(50% - 6px);
+  }
+  
+  .stat-compact-icon {
+    font-size: 18px;
+    width: 28px;
+    height: 28px;
+  }
+  
+  .stat-compact-label {
+    font-size: 12px;
+  }
+  
+  .stat-compact-value {
+    font-size: 14px;
   }
   
   .stats-row {

@@ -793,11 +793,29 @@ body {
 
 /* 卡片悬停放大效果 - 已移除动画 */
 .card-scale {
-  transition: box-shadow var(--transition-base);
+  transition: box-shadow var(--transition-base), border-color var(--transition-base);
 }
 
 .card-scale:hover {
-  box-shadow: var(--shadow-lg);
+  box-shadow: var(--shadow-xl);
+  border-color: var(--color-border-accent);
+}
+
+/* 统一卡片基础样式 - 禁止缩放和位移 */
+.glass-card:hover,
+.feature-card:hover,
+.leaderboard-card:hover,
+.element-card:hover,
+.stat-card-container:hover {
+  transform: none !important; /* 禁止任何transform变换 */
+  box-shadow: var(--shadow-xl);
+  border-color: var(--color-border-accent);
+}
+
+/* 统一按钮悬停效果 - 保留轻微位移 */
+.el-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
 }
 
 /* 文字渐变效果 */
@@ -966,4 +984,219 @@ body {
     padding: 16px;
     border-radius: var(--radius-lg);
   }
+}
+
+/* ========== Phase 3: 统一按钮样式（全局规范） ========== */
+/* 
+  按钮高度标准：
+  - 桌面端: 44px
+  - 移动端: 40px
+  - 圆角: var(--radius-lg) = 16px
+  - 悬停: translateY(-1px)
+*/
+
+/* Element Plus 按钮全局样式覆盖 */
+.el-button {
+  height: 44px;
+  border-radius: var(--radius-lg);
+  font-weight: 500;
+  transition: all var(--transition-base);
+}
+
+.el-button:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.el-button:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.el-button--primary {
+  background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+  border: none;
+  box-shadow: var(--shadow-md);
+}
+
+.el-button--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 移动端按钮高度调整 */
+@media (max-width: 768px) {
+  .el-button {
+    height: 40px;
+  }
+}
+
+/* 涟漪效果类（可选应用） */
+.ripple-effect {
+  position: relative;
+  overflow: hidden;
+}
+
+.ripple-effect::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.ripple-effect:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+/* ========== Phase 4 & 5: 统一间距系统和响应式断点 ========== */
+
+/* 页面容器间距 */
+.page-container {
+  padding: 32px 24px; /* 桌面端 */
+}
+
+/* 卡片内边距 */
+.el-card__body {
+  padding: 20px; /* 桌面端 */
+}
+
+/* 组件间距（使用 gap） */
+.el-row {
+  gap: 20px; /* 桌面端 */
+}
+
+/* 标准断点：平板端 (768px - 1024px) */
+@media (max-width: 1024px) {
+  .page-container {
+    padding: 24px 20px;
+  }
+}
+
+/* 标准断点：移动端 (<768px) */
+@media (max-width: 768px) {
+  .page-container {
+    padding: 20px 12px; /* 收窄留白 */
+  }
+  
+  .el-card__body {
+    padding: 16px; /* 移动端减小内边距 */
+  }
+  
+  .el-row {
+    gap: 12px; /* 移动端减小间距 */
+  }
+}
+
+/* 标准断点：小屏手机 (<414px) */
+@media (max-width: 414px) {
+  .page-container {
+    padding: 16px 8px;
+  }
+}
+
+/* 标准断点：超小屏手机 (<375px) */
+@media (max-width: 375px) {
+  .page-container {
+    padding: 12px 8px;
+  }
+}
+
+/* ========== Phase 6: 优化微交互（加载、空状态、提示） ========== */
+
+/* 统一加载状态 */
+.loading-container {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 40px 20px;
+  color: var(--color-text-secondary);
+}
+
+.loading-container .el-loading-spinner {
+  color: var(--color-primary-500);
+}
+
+/* 统一空状态 */
+.empty-state {
+  text-align: center;
+  padding: 60px 20px;
+  color: var(--color-text-secondary);
+}
+
+.empty-state .el-empty__description {
+  color: var(--color-text-secondary);
+  font-size: 14px;
+  margin-top: 12px;
+}
+
+.empty-state .el-empty__image {
+  width: 120px;
+  height: 120px;
+}
+
+/* 统一消息提示样式（覆盖 Element Plus） */
+.el-message {
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-xl);
+  padding: 16px 20px;
+  font-size: 14px;
+}
+
+.el-message--success {
+  background: linear-gradient(135deg, var(--color-success-50) 0%, var(--color-success-100) 100%);
+  border-color: var(--color-success-300);
+  color: var(--color-success-700);
+}
+
+.el-message--warning {
+  background: linear-gradient(135deg, var(--color-warning-50) 0%, var(--color-warning-100) 100%);
+  border-color: var(--color-warning-300);
+  color: var(--color-warning-700);
+}
+
+.el-message--error {
+  background: linear-gradient(135deg, var(--color-error-50) 0%, var(--color-error-100) 100%);
+  border-color: var(--color-error-300);
+  color: var(--color-error-700);
+}
+
+.el-message--info {
+  background: linear-gradient(135deg, var(--color-info-50) 0%, var(--color-info-100) 100%);
+  border-color: var(--color-info-300);
+  color: var(--color-info-700);
+}
+
+/* 统一通知样式 */
+.el-notification {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+  border: 1px solid var(--color-border-primary);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+}
+
+/* 统一确认对话框样式 */
+.el-message-box {
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-2xl);
+  border: 1px solid var(--color-border-primary);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+}
+
+.el-message-box__title {
+  color: var(--color-text-primary);
+  font-weight: 600;
+  font-size: 18px;
+}
+
+.el-message-box__message {
+  color: var(--color-text-secondary);
+  font-size: 14px;
 }

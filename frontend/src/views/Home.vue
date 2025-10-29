@@ -10,34 +10,25 @@
         <p class="page-subtitle">无尽合成工具站</p>
       </div>
 
-    <!-- 统计信息 -->
-    <div class="stats-section">
-      <el-row :gutter="20">
-        <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <StatCard 
-            type="primary"
-            emoji="📋"
-            :value="stats.total_recipes"
-            label="配方总数"
-          />
-        </el-col>
-        <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <StatCard 
-            type="success"
-            emoji="🧪"
-            :value="stats.total_items"
-            label="物品总数"
-          />
-        </el-col>
-        <el-col :xs="24" :sm="8" :md="8" :lg="8">
-          <StatCard 
-            type="info"
-            emoji="✅"
-            :value="stats.reachable_items"
-            label="可合成物品"
-          />
-        </el-col>
-      </el-row>
+    <!-- 统计信息 - 紧凑横向布局 -->
+    <div class="stats-compact-section">
+      <div class="stats-compact-row">
+        <div class="stat-compact-item">
+          <span class="stat-compact-icon">📋</span>
+          <span class="stat-compact-label">配方总数</span>
+          <span class="stat-compact-value">{{ stats.total_recipes }}</span>
+        </div>
+        <div class="stat-compact-item">
+          <span class="stat-compact-icon">🧪</span>
+          <span class="stat-compact-label">物品总数</span>
+          <span class="stat-compact-value">{{ stats.total_items }}</span>
+        </div>
+        <div class="stat-compact-item">
+          <span class="stat-compact-icon">✅</span>
+          <span class="stat-compact-label">可合成物品</span>
+          <span class="stat-compact-value">{{ stats.reachable_items }}</span>
+        </div>
+      </div>
     </div>
 
     <!-- 四个卡片区域 -->
@@ -64,7 +55,7 @@
         </el-col>
 
         <!-- 最新配方 -->
-        <el-col :xs="24" :sm="12" :md="12" :lg="12">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
           <el-card class="feature-card" shadow="hover">
             <template #header>
               <div class="card-header">
@@ -111,19 +102,24 @@
               </div>
 
             </div>
-            <!-- 自动加载观察元素 -->
-            <div class="auto-load-observer" v-if="latestHasMore">
-              <div class="load-indicator" v-if="latestLoadingMore">
-                <el-icon class="loading-icon"><Loading /></el-icon>
-                <span>正在加载更多配方...</span>
+            <!-- 加载更多（桌面：自动；移动：按钮） -->
+            <div v-if="latestHasMore">
+              <div v-if="!isMobile" class="auto-load-observer">
+                <div class="load-indicator" v-if="latestLoadingMore">
+                  <el-icon class="loading-icon"><Loading /></el-icon>
+                  <span>正在加载更多配方...</span>
+                </div>
+                <div ref="latestObserverTarget" class="observer-target"></div>
               </div>
-              <div ref="latestObserverTarget" class="observer-target"></div>
+              <div v-else class="load-more-mobile">
+                <el-button type="primary" size="small" @click="loadMoreLatestMobile" :loading="latestLoadingMore">加载更多</el-button>
+              </div>
             </div>
           </el-card>
         </el-col>
 
         <!-- 最热配方 -->
-        <el-col :xs="24" :sm="12" :md="12" :lg="12">
+        <el-col :xs="24" :sm="24" :md="12" :lg="12">
           <el-card class="feature-card" shadow="hover">
             <template #header>
               <div class="card-header">
@@ -163,13 +159,18 @@
               </div>
 
             </div>
-            <!-- 自动加载观察元素 -->
-            <div class="auto-load-observer" v-if="popularHasMore">
-              <div class="load-indicator" v-if="popularLoadingMore">
-                <el-icon class="loading-icon"><Loading /></el-icon>
-                <span>正在加载更多配方...</span>
+            <!-- 加载更多（桌面：自动；移动：按钮） -->
+            <div v-if="popularHasMore">
+              <div v-if="!isMobile" class="auto-load-observer">
+                <div class="load-indicator" v-if="popularLoadingMore">
+                  <el-icon class="loading-icon"><Loading /></el-icon>
+                  <span>正在加载更多配方...</span>
+                </div>
+                <div ref="popularObserverTarget" class="observer-target"></div>
               </div>
-              <div ref="popularObserverTarget" class="observer-target"></div>
+              <div v-else class="load-more-mobile">
+                <el-button type="primary" size="small" @click="loadMorePopularMobile" :loading="popularLoadingMore">加载更多</el-button>
+              </div>
             </div>
           </el-card>
         </el-col>
@@ -185,7 +186,6 @@ import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { StarFilled, Loading } from '@element-plus/icons-vue';
 import CopyIcon from '@/components/icons/CopyIcon.vue';
-import StatCard from '@/components/StatCard.vue';
 import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
 import { formatDateTime } from '@/utils/format';
@@ -248,6 +248,12 @@ let popularObserver: IntersectionObserver | null = null;
 // 防抖变量
 let latestLoadDebounce: NodeJS.Timeout | null = null;
 let popularLoadDebounce: NodeJS.Timeout | null = null;
+
+// 移动端检测：移动端停用自动加载，改为按钮
+const isMobile = ref<boolean>(window.innerWidth <= 768);
+const handleResize = () => {
+  isMobile.value = window.innerWidth <= 768;
+};
 
 // 点赞交互（调用后端 POST /api/recipes/:id/like）
 const togglingIds = new Set<number>();
@@ -395,6 +401,21 @@ const autoLoadMorePopular = async () => {
   await loadPopularRecipes(popularPage.value + 1, true);
 };
 
+// 移动端按钮触发
+const loadMoreLatestMobile = async () => {
+  if (latestLoadingMore.value || !latestHasMore.value) return;
+  latestLoadingMore.value = true;
+  await loadLatestRecipes(latestPage.value + 1, true);
+  latestLoadingMore.value = false;
+};
+
+const loadMorePopularMobile = async () => {
+  if (popularLoadingMore.value || !popularHasMore.value) return;
+  popularLoadingMore.value = true;
+  await loadPopularRecipes(popularPage.value + 1, true);
+  popularLoadingMore.value = false;
+};
+
 // 跳转到元素详情页面
 const goToElement = async (elementName: string) => {
   try {
@@ -458,7 +479,7 @@ const initObservers = () => {
   if (popularObserver) popularObserver.disconnect();
 
   // 创建最新配方观察器
-  if (latestObserverTarget.value) {
+  if (!isMobile.value && latestObserverTarget.value) {
     latestObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting && latestHasMore.value && !latestLoadingMore.value) {
@@ -478,7 +499,7 @@ const initObservers = () => {
   }
 
   // 创建最热配方观察器
-  if (popularObserverTarget.value) {
+  if (!isMobile.value && popularObserverTarget.value) {
     popularObserver = new IntersectionObserver((entries) => {
       entries.forEach(entry => {
         if (entry.isIntersecting && popularHasMore.value && !popularLoadingMore.value) {
@@ -521,10 +542,13 @@ onMounted(() => {
   setTimeout(() => {
     initObservers();
   }, 100);
+
+  window.addEventListener('resize', handleResize);
 });
 
 onUnmounted(() => {
   cleanupObservers();
+  window.removeEventListener('resize', handleResize);
 });
 </script>
 
@@ -579,9 +603,71 @@ onUnmounted(() => {
   line-height: 1.6;
 }
 
+/* 统计信息 - 紧凑横向布局 */
+.stats-compact-section {
+  margin-bottom: 40px;
+}
 
+.stats-compact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-md);
+  justify-content: center;
+}
+
+.stat-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.stat-compact-icon {
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-base);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+}
+
+.stat-compact-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.stat-compact-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* 统计卡片（旧样式，保留兼容） */
 .stats-section {
   margin-bottom: 40px;
+}
+
+/* 统计卡片内容居中显示（桌面端和所有设备） */
+.stats-section :deep(.stat-card .stat-content) {
+  flex-direction: column;
+  align-items: center;
+}
+
+.stats-section :deep(.stat-card .stat-info) {
+  text-align: center;
 }
 
 .cards-section {
@@ -747,7 +833,6 @@ onUnmounted(() => {
   background: var(--color-bg-surface);
   border-color: var(--color-border-accent);
   box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
 }
 
 .recipe-left {
@@ -891,7 +976,7 @@ onUnmounted(() => {
 .like-btn:hover:not(:disabled) {
   background: rgba(254, 226, 226, 0.9);
   border-color: #ef4444;
-  transform: translateY(-2px) scale(1.05);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px rgba(239, 68, 68, 0.2);
 }
 
@@ -938,18 +1023,18 @@ onUnmounted(() => {
   background: var(--color-primary-100);
   border-color: var(--color-primary-400);
   color: var(--color-primary-700);
-  transform: translateY(-2px) scale(1.05);
+  transform: translateY(-1px);
   box-shadow: 0 4px 12px var(--color-primary-200);
 }
 
 .copy-btn:active {
-  transform: translateY(0) scale(1);
+  transform: translateY(0);
 }
 
 /* ========== 响应式设计 ========== */
 
-/* 平板端 */
-@media (max-width: 1024px) {
+/* 平板端 (iPad 尺寸优化) */
+@media (max-width: 1024px) and (min-width: 769px) {
   .hero-section {
     padding: 40px 20px;
   }
@@ -964,17 +1049,62 @@ onUnmounted(() => {
     margin: 30px auto;
   }
 
+  /* iPad 尺寸下的配方卡片优化 */
   .feature-card {
-    height: 350px;
+    min-height: 400px;
+    height: auto !important;
+    margin-bottom: 20px;
   }
 
   .card-content {
-    height: 270px;
+    min-height: 320px;
+    max-height: 450px;
+    height: auto !important;
+    overflow-y: auto;
+  }
+  
+  /* 配方项优化 - 确保在窄宽度下也能正常显示 */
+  .recipe-item {
+    padding: 12px;
+    gap: 8px;
+  }
+  
+  .recipe-display {
+    font-size: 13px;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  
+  .recipe-display .material,
+  .recipe-display .result {
+    font-size: 13px;
+    padding: 6px 10px;
+  }
+  
+  .recipe-display .emoji {
+    font-size: 16px;
+  }
+  
+  .recipe-actions {
+    gap: 6px;
+  }
+  
+  .like-btn,
+  .copy-btn {
+    font-size: 12px;
+    padding: 6px 10px;
+  }
+  
+  .time {
+    font-size: 11px;
   }
 }
 
 /* 移动端 */
 @media (max-width: 768px) {
+  .page-container {
+    padding: 20px 12px; /* 收窄两侧留白，增配方可用宽度 */
+  }
   .page-title {
     font-size: 24px;
   }
@@ -988,17 +1118,61 @@ onUnmounted(() => {
     margin-bottom: 20px;
   }
 
+  /* 紧凑型统计行移动端优化 */
+  .stats-compact-row {
+    gap: 12px;
+    padding: 12px 16px;
+    justify-content: space-around;
+  }
+  
+  .stat-compact-item {
+    flex: 0 1 auto;
+    min-width: 0;
+  }
+  
+  .stat-compact-icon {
+    font-size: 18px;
+    width: 28px;
+    height: 28px;
+  }
+  
+  .stat-compact-label {
+    font-size: 11px;
+  }
+  
+  .stat-compact-value {
+    font-size: 14px;
+  }
+
   .stats-section,
   .cards-section {
     padding: 0 12px;
     margin: 16px auto;
   }
 
-  /* 统计卡片单列显示 */
-  .stats-section :deep(.el-col) {
-    width: 100%;
-    margin-bottom: 12px;
+  /* 统计卡片在移动端仍并排显示三列 */
+  .stats-section :deep(.el-row) {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
   }
+  .stats-section :deep(.el-col) {
+    width: 33.333%!important;
+    flex: 0 0 33.333%!important;
+    max-width: 33.333%!important;
+  }
+  /* 压缩统计卡片高度，保持内容居中 */
+  .stats-section :deep(.stat-card .stat-content) { 
+    padding: 10px; 
+    gap: 8px; 
+    flex-direction: column;
+    align-items: center;
+  }
+  .stats-section :deep(.stat-card .stat-icon) { width: 32px; height: 32px; font-size: 16px; }
+  .stats-section :deep(.stat-card .stat-value) { font-size: 18px; white-space: nowrap; }
+  .stats-section :deep(.stat-card .stat-label) { font-size: 12px; white-space: nowrap; }
+  .stats-section :deep(.stat-card) { min-width: 0; }
+  .stats-section :deep(.stat-card .stat-info) { min-width: 0; text-align: center; }
 
   /* 探索元素卡片 - 移动端垂直布局 */
   .explore-card :deep(.el-card__body) {
@@ -1051,10 +1225,12 @@ onUnmounted(() => {
   .recipe-display {
     flex: 1 1 0;
     min-width: 0;
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    flex-wrap: nowrap;
-    gap: 3px;
+    flex-wrap: nowrap;           /* 不换行，保持一行展示 */
+    gap: 3px 6px;
+    white-space: nowrap;
+    overflow-x: hidden;          /* 不出现横向滚动条 */
   }
 
   .recipe-actions {
@@ -1068,10 +1244,10 @@ onUnmounted(() => {
     flex: 0 1 auto;
     font-size: 11px;
     padding: 2px 6px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    max-width: 80px;
+    white-space: nowrap;         /* 标签内不换行 */
+    overflow: hidden;            /* 超出裁切 */
+    text-overflow: ellipsis;     /* 使用省略号 */
+    max-width: 110px;            /* 移动端更“宽一点”的标签 */
   }
 
   .plus,
@@ -1086,10 +1262,10 @@ onUnmounted(() => {
   }
 
   .like-btn {
-    min-width: 36px;
-    height: 26px;
-    font-size: 11px;
-    padding: 2px 6px;
+    min-width: 44px;             /* 确保数字可见 */
+    height: 28px;
+    font-size: 12px;
+    padding: 3px 8px;
   }
 
   .copy-btn {
@@ -1107,6 +1283,9 @@ onUnmounted(() => {
 
 /* 小屏手机 */
 @media (max-width: 414px) {
+  .page-container {
+    padding: 16px 10px; /* 更进一步释放宽度 */
+  }
   .page-title {
     font-size: 20px;
   }
@@ -1150,7 +1329,10 @@ onUnmounted(() => {
   }
 
   .recipe-display {
-    gap: 2px;
+    gap: 2px 4px;
+    overflow-x: hidden;
+    white-space: nowrap;
+    flex-wrap: nowrap;
   }
 
   .recipe-actions {
@@ -1161,14 +1343,16 @@ onUnmounted(() => {
   .result {
     font-size: 10px;
     padding: 2px 4px;
-    max-width: 70px;
+    max-width: 96px;            /* 小屏标签宽度 */
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .like-btn {
-    min-width: 34px;
-    height: 24px;
-    font-size: 10px;
-    padding: 1px 4px;
+    min-width: 44px;            /* 保证“❤ 1”不被挤掉 */
+    height: 26px;
+    font-size: 11px;
+    padding: 2px 6px;
   }
 
   .copy-btn {
@@ -1212,6 +1396,11 @@ onUnmounted(() => {
   padding: 12px 0;
 }
 
+.load-more-mobile {
+  padding: 12px 0;
+  text-align: center;
+}
+
 .loading-icon {
   animation: spin 1s linear infinite;
   color: var(--color-primary-500);
@@ -1230,6 +1419,9 @@ onUnmounted(() => {
 
 /* 超小屏手机 */
 @media (max-width: 375px) {
+  .page-container {
+    padding: 14px 8px;
+  }
   .page-title {
     font-size: 18px;
   }
@@ -1273,7 +1465,10 @@ onUnmounted(() => {
   }
 
   .recipe-display {
-    gap: 1px;
+    gap: 1px 3px;
+    overflow-x: hidden;
+    white-space: nowrap;
+    flex-wrap: nowrap;
   }
 
   .recipe-actions {
@@ -1284,14 +1479,16 @@ onUnmounted(() => {
   .result {
     font-size: 9px;
     padding: 1px 3px;
-    max-width: 60px;
+    max-width: 88px;            /* 超小屏仍尽量“宽一点” */
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .like-btn {
-    min-width: 32px;
-    height: 22px;
-    font-size: 9px;
-    padding: 1px 3px;
+    min-width: 40px;            /* 适配更窄屏幕，仍显示数字 */
+    height: 24px;
+    font-size: 10px;
+    padding: 1px 4px;
   }
 
   .copy-btn {

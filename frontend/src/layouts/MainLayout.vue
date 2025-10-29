@@ -359,6 +359,43 @@ const handleLogout = () => {
   background: var(--color-primary-900);
 }
 
+/* 修复暗黑模式下菜单栏仍有白色背景的区域 */
+:deep(.nav-menu.el-menu--horizontal) {
+  background-color: transparent !important;
+}
+
+[data-theme="dark"] .header,
+[data-theme="dark"] .header-content {
+  background: var(--color-bg-surface) !important;
+}
+
+/* 移动端抽屉在暗黑模式的背景修复 */
+/* 抽屉暗黑与亮色统一：强制背景为主题表面色，避免白块 */
+:deep(.mobile-menu-drawer .el-drawer),
+:deep(.mobile-menu-drawer .el-drawer__header),
+:deep(.mobile-menu-drawer .el-drawer__body),
+:deep(.mobile-menu-drawer .el-menu),
+:deep(.mobile-menu-drawer .el-menu-item) {
+  background: var(--color-bg-surface) !important;
+}
+
+/* 抽屉外层容器统一背景与边框 */
+:deep(.el-drawer),
+:deep(.el-drawer__header),
+:deep(.el-drawer__body) {
+  background: var(--color-bg-surface) !important;
+  border-color: var(--color-border-primary) !important;
+}
+
+/* 抽屉标题与关闭按钮颜色 */
+:deep(.mobile-menu-drawer .el-drawer__header) {
+  border-bottom: 1px solid var(--color-border-primary);
+}
+:deep(.mobile-menu-drawer .el-drawer__close-btn) {
+  color: var(--color-text-primary) !important;
+}
+.mobile-menu-header { background: transparent; }
+
 .user-actions {
   display: flex;
   gap: 10px;
@@ -481,6 +518,14 @@ const handleLogout = () => {
   
   .nav-menu {
     display: none;
+  }
+  /* 在平板尺寸也显示移动端菜单按钮，避免导航入口消失 */
+  .mobile-menu-btn {
+    display: block;
+  }
+  /* 隐藏桌面专用元素（如有） */
+  .desktop-only {
+    display: none !important;
   }
   
   .main-content.with-sidebar {

@@ -72,74 +72,46 @@
 
       <!-- 元素统计信息 -->
       <div class="element-stats-section">
-        <el-row :gutter="20">
-          <el-col :xs="12" :sm="6">
-            <div class="stat-card">
-              <div class="stat-icon">📊</div>
-              <div class="stat-content">
-                <div class="stat-value">{{ element.recipe_count || 0 }}</div>
-                <div class="stat-label">配方数量</div>
-              </div>
-            </div>
-          </el-col>
-          <el-col :xs="12" :sm="6">
-            <div class="stat-card">
-              <div class="stat-icon">🔥</div>
-              <div class="stat-content">
-                <div class="stat-value">{{ element.usage_count || 0 }}</div>
-                <div class="stat-label">使用频率</div>
-              </div>
-            </div>
-          </el-col>
-          <el-col :xs="12" :sm="6">
-            <div class="stat-card">
-              <div class="stat-icon">{{ truncateEmoji(element.discoverer_emoji) || '👤' }}</div>
-              <div class="stat-content">
-                <div class="stat-value">{{ element.discoverer_name || '-' }}</div>
-                <div class="stat-label">发现者</div>
-              </div>
-            </div>
-          </el-col>
-          <!-- 可达性统计卡片 -->
-          <el-col :xs="12" :sm="6">
-            <div class="stat-card">
-              <div class="stat-icon">🔗</div>
-              <div class="stat-content">
-                <div v-if="reachabilityLoading" class="stat-value">
-                  <el-icon class="is-loading"><Loading /></el-icon>
-                  加载中...
-                </div>
-                <div v-else class="stat-value">{{ reachabilityStats.reachable ? '可及' : '不可及' }}</div>
-                <div class="stat-label">可达性</div>
-              </div>
-            </div>
-          </el-col>
-        </el-row>
+        <!-- 基础统计（横向紧凑排列） -->
+        <div class="stats-compact-row">
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">📊</span>
+            <span class="stat-compact-label">配方数量</span>
+            <span class="stat-compact-value">{{ element.recipe_count || 0 }}</span>
+          </div>
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">🔥</span>
+            <span class="stat-compact-label">使用频率</span>
+            <span class="stat-compact-value">{{ element.usage_count || 0 }}</span>
+          </div>
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">{{ truncateEmoji(element.discoverer_emoji) || '👤' }}</span>
+            <span class="stat-compact-label">发现者</span>
+            <span class="stat-compact-value">{{ element.discoverer_name || '-' }}</span>
+          </div>
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">🔗</span>
+            <span class="stat-compact-label">可达性</span>
+            <span class="stat-compact-value" v-if="reachabilityLoading">
+              <el-icon class="is-loading" style="font-size: 14px;"><Loading /></el-icon>
+            </span>
+            <span class="stat-compact-value" v-else>{{ reachabilityStats.reachable ? '可及' : '不可及' }}</span>
+          </div>
+        </div>
         
-        <!-- 可达性详细统计（仅在可及时显示） -->
-        <el-row :gutter="20" v-if="reachabilityStats.reachable && !reachabilityLoading" style="margin-top: 20px;">
-          <el-col :xs="12" :sm="4">
-            <div class="stat-card">
-              <div class="stat-icon">📏</div>
-              <div class="stat-content">
-                <div class="stat-value">{{ reachabilityStats.depth || 0 }}</div>
-                <div class="stat-label">深度</div>
-              </div>
-            </div>
-          </el-col>
-          <el-col :xs="12" :sm="4">
-            <div class="stat-card">
-              <div class="stat-icon">📐</div>
-              <div class="stat-content">
-                <div class="stat-value">{{ reachabilityStats.width || 0 }}</div>
-                <div class="stat-label">宽度</div>
-              </div>
-            </div>
-          </el-col>
-          <el-col :xs="12" :sm="4">
-
-          </el-col>
-        </el-row>
+        <!-- 可达性详细统计（仅在可及时显示，也采用紧凑横向排列） -->
+        <div class="stats-compact-row" v-if="reachabilityStats.reachable && !reachabilityLoading" style="margin-top: 12px;">
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">📏</span>
+            <span class="stat-compact-label">深度</span>
+            <span class="stat-compact-value">{{ reachabilityStats.depth || 0 }}</span>
+          </div>
+          <div class="stat-compact-item">
+            <span class="stat-compact-icon">📐</span>
+            <span class="stat-compact-label">宽度</span>
+            <span class="stat-compact-value">{{ reachabilityStats.width || 0 }}</span>
+          </div>
+        </div>
       </div>
 
       <!-- 冰柱图可视化板块 -->
@@ -189,9 +161,18 @@
             class="recipe-card"
           >
             <div class="recipe-header">
-              <div class="recipe-left">
+              <!-- 配方类型标签 -->
+              <div class="recipe-type-wrapper">
+                <el-tag 
+                  size="small" 
+                  :type="isSelfCraftRecipe(recipe) ? 'warning' : 'success'"
+                >
+                  {{ isSelfCraftRecipe(recipe) ? '自合成配方' : '合成配方' }}
+                </el-tag>
               </div>
-              <div class="recipe-formula">
+              
+              <!-- 配方公式区域 -->
+              <div class="recipe-formula-wrapper">
                 <div class="ingredient-cards">
                   <div class="ingredient-card" @click="goToElementDetail(recipe.item_a)">
                     <span class="ingredient-emoji">{{ truncateEmoji(recipe.item_a_emoji) }}</span>
@@ -207,6 +188,10 @@
                     <span class="result-emoji">{{ truncateEmoji(element.emoji) }}</span>
                     <span class="result-name">{{ element.name }}</span>
                   </div>
+                </div>
+                
+                <!-- 操作按钮组 -->
+                <div class="recipe-actions">
                   <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="toggling[recipe.id] === true">
                     <span class="heart">❤</span> {{ recipe.likes || 0 }}
                   </button>
@@ -218,12 +203,6 @@
                   </button>
                 </div>
               </div>
-              <el-tag 
-                size="small" 
-                :type="isSelfCraftRecipe(recipe) ? 'warning' : 'success'"
-              >
-                {{ isSelfCraftRecipe(recipe) ? '自合成配方' : '合成配方' }}
-              </el-tag>
             </div>
             
             <div class="recipe-footer">
@@ -269,7 +248,18 @@
             class="recipe-card"
           >
             <div class="recipe-header">
-              <div class="recipe-formula">
+              <!-- 配方类型标签 -->
+              <div class="recipe-type-wrapper">
+                <el-tag 
+                  size="small" 
+                  type="info"
+                >
+                  材料配方
+                </el-tag>
+              </div>
+              
+              <!-- 配方公式区域 -->
+              <div class="recipe-formula-wrapper">
                 <div class="ingredient-cards">
                   <div class="ingredient-card" @click="goToElementDetail(recipe.item_a)">
                     <span class="ingredient-emoji">{{ truncateEmoji(recipe.item_a_emoji) }}</span>
@@ -285,6 +275,10 @@
                     <span class="result-emoji">{{ truncateEmoji(recipe.result_emoji) }}</span>
                     <span class="result-name">{{ recipe.result }}</span>
                   </div>
+                </div>
+                
+                <!-- 操作按钮组 -->
+                <div class="recipe-actions">
                   <button class="like-btn" :class="{ liked: recipe.is_liked }" @click.stop="toggleLikeRecipe(recipe)" :disabled="toggling[recipe.id] === true">
                     <span class="heart">❤</span> {{ recipe.likes || 0 }}
                   </button>
@@ -900,7 +894,6 @@ onMounted(() => {
   margin: 0 auto;
   padding: 24px;
   min-height: calc(100vh - 60px);
-  background: linear-gradient(135deg, var(--color-bg-secondary) 0%, var(--color-bg-tertiary) 100%);
 }
 
 .back-section {
@@ -915,8 +908,9 @@ onMounted(() => {
 
 .back-button {
   font-size: 14px;
-  color: #409eff;
+  color: var(--color-primary-500);
   align-self: flex-start;
+  font-weight: 500;
 }
 
 .nav-history {
@@ -962,7 +956,7 @@ onMounted(() => {
 }
 
 .history-tag:hover {
-  transform: translateY(-2px);
+  transform: scale(1.05);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 }
 
@@ -971,7 +965,7 @@ onMounted(() => {
 }
 
 .element-content {
-  background: var(--color-bg-surface);
+  background: var(--color-bg-primary);
   border-radius: var(--radius-xl);
   padding: 32px;
   box-shadow: var(--shadow-lg);
@@ -981,10 +975,10 @@ onMounted(() => {
 .element-header {
   display: flex;
   align-items: center;
-  gap: 20px;
+  gap: 24px;
   margin-bottom: 32px;
   padding-bottom: 24px;
-  border-bottom: 1px solid #f0f0f0;
+  border-bottom: 2px solid var(--color-border-primary);
 }
 
 .element-emoji {
@@ -1033,6 +1027,65 @@ onMounted(() => {
   margin-bottom: 40px;
 }
 
+/* 紧凑型统计行样式 */
+.stats-compact-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-lg);
+  padding: 16px 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.stat-compact-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+
+.stat-compact-icon {
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-primary);
+  border-radius: var(--radius-base);
+  flex-shrink: 0;
+  box-shadow: var(--shadow-xs);
+}
+
+.stat-compact-label {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.stat-compact-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--color-text-primary);
+  white-space: nowrap;
+}
+
+/* 保留旧的卡片样式用于兼容 */
+.element-stats-section .el-row {
+  margin-left: -10px;
+  margin-right: -10px;
+}
+
+.element-stats-section .el-col {
+  padding-left: 10px;
+  padding-right: 10px;
+  margin-bottom: 20px;
+}
+
 .stat-card {
   background: var(--glass-bg);
   backdrop-filter: var(--glass-blur);
@@ -1043,6 +1096,7 @@ onMounted(() => {
   align-items: center;
   gap: 16px;
   height: 100%;
+  min-height: 90px;
   transition: all var(--transition-base);
   box-shadow: var(--shadow-md);
 }
@@ -1085,11 +1139,12 @@ onMounted(() => {
 /* 冰柱图可视化板块样式 */
 .icicle-chart-section {
   margin-top: 40px;
-  background: var(--color-bg-surface);
-  border-radius: var(--radius-lg);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-xl);
   padding: 24px;
-  box-shadow: var(--shadow-sm);
-  border: 1px solid var(--color-border-primary);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--glass-border);
 }
 
 .icicle-chart-container {
@@ -1176,12 +1231,18 @@ onMounted(() => {
 .recipes-section,
 .material-recipes-section {
   margin-top: 40px;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  border-radius: var(--radius-xl);
+  padding: 24px;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--glass-border);
 }
 
 .section-header {
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid var(--color-border-primary);
+  border-bottom: 2px solid var(--color-border-primary);
 }
 
 .section-title {
@@ -1220,10 +1281,19 @@ onMounted(() => {
 
 .recipe-header {
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  margin-bottom: 16px;
-  gap: 16px;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.recipe-type-wrapper {
+  display: flex;
+  align-items: center;
+}
+
+.recipe-formula-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .recipe-left {
@@ -1241,6 +1311,13 @@ onMounted(() => {
 }
 
 .ingredient-cards {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.recipe-actions {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1449,13 +1526,28 @@ onMounted(() => {
   border: 1px solid var(--color-border-primary);
 }
 
-/* 分页组件移动端优化 */
+/* 分页组件优化 - 确保所有元素在一行 */
 .pagination-section :deep(.el-pagination) {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   justify-content: center;
   align-items: center;
   gap: 8px;
+}
+
+.pagination-section :deep(.el-pagination__total),
+.pagination-section :deep(.el-pagination__sizes),
+.pagination-section :deep(.el-pager),
+.pagination-section :deep(.btn-prev),
+.pagination-section :deep(.btn-next),
+.pagination-section :deep(.el-pagination__jump) {
+  margin: 0;
+}
+
+.pagination-section :deep(.el-pager) {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .pagination-section :deep(.el-pagination__total) {
@@ -1751,27 +1843,25 @@ onMounted(() => {
   }
   
   .recipe-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 10px;
   }
   
-  .recipe-left {
+  .recipe-type-wrapper {
     width: 100%;
-    justify-content: space-between;
   }
   
-  .recipe-formula {
-    width: 100%;
-    margin-right: 0;
-    margin-bottom: 8px;
+  .recipe-formula-wrapper {
+    gap: 10px;
   }
   
   .ingredient-cards {
-    gap: 8px;
-    flex-wrap: wrap;
-    justify-content: center;
+    gap: 6px;
+    justify-content: flex-start;
+  }
+  
+  .recipe-actions {
+    gap: 6px;
+    justify-content: flex-start;
   }
   
   .ingredient-card,
@@ -1881,16 +1971,41 @@ onMounted(() => {
     padding: 3px 5px;
     height: 26px;
   }
+  
+  /* 紧凑型统计行移动端优化 */
+  .stats-compact-row {
+    gap: 12px;
+    padding: 12px 16px;
+  }
+  
+  .stat-compact-item {
+    flex: 1 1 calc(50% - 6px);
+    min-width: calc(50% - 6px);
+  }
+  
+  .stat-compact-icon {
+    font-size: 18px;
+    width: 28px;
+    height: 28px;
+  }
+  
+  .stat-compact-label {
+    font-size: 12px;
+  }
+  
+  .stat-compact-value {
+    font-size: 14px;
+  }
 }
 
 @media (max-width: 480px) {
   .element-detail-page {
-    padding: 6px;
+    padding: 12px;
   }
   
   .element-content {
-    padding: 12px;
-    border-radius: 6px;
+    padding: 20px;
+    border-radius: var(--radius-lg);
   }
   
   .back-button {
@@ -1898,32 +2013,60 @@ onMounted(() => {
     margin-bottom: 10px;
   }
 
+  .element-header {
+    gap: 16px;
+    margin-bottom: 24px;
+    padding-bottom: 16px;
+  }
+
   .element-name {
     font-size: 24px;
   }
   
   .element-emoji {
-    font-size: 40px;
-    width: 70px;
-    height: 70px;
+    font-size: 48px;
+    width: 80px;
+    height: 80px;
   }
   
   .stat-card {
-    padding: 12px;
+    padding: 14px;
+    min-height: 80px;
   }
   
   .stat-icon {
-    width: 36px;
-    height: 36px;
-    font-size: 18px;
+    width: 40px;
+    height: 40px;
+    font-size: 20px;
   }
   
   .stat-value {
-    font-size: 18px;
+    font-size: 20px;
   }
   
   .stat-label {
-    font-size: 11px;
+    font-size: 12px;
+  }
+  
+  /* 配方卡片小屏优化 */
+  .recipe-card {
+    padding: 14px;
+  }
+  
+  .ingredient-card,
+  .result-card {
+    min-width: 90px;
+    padding: 6px 10px;
+  }
+  
+  .ingredient-emoji,
+  .result-emoji {
+    font-size: 16px;
+  }
+  
+  .ingredient-name,
+  .result-name {
+    font-size: 12px;
   }
   
   /* 浏览历史小屏幕优化 */

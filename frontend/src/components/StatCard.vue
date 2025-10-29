@@ -1,5 +1,5 @@
 <template>
-  <el-card class="stat-card" shadow="hover">
+  <el-card class="stat-card" :class="{ compact }" shadow="hover">
     <div class="stat-content">
       <div class="stat-icon" :class="`stat-icon--${type}`">
         {{ emoji }}
@@ -29,10 +29,12 @@ interface Props {
   value: string | number;
   label: string;
   trend?: number; // 百分比趋势，正数表示上升，负数表示下降
+  compact?: boolean; // 紧凑模式（移动端/窄列展示）
 }
 
 withDefaults(defineProps<Props>(), {
-  type: 'default'
+  type: 'default',
+  compact: false
 });
 </script>
 
@@ -146,6 +148,7 @@ withDefaults(defineProps<Props>(), {
   color: var(--color-text-secondary);
   font-weight: 500;
   line-height: 1.2;
+  white-space: nowrap; /* 避免换行导致卡片高度不一致 */
 }
 
 /* 趋势指示器 */
@@ -291,5 +294,46 @@ withDefaults(defineProps<Props>(), {
     font-size: 10px;
     padding: 2px 4px;
   }
+}
+</style>
+
+<style scoped>
+/* 紧凑模式（用于移动端三列并排）：改为纵向三行布局 */
+.stat-card.compact .stat-content {
+  padding: 10px;
+  gap: 8px;
+  flex-direction: column;      /* 纵向堆叠：图标 / 数字 / 文本 */
+  align-items: center;
+}
+.stat-card.compact { 
+  min-height: 120px; /* 保证卡片等高 */
+  display: flex;
+}
+.stat-card.compact :deep(.el-card__body){
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+.stat-card.compact .stat-icon {
+  width: 32px;
+  height: 32px;
+  font-size: 16px;
+  border-radius: var(--radius-md);
+}
+.stat-card.compact .stat-info {
+  min-width: 0;
+  text-align: center;          /* 数字与文字居中 */
+}
+.stat-card.compact .stat-value {
+  font-size: clamp(16px, 4.5vw, 20px);  /* 随屏宽自适应，避免溢出 */
+  background: none;
+  -webkit-text-fill-color: initial;
+  color: var(--color-text-primary);
+  margin: 0;                   /* 去掉默认 margin-bottom，保持紧凑 */
+  white-space: nowrap;
+}
+.stat-card.compact .stat-label {
+  font-size: 12px;
+  white-space: nowrap;
 }
 </style>

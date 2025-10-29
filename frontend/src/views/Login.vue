@@ -2,7 +2,12 @@
   <div class="login-page">
     <el-card class="login-card">
       <template #header>
-        <h2>🔐 用户登录</h2>
+        <div class="card-header">
+          <el-button class="back-home" text @click="router.push('/')">
+            返回首页
+          </el-button>
+          <h2>🔐 用户登录</h2>
+        </div>
       </template>
 
       <el-form :model="form" :rules="rules" ref="formRef">
@@ -105,8 +110,7 @@ const handleLogin = async () => {
 }
 
 .login-card :deep(.el-card__header) {
-  text-align: center;
-  padding: 24px 24px 16px;
+  padding: 16px 16px 12px;
   border-bottom: 1px solid var(--color-border-primary);
   background: transparent;
 }
@@ -124,6 +128,19 @@ h2 {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.back-home {
+  position: absolute;
+  left: 0;
+  top: 0;
 }
 
 .footer {
@@ -177,7 +194,7 @@ h2 {
 }
 
 :deep(.el-button--primary:hover) {
-  transform: translateY(-2px);
+  transform: translateY(-1px);
   box-shadow: var(--shadow-lg);
   background: linear-gradient(135deg, var(--color-primary-600) 0%, var(--color-primary-700) 100%);
 }

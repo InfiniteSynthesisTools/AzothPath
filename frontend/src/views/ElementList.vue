@@ -111,7 +111,7 @@
         v-model:page-size="pageSize"
         :page-sizes="[20, 50, 100]"
         :total="totalElements"
-        layout="total, sizes, prev, pager, next, jumper"
+        layout="total, sizes, prev, next"
         @size-change="handlePageSizeChange"
         @current-change="handlePageChange"
       />
@@ -120,7 +120,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue';
+import { ref, onMounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { Search } from '@element-plus/icons-vue';
@@ -192,8 +192,8 @@ const handleSortChange = () => {
 };
 
 // 分页处理
-const handlePageChange = (page: number) => {
-  currentPage.value = page;
+// 注意：已通过 v-model 绑定 currentPage，这里只触发数据加载，避免重复赋值导致两次请求
+const handlePageChange = (_page: number) => {
   fetchElements();
 };
 
@@ -218,10 +218,8 @@ const viewElementDetail = (element: Element) => {
   router.push(`/element/${element.id}`);
 };
 
-// 监听分页和筛选变化
-watch([currentPage, pageSize], () => {
-  fetchElements();
-});
+// 说明：去掉对 currentPage/pageSize 的 watch，改由分页事件统一触发加载，
+// 以避免与 @current-change/@size-change 同时触发造成的重复请求与状态错乱。
 
 // 组件挂载时获取数据
 onMounted(() => {
@@ -405,7 +403,9 @@ onMounted(() => {
   font-weight: 700;
   color: var(--color-text-primary);
   margin: 0 0 6px 0;
-  word-break: break-all;
+  /* 避免中文被强制断开，保持自然换行且不截断 */
+  word-break: break-word;
+  overflow-wrap: anywhere;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -495,7 +495,8 @@ onMounted(() => {
 
 .pagination-container :deep(.el-pagination) {
   display: flex;
-  flex-wrap: wrap;
+  /* 保持上一页箭头、页码、下一页在同一行，避免换行造成“箭头跑到上一行” */
+  flex-wrap: nowrap;
   justify-content: center;
   align-items: center;
   gap: 8px;
@@ -564,31 +565,7 @@ onMounted(() => {
   width: 50px;
 }
 
-.pagination-container :deep(.el-pager) {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.pagination-container :deep(.el-pager li) {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 32px;
-  height: 32px;
-  border-radius: var(--radius-base);
-  cursor: pointer;
-  transition: all var(--transition-base);
-}
-
-.pagination-container :deep(.el-pager li:hover) {
-  background: var(--color-bg-secondary);
-}
-
-.pagination-container :deep(.el-pager li.is-active) {
-  background: var(--color-primary-500);
-  color: white;
-}
+/* 仅保留上一页/下一页后，去掉对 pager 的样式覆盖，避免无效选择器影响布局 */
 
 /* 响应式设计 */
 @media (max-width: 768px) {
@@ -633,46 +610,46 @@ onMounted(() => {
   
   /* 移动端卡片紧凑布局 */
   .element-card :deep(.el-card__body) {
-    padding: 16px;
+    padding: 12px; /* 更紧凑 */
   }
   
   .element-header {
-    gap: 12px;
-    margin-bottom: 12px;
+    gap: 10px;
+    margin-bottom: 8px; /* 降低整体高度 */
   }
   
   .element-emoji {
-    font-size: 32px;
-    width: 48px;
-    height: 48px;
+    font-size: 28px;
+    width: 40px;
+    height: 40px;
     border-radius: var(--radius-base);
   }
   
   .element-name {
-    font-size: 18px;
-    margin: 0 0 4px 0;
+    font-size: 16px;
+    margin: 0 0 2px 0;
   }
   
   .element-type {
-    font-size: 11px;
-    padding: 4px 8px;
+    font-size: 10px;
+    padding: 3px 6px;
   }
   
   .element-stats {
-    gap: 16px;
+    gap: 10px;
     margin-bottom: 0;
-    padding: 12px 0 0 0;
+    padding: 8px 0 0 0; /* 减少上下留白 */
     border-top: 1px solid var(--color-border-primary);
     border-bottom: none;
   }
   
   .stat-label {
-    font-size: 11px;
-    margin-bottom: 4px;
+    font-size: 10px;
+    margin-bottom: 2px;
   }
   
   .stat-value {
-    font-size: 16px;
+    font-size: 14px;
   }
   
   .pagination-container {
@@ -692,40 +669,40 @@ onMounted(() => {
   
   .elements-grid {
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: 10px;
   }
   
   /* 超小屏幕更紧凑 */
   .element-card :deep(.el-card__body) {
-    padding: 12px;
+    padding: 10px;
   }
   
   .element-header {
-    gap: 10px;
-    margin-bottom: 10px;
+    gap: 8px;
+    margin-bottom: 6px;
   }
   
   .element-emoji {
-    font-size: 28px;
-    width: 40px;
-    height: 40px;
+    font-size: 24px;
+    width: 34px;
+    height: 34px;
   }
   
   .element-name {
-    font-size: 16px;
+    font-size: 15px;
   }
   
   .element-stats {
-    gap: 12px;
-    padding: 10px 0 0 0;
+    gap: 8px;
+    padding: 6px 0 0 0;
   }
   
   .stat-label {
-    font-size: 10px;
+    font-size: 9px;
   }
   
   .stat-value {
-    font-size: 15px;
+    font-size: 13px;
   }
   
   .search-controls {

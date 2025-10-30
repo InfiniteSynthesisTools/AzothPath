@@ -959,11 +959,9 @@ onMounted(async () => {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   transition: all var(--transition-base);
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;                 /* 桌面端：单行布局 */
   align-items: center;
-  column-gap: 12px;
-  row-gap: 0;
+  gap: 12px;
   box-shadow: var(--shadow-sm);
 }
 
@@ -1051,6 +1049,7 @@ onMounted(async () => {
   gap: 6px;
   flex: 0 0 auto;
   flex-shrink: 0;
+  margin-left: auto;             /* 尾对齐：紧跟配方，贴右侧 */
 }
 
 .recipe-meta {
@@ -1183,6 +1182,7 @@ onMounted(async () => {
   }
   
   .recipe-item {
+    display: grid;                 /* 移动端：栅格布局更稳妥 */
     grid-template-columns: 1fr auto;
     align-items: stretch;
     gap: 8px;

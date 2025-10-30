@@ -33,8 +33,8 @@
 
     <!-- 四个卡片区域 -->
     <div class="cards-section">
+      <!-- 探索元素卡片 - 独立一行 -->
       <el-row :gutter="20">
-        <!-- 探索元素 - 紧凑版 -->
         <el-col :xs="24" :sm="24" :md="24" :lg="24">
           <el-card class="explore-card card-scale" shadow="hover">
             <div class="explore-content">
@@ -53,9 +53,12 @@
             </div>
           </el-card>
         </el-col>
+      </el-row>
 
+      <!-- 最新配方和最热配方 - 共享一行 -->
+      <el-row :gutter="20">
         <!-- 最新配方 -->
-        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+        <el-col :xs="24" :sm="12" :md="12" :lg="12">
           <el-card class="feature-card" shadow="hover">
             <template #header>
               <div class="card-header">
@@ -119,7 +122,7 @@
         </el-col>
 
         <!-- 最热配方 -->
-        <el-col :xs="24" :sm="24" :md="12" :lg="12">
+        <el-col :xs="24" :sm="12" :md="12" :lg="12">
           <el-card class="feature-card" shadow="hover">
             <template #header>
               <div class="card-header">
@@ -821,11 +824,9 @@ onUnmounted(() => {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   transition: all var(--transition-base);
-  display: grid;
-  grid-template-columns: 1fr auto auto;
+  display: flex;                 /* 桌面端：单行布局 */
   align-items: center;
-  column-gap: 12px;
-  row-gap: 0;
+  gap: 12px;
   box-shadow: var(--shadow-sm);
 }
 
@@ -930,6 +931,7 @@ onUnmounted(() => {
   gap: 6px;
   flex: 0 0 auto;
   flex-shrink: 0;
+  margin-left: auto;            /* 尾对齐：紧跟配方，贴右侧 */
 }
 
 .recipe-meta {

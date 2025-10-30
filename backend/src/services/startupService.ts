@@ -26,6 +26,9 @@ export class StartupService {
       // 1. 预热图缓存（新架构核心：构建全局配方图）
       await this.warmupGraphCache();
 
+      // 1.1 启动图缓存后台主动刷新（定期巡检与预刷新）
+      recipeService.startAutoRefresh();
+
       // 2. 重新计算 items 表的发现者
       await this.recalculateItemDiscoverers();
 

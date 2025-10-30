@@ -403,6 +403,9 @@ export class RecipeService {
   private graphCachePromise: Promise<GraphCache> | null = null;
   private readonly CACHE_TTL = 60 * 60 * 1000; // 60 分钟
   private synthesisGraph: SynthesisGraph | null = null;
+  // 主动刷新控制
+  private autoRefreshTimer: NodeJS.Timeout | null = null;
+  private autoRefreshStarted = false;
   
   // 冰柱图请求队列和并发控制
   private icicleChartQueue: Array<{ 
@@ -461,6 +464,51 @@ export class RecipeService {
     });
 
     return this.graphCachePromise;
+  }
+
+  /**
+   * 启动图缓存的后台主动刷新
+   * - 周期性检测缓存是否缺失或过期
+   * - 如需要则在后台异步重建，不阻塞请求
+   * - 具备幂等性，多次调用仅启动一次
+   */
+  public startAutoRefresh(intervalMs: number = 5 * 60 * 1000): void { // 默认每5分钟巡检一次
+    if (this.autoRefreshStarted) return;
+    this.autoRefreshStarted = true;
+
+    const tick = () => {
+      try {
+        const now = Date.now();
+        const hasCache = !!this.graphCache;
+        const isExpired = !this.graphCache || (now - (this.graphCache.lastUpdated || 0) > this.CACHE_TTL);
+
+        // 若无缓存或已过期，则在后台触发异步重建
+        if (isExpired && !this.graphCachePromise) {
+          logger.info('[GraphCache] 后台主动刷新触发（缺失或过期）');
+          this.graphCachePromise = this.buildGraphCacheAsync().finally(() => {
+            this.graphCachePromise = null;
+          });
+        }
+
+        // 可选：提前预刷新（例如超过TTL的90%）；降低到达请求时的过期概率
+        if (hasCache && !isExpired) {
+          const age = now - this.graphCache!.lastUpdated;
+          if (age > this.CACHE_TTL * 0.9 && !this.graphCachePromise) {
+            logger.info('[GraphCache] 提前预刷新（>90% TTL）');
+            this.graphCachePromise = this.buildGraphCacheAsync().finally(() => {
+              this.graphCachePromise = null;
+            });
+          }
+        }
+      } catch (err) {
+        logger.warn('[GraphCache] 后台刷新巡检失败', err);
+      }
+    };
+
+    // 立即执行一次检查，以便尽快进入健康状态
+    setTimeout(tick, 0);
+    this.autoRefreshTimer = setInterval(tick, intervalMs);
+    logger.info(`[GraphCache] 主动刷新已启动（间隔 ${Math.round(intervalMs / 1000)}s）`);
   }
 
   /**
@@ -971,6 +1019,17 @@ export class RecipeService {
       const cacheService = CacheService.getInstance();
       cacheService.invalidateRecipeCache();
       cacheService.invalidateUserCache(creatorId);
+      
+      // 后台异步刷新图缓存（不阻塞提交接口）
+      setTimeout(() => {
+        // 如果没有正在构建，则触发一次主动重建
+        if (!this.graphCachePromise) {
+          logger.info('[GraphCache] 新配方提交后触发后台刷新');
+          this.graphCachePromise = this.buildGraphCacheAsync().finally(() => {
+            this.graphCachePromise = null;
+          });
+        }
+      }, 0);
       
       return recipeResult.lastID!;
     });

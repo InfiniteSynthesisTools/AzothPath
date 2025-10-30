@@ -264,13 +264,17 @@ html, body {
     grid-template-columns: repeat(2, 1fr);
   }
   
-  /* Element Plus Row 优化 */
-  :deep(.el-row) {
+  /* Element Plus Row 优化（限定在网格容器内，避免全局影响） */
+  .cards-section :deep(.el-row),
+  .grid-mobile-2 :deep(.el-row),
+  .responsive-grid :deep(.el-row) {
     margin-left: -8px !important;
     margin-right: -8px !important;
   }
   
-  :deep(.el-col) {
+  .cards-section :deep(.el-col),
+  .grid-mobile-2 :deep(.el-col),
+  .responsive-grid :deep(.el-col) {
     padding-left: 8px !important;
     padding-right: 8px !important;
   }
@@ -314,8 +318,10 @@ html, body {
   
   /* ===== Element Plus 组件深度优化 ===== */
   
-  /* Row 间距优化 - 保持水平布局 */
-  :deep(.el-row) {
+  /* Row 间距优化 - 保持水平布局（仅限网格容器） */
+  .cards-section :deep(.el-row),
+  .grid-mobile-2 :deep(.el-row),
+  .responsive-grid :deep(.el-row) {
     margin-left: -4px !important;
     margin-right: -4px !important;
     display: flex !important;
@@ -323,8 +329,10 @@ html, body {
     gap: 0 !important;
   }
   
-  /* Col 优化：保持水平两列布局 */
-  :deep(.el-col) {
+  /* Col 优化：保持水平两列布局（仅限网格容器） */
+  .cards-section :deep(.el-col),
+  .grid-mobile-2 :deep(.el-col),
+  .responsive-grid :deep(.el-col) {
     padding-left: 4px !important;
     padding-right: 4px !important;
     margin-bottom: 8px !important;

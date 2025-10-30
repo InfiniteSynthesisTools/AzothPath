@@ -1066,10 +1066,6 @@ body {
   padding: 20px; /* 桌面端 */
 }
 
-/* 组件间距（使用 gap） */
-.el-row {
-  gap: 20px; /* 桌面端 */
-}
 
 /* 标准断点：平板端 (768px - 1024px) */
 @media (max-width: 1024px) {
@@ -1086,10 +1082,6 @@ body {
   
   .el-card__body {
     padding: 16px; /* 移动端减小内边距 */
-  }
-  
-  .el-row {
-    gap: 12px; /* 移动端减小间距 */
   }
 }
 

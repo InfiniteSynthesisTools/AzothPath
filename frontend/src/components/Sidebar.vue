@@ -525,10 +525,10 @@ onUnmounted(() => {
 @media (max-width: 768px) {
   .sidebar {
     width: 280px;
-    height: 100vh; /* 占据整个屏幕高度 */
+    height: calc(100vh - 60px); /* 导航栏高度 60px，避免遮挡顶部导航 */
     right: auto;
     left: -280px;
-    top: 0; /* 从屏幕顶部开始，覆盖导航栏 */
+    top: 60px; /* 从导航栏下方开始，保持导航可见 */
     transition: left var(--transition-base);
     border-left: none;
     border-right: 1px solid var(--color-border-primary);

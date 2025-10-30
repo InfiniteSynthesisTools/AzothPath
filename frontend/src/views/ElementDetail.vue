@@ -1292,7 +1292,8 @@ onMounted(() => {
 
 .recipe-formula-wrapper {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;        /* 桌面端：与操作区同一行 */
+  align-items: center;
   gap: 12px;
 }
 
@@ -1315,13 +1316,16 @@ onMounted(() => {
   align-items: center;
   gap: 8px;
   flex-wrap: wrap;
+  flex: 1 1 auto;            /* 占据剩余空间 */
+  min-width: 0;              /* 允许收缩，避免把动作按钮挤下去 */
 }
 
 .recipe-actions {
   display: flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;         /* 一组按钮不换行 */
+  margin-left: auto;         /* 尾对齐到右侧 */
 }
 
 .ingredient-card {
@@ -1852,6 +1856,8 @@ onMounted(() => {
   
   .recipe-formula-wrapper {
     gap: 10px;
+    flex-direction: column;     /* 移动端：上下排列 */
+    align-items: flex-start;
   }
   
   .ingredient-cards {
@@ -1862,6 +1868,8 @@ onMounted(() => {
   .recipe-actions {
     gap: 6px;
     justify-content: flex-start;
+    flex-wrap: wrap;            /* 移动端允许换行 */
+    margin-left: 0;             /* 移动端不强制尾对齐 */
   }
   
   .ingredient-card,

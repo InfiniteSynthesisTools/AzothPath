@@ -99,51 +99,6 @@
           </div>
         </div>
         
-        <!-- 可达性详细统计（仅在可及时显示，也采用紧凑横向排列） -->
-        <div class="stats-compact-row" v-if="reachabilityStats.reachable && !reachabilityLoading" style="margin-top: 12px;">
-          <div class="stat-compact-item">
-            <span class="stat-compact-icon">📏</span>
-            <span class="stat-compact-label">深度</span>
-            <span class="stat-compact-value">{{ reachabilityStats.depth || 0 }}</span>
-          </div>
-          <div class="stat-compact-item">
-            <span class="stat-compact-icon">📐</span>
-            <span class="stat-compact-label">宽度</span>
-            <span class="stat-compact-value">{{ reachabilityStats.width || 0 }}</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- 冰柱图可视化板块 -->
-      <div class="icicle-chart-section" v-if="reachabilityStats.reachable && !reachabilityLoading">
-        <div class="section-header">
-          <h2 class="section-title">最简合成冰柱图</h2>
-          <div class="section-subtitle">以当前元素为根节点的最简合成路径可视化</div>
-        </div>
-        
-        <div class="icicle-chart-container">
-          <div v-if="icicleChartLoading" class="chart-loading">
-            <el-icon class="is-loading"><Loading /></el-icon>
-            <span>冰柱图加载中...（复杂物品可能需要几秒钟）</span>
-          </div>
-          <div v-else-if="icicleChartData && icicleChartData.nodes && icicleChartData.nodes.length > 0" class="chart-content">
-            <!-- 真正的冰柱图组件 -->
-            <IcicleChart 
-              :data="icicleChartData.nodes"
-              :width="800"
-              :height="500"
-              @nodeClick="handleIcicleNodeClick"
-            />
-          </div>
-          <div v-else-if="icicleChartData && icicleChartData.nodes && icicleChartData.nodes.length === 0" class="chart-info">
-            <div class="info-icon">ℹ️</div>
-            <div class="info-text">当前元素没有合成路径数据</div>
-          </div>
-          <div v-else class="chart-error">
-            <div class="error-icon">❌</div>
-            <div class="error-text">无法加载冰柱图数据</div>
-          </div>
-        </div>
       </div>
 
       <!-- 配方列表卡片 -->
@@ -205,12 +160,6 @@
               </div>
             </div>
             
-            <div class="recipe-footer">
-              <div class="recipe-meta">
-                <span class="recipe-depth">深度: {{ recipe.depth || 0 }}</span>
-                <span class="recipe-width">宽度: {{ recipe.width || 0 }}</span>
-              </div>
-            </div>
           </div>
         </div>
         
@@ -292,12 +241,6 @@
               </div>
             </div>
             
-            <div class="recipe-footer">
-              <div class="recipe-meta">
-                <span class="recipe-depth">深度: {{ recipe.depth || 0 }}</span>
-                <span class="recipe-width">宽度: {{ recipe.width || 0 }}</span>
-              </div>
-            </div>
           </div>
         </div>
         
@@ -330,7 +273,6 @@ import { useRoute, useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import { ArrowLeft, Loading } from '@element-plus/icons-vue';
 import CopyIcon from '@/components/icons/CopyIcon.vue';
-import IcicleChart from '@/components/IcicleChart.vue';
 import { copyToClipboard } from '@/composables/useClipboard';
 import { recipeApi } from '@/api';
 import { truncateEmoji } from '@/utils/emoji';
@@ -382,24 +324,13 @@ const materialPageSize = ref(5);
 // 可达性统计
 interface ReachabilityStats {
   reachable: boolean;
-  depth?: number;
-  width?: number;
-  breadth?: number;
 }
 
 const reachabilityStats = ref<ReachabilityStats>({
   reachable: false,
-  depth: 0,
-  width: 0,
-  breadth: 0
 });
 const reachabilityLoading = ref(false);
 
-// 冰柱图数据
-import type { IcicleChartData, IcicleNode } from '@/types'
-
-const icicleChartData = ref<IcicleChartData | null>(null);
-const icicleChartLoading = ref(false);
 
 // 导航历史记录
 interface NavigationItem {
@@ -483,54 +414,21 @@ const paginatedMaterialRecipes = computed(() => {
   return materialRecipes.value.slice(start, end);
 });
 
-// 获取冰柱图数据（使用新的按需生成API）
-const fetchIcicleChartData = async (elementName: string) => {
-  icicleChartLoading.value = true;
-  try {
-    console.log('开始获取冰柱图数据，元素名称:', elementName);
-    const response = await recipeApi.getIcicleChartOnDemand(elementName, {
-      maxDepth: 15, // 限制深度避免过深
-      includeStats: true // 包含统计信息
-    });
-    console.log('冰柱图API响应:', response);
-    
-    // 后端返回格式: { nodes: IcicleNode[], totalElements: number, maxDepth: number }
-    if (response && response.nodes && response.nodes.length > 0) {
-      // 直接使用后端返回的数据（已经是正确格式）
-      icicleChartData.value = response;
-      console.log('冰柱图数据设置成功:', icicleChartData.value);
-    } else {
-      // 元素不可达或没有冰柱图数据
-      icicleChartData.value = { nodes: [], totalElements: 0, maxDepth: 0 };
-      console.log('元素不可达或没有冰柱图数据，显示空冰柱图');
-    }
-  } catch (error: any) {
-    console.error('获取冰柱图数据失败:', error);
-    // 如果API调用失败，显示空冰柱图而不是错误信息
-    icicleChartData.value = { nodes: [], totalElements: 0, maxDepth: 0 };
-  } finally {
-    icicleChartLoading.value = false;
-  }
-};
 
 // 获取可达性统计信息
 const fetchReachabilityStats = async (elementName: string) => {
   reachabilityLoading.value = true;
   try {
-    const stats = await recipeApi.getReachabilityStats(elementName);
-    reachabilityStats.value = stats;
-    return stats; // 返回统计结果
+  const stats = await recipeApi.getReachabilityStats(elementName);
+  // 仅保留可达性布尔
+  reachabilityStats.value = { reachable: !!stats.reachable };
+  return reachabilityStats.value; // 返回统计结果
   } catch (error: any) {
     console.error('获取可达性统计失败:', error);
     // 如果API调用失败，默认设置为不可及
-    const defaultStats = {
-      reachable: false,
-      depth: 0,
-      width: 0,
-      breadth: 0
-    };
+    const defaultStats = { reachable: false };
     reachabilityStats.value = defaultStats;
-    return defaultStats; // 返回默认统计结果
+    return defaultStats;
   } finally {
     reachabilityLoading.value = false;
   }
@@ -567,17 +465,8 @@ const fetchElementDetail = async () => {
       await fetchMaterialRecipes();
       
       // 获取可达性统计信息
-      const reachabilityResult = await fetchReachabilityStats(elementData.name);
+      await fetchReachabilityStats(elementData.name);
       
-      // 异步加载冰柱图数据（不阻塞主流程）
-      if (reachabilityResult.reachable) {
-        // 在后台加载，不使用 await，并添加超时保护
-        setTimeout(() => {
-          fetchIcicleChartData(elementData.name).catch(error => {
-            console.error('后台加载冰柱图数据失败:', error);
-          });
-        }, 100); // 延迟100ms，确保主流程先完成
-      }
     } else {
       ElMessage.error('获取元素详情失败');
     }
@@ -593,28 +482,6 @@ const fetchElementDetail = async () => {
   }
 };
 
-// 从包含emoji的节点名称中提取纯文本元素名称
-const extractElementName = (nodeName: string): string => {
-  console.log('开始提取元素名称:', nodeName);
-  
-  try {
-    // 简单方法：使用空格分割，取最后一个非空部分
-    const parts = nodeName.split(' ');
-    // 过滤掉空字符串和只包含特殊字符的部分
-    const validParts = parts.filter(part => {
-      const trimmed = part.trim();
-      return trimmed && !/^[\s\u200B-\u200D\uFEFF\xA0]+$/.test(trimmed);
-    });
-    const elementName = validParts[validParts.length - 1] || nodeName;
-    
-    console.log('提取结果:', { original: nodeName, parts, validParts, elementName });
-    return elementName;
-  } catch (error) {
-    console.error('提取元素名称失败:', error);
-    // 最终备用方法：返回原始名称
-    return nodeName;
-  }
-};
 
 // 检测是否为自合成配方
 const isSelfCraftRecipe = (recipe: RecipeDetail): boolean => {
@@ -629,40 +496,6 @@ const isSelfCraftRecipe = (recipe: RecipeDetail): boolean => {
   return false;
 };
 
-// 最简排序算法：深度最小 → 宽度最小 → 广度最大 → 字典序排序，自合成配方排在最后
-const sortRecipesBySimplestPath = (recipes: RecipeDetail[]): RecipeDetail[] => {
-  return [...recipes].sort((a, b) => {
-    // 自合成配方检测
-    const isSelfCraftA = isSelfCraftRecipe(a);
-    const isSelfCraftB = isSelfCraftRecipe(b);
-    
-    // 自合成配方永远排在最后
-    if (isSelfCraftA && !isSelfCraftB) return 1;
-    if (!isSelfCraftA && isSelfCraftB) return -1;
-    if (isSelfCraftA && isSelfCraftB) {
-      // 如果都是自合成配方，按ID排序
-      return a.id - b.id;
-    }
-    
-    // 1. 深度最小优先
-    if (a.depth !== b.depth) {
-      return (a.depth || 0) - (b.depth || 0);
-    }
-    
-    // 2. 宽度最小优先
-    if (a.width !== b.width) {
-      return (a.width || 0) - (b.width || 0);
-    }
-    
-    // 3. 广度最大优先
-    if (a.breadth !== b.breadth) {
-      return (b.breadth || 0) - (a.breadth || 0);
-    }
-    
-    // 4. 字典序排序（按配方ID）
-    return a.id - b.id;
-  });
-};
 
 // 获取配方列表
 const fetchRecipes = async () => {
@@ -670,13 +503,11 @@ const fetchRecipes = async () => {
   try {
     // 使用后端API获取配方列表，包含统计信息
     const response = await recipeApi.list({ 
-      result: element.value?.name,
-      includeStats: true // 添加这个参数来获取深度、宽度、广度数据
+      result: element.value?.name
     });
     
     if (response && response.recipes && Array.isArray(response.recipes)) {
-      // 按照最简排序算法对配方进行排序
-      recipes.value = sortRecipesBySimplestPath(response.recipes);
+      recipes.value = response.recipes;
     } else {
       recipes.value = [];
     }
@@ -697,8 +528,7 @@ const fetchMaterialRecipes = async () => {
     
     // 获取该物品作为item_a出现的配方
     const responseA = await recipeApi.list({ 
-      material: elementName,
-      includeStats: true
+      material: elementName
     });
     
     // 收集所有作为材料出现的配方
@@ -707,8 +537,7 @@ const fetchMaterialRecipes = async () => {
       allMaterialRecipes = responseA.recipes;
     }
     
-    // 按照最简排序算法对配方进行排序
-    materialRecipes.value = sortRecipesBySimplestPath(allMaterialRecipes);
+    materialRecipes.value = allMaterialRecipes;
   } catch (error: any) {
     console.error('获取作为材料的配方失败:', error);
     materialRecipes.value = [];
@@ -737,54 +566,6 @@ const handleMaterialCurrentChange = (page: number) => {
   materialCurrentPage.value = page;
 };
 
-// 冰柱图节点点击事件
-const handleIcicleNodeClick = async (node: IcicleNode) => {
-  try {
-    console.log('冰柱图节点点击:', node);
-    
-    // 如果节点有配方信息，可以显示配方详情
-    if (node.recipe) {
-      ElMessage.info(`配方: ${node.recipe.item_a} + ${node.recipe.item_b} = ${node.name}`);
-    }
-    
-    // 如果点击的不是当前元素，尝试跳转到该元素的详情页
-    if (node.name !== element.value?.name) {
-      // 优先使用节点的 id 字段，它通常是纯文本元素名称
-      let elementName = node.id;
-      
-      // 如果 id 是带前缀的（base_, synthetic_, leaf_），则从名称中提取
-      if (elementName.startsWith('base_') || elementName.startsWith('synthetic_') || elementName.startsWith('leaf_')) {
-        elementName = extractElementName(node.name);
-      }
-      
-      // 最终备用方案：如果提取的名称仍然有问题，使用节点的原始名称
-      if (!elementName || elementName.includes('️') || /^[\s\u200B-\u200D\uFEFF\xA0]+$/.test(elementName)) {
-        console.warn('提取的元素名称有问题，使用原始名称:', elementName);
-        elementName = node.name;
-      }
-      
-      console.log('提取元素名称:', { 
-        original: node.name, 
-        extracted: elementName,
-        nodeId: node.id,
-        isBase: node.isBase
-      });
-      
-      // 添加更详细的调试信息
-      console.log('节点详细信息:', {
-        name: node.name,
-        emoji: node.emoji,
-        id: node.id,
-        isBase: node.isBase,
-        value: node.value
-      });
-      
-      await goToElementDetail(elementName);
-    }
-  } catch (error) {
-    console.error('处理冰柱图节点点击失败:', error);
-  }
-};
 
 // 跳转到元素详情页面
 const goToElementDetail = async (elementName: string) => {
@@ -1136,96 +917,6 @@ onMounted(() => {
   color: var(--color-text-secondary);
 }
 
-/* 冰柱图可视化板块样式 */
-.icicle-chart-section {
-  margin-top: 40px;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  border-radius: var(--radius-xl);
-  padding: 24px;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--glass-border);
-}
-
-.icicle-chart-container {
-  background: var(--color-bg-primary);
-  border: 1px solid var(--color-border-primary);
-  border-radius: var(--radius-lg);
-  padding: 20px;
-  min-height: 400px;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-start;
-  overflow-x: auto;
-  overflow-y: visible;
-  width: 100%;
-  box-shadow: var(--shadow-sm);
-  -webkit-overflow-scrolling: touch;
-}
-
-.chart-loading {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: #606266;
-}
-
-.chart-loading .el-icon {
-  font-size: 32px;
-  color: #409eff;
-}
-
-.chart-placeholder {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 16px;
-  padding: 40px;
-  background: #fff;
-  border-radius: 8px;
-  border: 2px dashed #dcdfe6;
-}
-
-.placeholder-icon {
-  font-size: 48px;
-}
-
-.placeholder-text {
-  font-size: 18px;
-  font-weight: 600;
-  color: #303133;
-}
-
-.placeholder-stats {
-  display: flex;
-  gap: 24px;
-  font-size: 14px;
-  color: #606266;
-}
-
-.placeholder-stats div {
-  padding: 8px 16px;
-  background: #f5f7fa;
-  border-radius: 6px;
-}
-
-.chart-error {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  color: #f56c6c;
-}
-
-.error-icon {
-  font-size: 48px;
-}
-
-.error-text {
-  font-size: 16px;
-  font-weight: 500;
-}
 
 /* 配方列表样式 */
 .recipes-section,
@@ -1796,27 +1487,6 @@ onMounted(() => {
     margin-left: 4px;
   }
   
-  /* 冰柱图移动端优化 */
-  .icicle-chart-section {
-    padding: 16px;
-    margin-top: 32px;
-  }
-  
-  .icicle-chart-container {
-    padding: 16px;
-    min-height: 300px;
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    /* 确保内容可以完全显示 */
-    justify-content: flex-start;
-  }
-  
-  /* 冰柱图内容区域优化 */
-  .chart-content {
-    min-width: 100%;
-    width: max-content;
-  }
   
   /* 配方列表移动端优化 */
   .recipes-section {
@@ -2174,26 +1844,6 @@ onMounted(() => {
   .stat-label {
     font-size: 10px;
     line-height: 1.1;
-  }
-  
-  /* 冰柱图小屏幕优化 */
-  .icicle-chart-section {
-    padding: 12px;
-    margin-top: 24px;
-  }
-  
-  .icicle-chart-container {
-    padding: 12px;
-    min-height: 250px;
-    overflow-x: auto;
-    overflow-y: visible;
-    -webkit-overflow-scrolling: touch;
-    justify-content: flex-start;
-  }
-  
-  .chart-content {
-    min-width: 100%;
-    width: max-content;
   }
   
   .section-title {

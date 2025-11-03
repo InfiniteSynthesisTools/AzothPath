@@ -6,7 +6,7 @@ import type {
   RecipeListResponse,
   CraftingPath,
   SubmitRecipeResponse,
-  IcicleNode
+  
 } from '@/types';
 
 export const recipeApi = {
@@ -87,26 +87,11 @@ export const recipeApi = {
   },
 
   /**
-   * 按需生成单个物品的冰柱图数据
-   * 返回格式: { nodes: IcicleNode[], totalElements: number, maxDepth: number }
-   */
-  getIcicleChartOnDemand(item: string, params?: { maxDepth?: number; includeStats?: boolean }) {
-    return api.get<{
-      nodes: IcicleNode[];
-      totalElements: number;
-      maxDepth: number;
-    }>(`/recipes/icicle-chart/on-demand/${encodeURIComponent(item)}`, { params });
-  },
-
-  /**
    * 获取元素的可达性统计信息
    */
   getReachabilityStats(item: string) {
     return api.get<{
       reachable: boolean;
-      depth?: number;
-      width?: number;
-      breadth?: number;
     }>(`/recipes/reachability/${encodeURIComponent(item)}`);
   }
 };

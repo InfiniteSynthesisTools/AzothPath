@@ -76,9 +76,7 @@ POST /api/users/login
 - `GET /api/recipes` - 配方列表
 - `GET /api/recipes/:id` - 配方详情
 - `GET /api/recipes/path/:item` - 搜索合成路径
-- `GET /api/recipes/shortest-path/:item` - 获取最短路径树
 - `GET /api/recipes/graph/stats` - 获取图统计信息
-- `GET /api/recipes/icicle-chart/on-demand/:item` - 按需生成冰柱图
 - `GET /api/recipes/reachability/:item` - 获取元素可达性统计
 - `GET /api/items` - 物品列表
 - `GET /api/items/random` - 获取随机物品

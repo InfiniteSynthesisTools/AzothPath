@@ -84,24 +84,3 @@ export interface CraftingPath {
   tree: CraftingTreeNode;
   stats: PathStats;
 }
-
-// 冰柱图节点
-export interface IcicleNode {
-  id: string;
-  name: string;
-  emoji?: string;
-  isBase: boolean;
-  value: number; // 节点宽度
-  children?: IcicleNode[];
-  recipe?: {
-    item_a: string;
-    item_b: string;
-  };
-}
-
-// 冰柱图数据
-export interface IcicleChartData {
-  nodes: IcicleNode[];
-  totalElements: number;
-  maxDepth: number;
-}

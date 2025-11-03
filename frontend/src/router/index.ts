@@ -81,12 +81,6 @@ const routes: RouteRecordRaw[] = [
         component: () => import('@/views/RecipeDetail.vue'),
         meta: { title: '配方详情' }
       },
-      {
-        path: '/graph',
-        name: 'GraphView',
-        component: () => import('@/views/GraphView.vue'),
-        meta: { title: '总图显示' }
-      },
 
     ]
   },

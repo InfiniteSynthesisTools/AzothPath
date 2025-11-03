@@ -65,35 +65,6 @@ router.get('/', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * GET /api/recipes/shortest-path/:item
- * 获取单个物品的最短路径树（使用缓存优化）
- */
-router.get('/shortest-path/:item', async (req: Request, res: Response) => {
-  try {
-    const item = decodeURIComponent(req.params.item);
-    const tree = await recipeService.getShortestPathTree(item);
-
-    if (!tree) {
-      return res.status(404).json({
-        code: 404,
-        message: '未找到该物品的最短路径树'
-      });
-    }
-
-    res.json({
-      code: 200,
-      message: '获取最短路径树成功',
-      data: tree
-    });
-  } catch (error: any) {
-    logger.error('获取最短路径树失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '获取最短路径树失败'
-    });
-  }
-});
 
 /**
  * GET /api/recipes/:identifier
@@ -285,52 +256,6 @@ router.get('/graph/stats', async (req: Request, res: Response) => {
   }
 });
 
-/**
- * GET /api/recipes/icicle-chart/on-demand/:item
- * 🚀 按需生成冰柱图（从图结构动态提取子图）
- * 支持深度限制，避免返回超大对象
- */
-router.get('/icicle-chart/on-demand/:item', async (req: Request, res: Response) => {
-  const startTime = Date.now();
-  try {
-    const item = decodeURIComponent(req.params.item);
-    const maxDepthParam = req.query.maxDepth as string | undefined;
-    const maxDepth = maxDepthParam ? parseInt(maxDepthParam) : undefined;
-    const includeStats = (req.query.includeStats as string) === 'true';
-    
-    const data = await recipeService.generateIcicleChartOnDemand(item, maxDepth, includeStats);
-    
-    if (!data) {
-      const responseTime = Date.now() - startTime;
-      logger.warn(`冰柱图生成失败：物品不存在或无法生成 - "${item}" (耗时: ${responseTime}ms)`);
-      return res.status(404).json({
-        code: 404,
-        message: '物品不存在或无法生成冰柱图'
-      });
-    }
-    
-    const responseTime = Date.now() - startTime;
-    
-    res.json({
-      code: 200,
-      message: '按需生成冰柱图成功',
-      data,
-      responseTime,
-      metadata: {
-        maxDepth: maxDepth || '不限制',
-        nodeCount: data.nodes.length
-      }
-    });
-  } catch (error: any) {
-    const responseTime = Date.now() - startTime;
-    logger.error('按需生成冰柱图失败', error);
-    res.status(500).json({
-      code: 500,
-      message: error.message || '按需生成冰柱图失败',
-      responseTime
-    });
-  }
-});
 
 /**
  * GET /api/recipes/reachability/:item

@@ -85,7 +85,6 @@ import notificationRoutes from './routes/notificationRoutes';
 
 // 导入启动初始化服务
 import { startupService } from './services/startupService';
-import { icicleChartCache } from './utils/lruCache';
 
 // API 路由
 app.get('/api', (req, res) => {
@@ -149,13 +148,6 @@ try {
     try {
       await startupService.initialize();
       
-      // 输出缓存统计
-      const stats = icicleChartCache.getStats();
-      logger.info(`[LRU Cache] 冰柱图缓存已初始化`, {
-        maxSize: stats.maxSize,
-        ttl: stats.ttl ? `${stats.ttl / 1000 / 60}分钟` : '无限期',
-        currentSize: stats.size
-      });
     } catch (error) {
       logger.error('启动初始化失败，但服务器继续运行', error);
     }

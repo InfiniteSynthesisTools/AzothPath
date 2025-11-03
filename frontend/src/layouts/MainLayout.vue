@@ -23,7 +23,7 @@
           <el-menu-item index="/elements">元素</el-menu-item>
           <el-menu-item index="/tasks">任务</el-menu-item>
           <el-menu-item index="/contribution">贡献榜</el-menu-item>
-          <el-menu-item index="/graph">总图显示</el-menu-item>
+          
           <el-menu-item index="/import-tasks" v-if="userStore.isLoggedIn">导入任务</el-menu-item>
           <el-menu-item index="/admin" v-if="userStore.isAdmin">管理</el-menu-item>
           <el-menu-item>
@@ -118,10 +118,7 @@
           <el-icon><Trophy /></el-icon>
           <span>贡献榜</span>
         </el-menu-item>
-        <el-menu-item index="/graph">
-          <el-icon><TrendCharts /></el-icon>
-          <span>总图显示</span>
-        </el-menu-item>
+        
         <el-menu-item index="/import-tasks" v-if="userStore.isLoggedIn">
           <el-icon><List /></el-icon>
           <span>导入任务</span>
@@ -174,7 +171,6 @@ import {
   Document, 
   Tickets, 
   Setting,
-  TrendCharts,
   Trophy
 } from '@element-plus/icons-vue';
 import Sidebar from '@/components/Sidebar.vue';

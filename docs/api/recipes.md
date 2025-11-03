@@ -224,22 +224,6 @@
 
 ---
 
-## 获取最短路径树
-
-### GET /api/recipes/shortest-path/:item
-
-获取单个物品的最短路径树
-
-#### 请求信息
-- **方法：** GET
-- **路径：** `/api/recipes/shortest-path/:item`
-- **认证：** 无需认证
-- **示例链接：** [http://localhost:19198/api/recipes/shortest-path/蒸汽](http://localhost:19198/api/recipes/shortest-path/蒸汽)
-
-#### 路径参数
-- `item`: 物品名称（需要URL编码）
-
----
 
 ## 获取图统计信息
 
@@ -288,49 +272,14 @@
 
 ---
 
-## 按需生成冰柱图
-
-### GET /api/recipes/icicle-chart/on-demand/:item
-
-按需生成指定物品的冰柱图
-
-#### 请求信息
-- **方法：** GET
-- **路径：** `/api/recipes/icicle-chart/on-demand/:item`
-- **认证：** 无需认证
-- **示例链接：** [http://localhost:19198/api/recipes/icicle-chart/on-demand/蒸汽](http://localhost:19198/api/recipes/icicle-chart/on-demand/蒸汽)
-
-#### 路径参数
-- `item`: 物品名称（需要URL编码）
-
-#### 查询参数
-- `maxDepth`: 最大深度限制（可选）
-- `includeStats`: 是否包含统计信息（true/false）
-
-#### 响应示例
-```json
-{
-  "code": 200,
-  "message": "按需生成冰柱图成功",
-  "data": {
-    "nodes": [...],
-    "links": [...]
-  },
-  "responseTime": 150,
-  "metadata": {
-    "maxDepth": "不限制",
-    "nodeCount": 25
-  }
-}
-```
 
 ---
 
-## 获取元素可达性统计
+## 获取元素可达性统计（更新）
 
 ### GET /api/recipes/reachability/:item
 
-获取元素的可达性统计信息
+获取元素是否可从基础材料合成（仅返回布尔值）。
 
 #### 请求信息
 - **方法：** GET
@@ -347,11 +296,7 @@
   "code": 200,
   "message": "获取元素可达性统计成功",
   "data": {
-    "item": "蒸汽",
-    "reachable_count": 10,
-    "unreachable_count": 5,
-    "total_items": 15,
-    "reachability_percentage": 66.7
+    "reachable": true
   },
   "responseTime": 50
 }

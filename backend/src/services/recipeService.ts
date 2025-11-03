@@ -2,7 +2,6 @@ import { databaseAdapter } from '../database/databaseAdapter';
 import { logger } from '../utils/logger';
 import { getCurrentUTC8TimeForDB } from '../utils/timezone';
 import { truncateEmoji } from '../utils/emoji';
-import { icicleChartCache } from '../utils/lruCache';
 import { CacheService } from './cacheService';
 
 export interface Recipe {
@@ -37,28 +36,6 @@ export interface PathStats {
   materials: Record<string, number>;
 }
 
-export interface IcicleNode {
-  id: string;
-  name: string;
-  emoji?: string;
-  isBase: boolean;
-  value: number; // 节点宽度
-  children?: IcicleNode[];
-  recipe?: {
-    item_a: string;
-    item_b: string;
-  };
-  stats?: {
-    depth: number;
-    width: number;
-  };
-}
-
-export interface IcicleChartData {
-  nodes: IcicleNode[];
-  totalElements: number;
-  maxDepth: number;
-}
 
 /**
  * 图缓存数据结构
@@ -74,7 +51,6 @@ interface GraphCache {
   itemEmojiMap: Record<string, string>;
   reachableItems: Set<string>;
   unreachableItems: Set<string>;
-  shortestPathTrees: Map<string, IcicleNode>;
   lastUpdated: number;
 }
 
@@ -407,17 +383,6 @@ export class RecipeService {
   private autoRefreshTimer: NodeJS.Timeout | null = null;
   private autoRefreshStarted = false;
   
-  // 冰柱图请求队列和并发控制
-  private icicleChartQueue: Array<{ 
-    itemName: string; 
-    maxDepth?: number; 
-    includeStats?: boolean;
-    resolve: (value: IcicleChartData | null) => void; 
-    reject: (error: any) => void 
-  }> = [];
-  private icicleChartProcessing = false;
-  private readonly MAX_CONCURRENT_ICICLE_REQUESTS = 1; // 限制同时处理的冰柱图请求数量
-  private activeIcicleRequests = 0;
 
   /**
    * 处理记录中的 emoji 字段
@@ -542,7 +507,6 @@ export class RecipeService {
         itemEmojiMap,
         reachableItems,
         unreachableItems,
-        shortestPathTrees: new Map<string, IcicleNode>(),
         lastUpdated: Date.now()
       };
 
@@ -1286,41 +1250,6 @@ export class RecipeService {
     };
   }
 
-  /**
-   * 获取单个物品的最短路径树 - 使用改进的 Dijkstra 算法
-   */
-  async getShortestPathTree(itemName: string): Promise<IcicleNode | null> {
-    const cache = await this.getGraphCache();
-
-    // 初始化 SynthesisGraph 如果不存在
-    if (!this.synthesisGraph) {
-      this.synthesisGraph = new SynthesisGraph(
-        cache.recipes,
-        cache.baseItemNames,
-        cache.itemToRecipes
-      );
-    }
-
-    // 使用改进的 Dijkstra 算法查找最优路径
-    const optimalPath = this.synthesisGraph.findOptimalPath(itemName);
-
-    if (!optimalPath) {
-      logger.info(`物品 ${itemName} 不可达，无法构建路径树`);
-      return null;
-    }
-
-    // 构建合成树
-    const craftingTree = this.buildCraftingTreeFromOptimalPath(itemName, optimalPath, cache.itemToRecipes, cache.baseItemNames);
-
-    if (!craftingTree) {
-      return null;
-    }
-
-    // 转换为 IcicleNode 格式
-    const icicleTree = this.convertToIcicleNode(craftingTree, cache.itemEmojiMap);
-
-    return icicleTree;
-  }
 
   /**
    * 获取缓存状态信息
@@ -1370,45 +1299,6 @@ export class RecipeService {
       recipeGraph[recipe.result].push(recipe.item_b);
     }
 
-    // 🚀 性能优化：对每个物品的所有配方进行最简路径排序
-    // 排序规则：深度最小 → 宽度最小 → 字典序
-    for (const itemName of allItemNames) {
-      const recipesForItem = itemToRecipes[itemName];
-      if (recipesForItem && recipesForItem.length > 1) {
-        // 创建基础材料集合（用于统计计算）
-        const baseItems = ['金', '木', '水', '火', '土'];
-
-        // 计算每个配方的统计信息并排序
-        const memo: Record<string, { depth: number; width: number }> = {};
-
-        recipesForItem.sort((a, b) => {
-          // 自合成配方检测：a+a=a 或 a+b=a
-          const isSelfCraftA = this.isSelfCraftRecipe(a);
-          const isSelfCraftB = this.isSelfCraftRecipe(b);
-
-          // 自合成配方永远排在最后
-          if (isSelfCraftA && !isSelfCraftB) return 1;
-          if (!isSelfCraftA && isSelfCraftB) return -1;
-          if (isSelfCraftA && isSelfCraftB) {
-            // 如果都是自合成配方，按ID排序
-            return a.id - b.id;
-          }
-
-          // 非自合成配方按原排序规则
-          const statsA = this.calculateRecipeStats(a, baseItems, itemToRecipes, memo);
-          const statsB = this.calculateRecipeStats(b, baseItems, itemToRecipes, memo);
-
-          // 深度最小优先
-          if (statsA.depth !== statsB.depth) return statsA.depth - statsB.depth;
-          // 宽度最小优先
-          if (statsA.width !== statsB.width) return statsA.width - statsB.width;
-          // 字典序
-          return a.item_a.localeCompare(b.item_a) || a.item_b.localeCompare(b.item_b);
-        });
-
-        logger.debug(`物品 ${itemName} 的 ${recipesForItem.length} 个配方已按最简路径排序`);
-      }
-    }
 
     return { itemToRecipes, recipeGraph };
   }
@@ -1570,38 +1460,6 @@ export class RecipeService {
     return tree;
   }
 
-  /**
-   * 将 CraftingTreeNode 转换为 IcicleNode
-   */
-  private convertToIcicleNode(
-    craftingTree: CraftingTreeNode,
-    itemEmojiMap: Record<string, string>
-  ): IcicleNode {
-    const node: IcicleNode = {
-      id: craftingTree.item, // 使用物品名称作为 ID
-      name: craftingTree.item,
-      isBase: craftingTree.is_base,
-      value: 1,
-      children: [] // 初始化 children 数组
-    };
-
-    // 添加表情符号
-    if (itemEmojiMap[craftingTree.item]) {
-      node.name = `${itemEmojiMap[craftingTree.item]} ${node.name}`;
-      node.emoji = itemEmojiMap[craftingTree.item];
-    }
-
-    // 递归转换子节点 - children 是元组，但 IcicleNode 的 children 是数组
-    if (craftingTree.children && craftingTree.children.length === 2) {
-      for (const child of craftingTree.children) {
-        if (child) {
-          node.children!.push(this.convertToIcicleNode(child, itemEmojiMap));
-        }
-      }
-    }
-
-    return node;
-  }
 
   /**
    * 获取单个物品详情
@@ -1683,201 +1541,6 @@ export class RecipeService {
     return this.truncateRecordEmojis(item);
   }
 
-  /**
-   * 递归构建冰柱树（内部方法，使用全局缓存）
-   * 
-   * 🚀 关键优化：
-   * 1. 不使用visited Set，而是依赖globalMemo来防止重复计算
-   * 2. 如果物品已经在缓存中（包括循环依赖的null结果），直接返回
-   * 3. 无深度限制，确保所有可达元素都能构建冰柱图
-   * 4. 循环依赖已在可达性分析阶段处理，此处无需额外检测
-   * 5. 修复：尝试所有可达配方，确保所有可达元素都能构建冰柱图
-   */
-  private buildIcicleTreeWithCache(
-    startItem: string,
-    baseItems: string[],
-    itemToRecipes: Record<string, Recipe[]>,
-    itemEmojiMap: Record<string, string>,
-    globalMemo: Map<string, IcicleNode | null>
-  ): IcicleNode | null {
-    // 快速路径：缓存命中
-    if (globalMemo.has(startItem)) {
-      return globalMemo.get(startItem)!;
-    }
-
-    // 递归构建冰柱树（带记忆化）
-    // 使用递归而非复杂的状态机，因为：
-    // 1. 大多数物品链条不会超过 100 层深度
-    // 2. 记忆化防止重复计算
-    // 3. 垃圾回收更高效（函数栈帧自动释放）
-    const build = (itemName: string, depth: number = 0): IcicleNode | null => {
-      // 深度限制防止无限递归（超过 500 层则中止）
-      if (depth > 500) {
-        logger.warn(`树构建深度超过 500，可能存在循环依赖: ${itemName}`);
-        return null;
-      }
-
-      // 记忆化检查
-      if (globalMemo.has(itemName)) {
-        return globalMemo.get(itemName)!;
-      }
-
-      // 标记为处理中（防止循环引用）
-      globalMemo.set(itemName, null);
-
-      // 基础材料
-      if (baseItems.includes(itemName)) {
-        const emoji = itemEmojiMap[itemName];
-        // 保持与正常情况一致的名称格式：emoji + 空格 + 名称
-        const displayName = emoji ? `${emoji} ${itemName}` : itemName;
-        const node: IcicleNode = {
-          id: `base_${itemName}`,
-          name: displayName,
-          emoji: emoji ? truncateEmoji(emoji) : undefined,
-          isBase: true,
-          value: 1
-        };
-        globalMemo.set(itemName, node);
-        return node;
-      }
-
-      // 获取配方
-      const recipes = itemToRecipes[itemName];
-      if (!recipes || recipes.length === 0) {
-        return null;
-      }
-
-      // 🚀 关键优化：只尝试前 3 个配方，不枚举所有配方
-      // 原因：物品可能有数千个配方，枚举会导致递归爆炸（O(k^d)复杂度）
-      // 配方已按"最简路径"排序，前 3 个最有代表性
-      const MAX_RECIPES_TO_TRY = 3;
-      const recipesToTry = recipes.slice(0, MAX_RECIPES_TO_TRY);
-
-      for (const recipe of recipesToTry) {
-        const childA = build(recipe.item_a, depth + 1);
-        const childB = build(recipe.item_b, depth + 1);
-
-        if (childA && childB) {
-          // 找到可行的配方
-          const value = childA.value + childB.value;
-          const emoji = itemEmojiMap[itemName];
-          // 保持与正常情况一致的名称格式：emoji + 空格 + 名称
-          const displayName = emoji ? `${emoji} ${itemName}` : itemName;
-
-          const node: IcicleNode = {
-            id: `synthetic_${itemName}`,
-            name: displayName,
-            emoji: emoji ? truncateEmoji(emoji) : undefined,
-            isBase: false,
-            value,
-            children: [childA, childB],
-            recipe: {
-              item_a: recipe.item_a,
-              item_b: recipe.item_b
-            }
-          };
-
-          globalMemo.set(itemName, node);
-          return node;
-        }
-      }
-
-      // 前几个配方都失败
-      return null;
-    };
-
-    return build(startItem);
-  }
-
-  /**
-   * 计算冰柱树的最大深度
-   */
-  private calculateIcicleTreeDepth(node: IcicleNode): number {
-    // 🚀 性能优化：使用迭代替代递归，避免栈溢出和递归开销
-    const stack: { node: IcicleNode; depth: number }[] = [{ node, depth: 1 }];
-    let maxDepth = 0;
-    let iterations = 0;
-    const MAX_ITERATIONS = 5000; // 减少最大迭代次数到5000次
-
-    while (stack.length > 0 && iterations < MAX_ITERATIONS) {
-      iterations++;
-      const { node: currentNode, depth } = stack.pop()!;
-      maxDepth = Math.max(maxDepth, depth);
-
-      if (currentNode.children && currentNode.children.length > 0) {
-        // 将子节点加入栈中，深度+1
-        for (const child of currentNode.children) {
-          if (child) {
-            stack.push({ node: child, depth: depth + 1 });
-          }
-        }
-      }
-    }
-
-    if (iterations >= MAX_ITERATIONS) {
-      logger.warn(`calculateIcicleTreeDepth: 物品 "${node.name}" 迭代次数超限 (${iterations}次)，可能存在复杂树结构`);
-      // 返回当前最大深度，而不是继续计算
-    }
-
-    return maxDepth;
-  }
-
-  /**
-   * 计算冰柱树的统计信息
-   */
-  private calculateIcicleTreeStats(node: IcicleNode, itemToRecipes: Record<string, Recipe[]>, reachableItems: Set<string>): PathStats {
-    const materials: Record<string, number> = {};
-
-    // 🚀 性能优化：使用迭代替代递归，避免栈溢出和递归开销
-    const stack: { node: IcicleNode; depth: number; isRoot: boolean }[] = [{ node, depth: 0, isRoot: true }];
-    let maxDepth = 0;
-    let totalSteps = 0;
-    let iterations = 0;
-    const MAX_ITERATIONS = 5000; // 减少最大迭代次数到5000次
-
-    while (stack.length > 0 && iterations < MAX_ITERATIONS) {
-      iterations++;
-      const { node: currentNode, depth, isRoot } = stack.pop()!;
-
-      // 更新最大深度
-      maxDepth = Math.max(maxDepth, depth);
-
-      // 基础材料：记录材料使用情况
-      if (currentNode.isBase) {
-        materials[currentNode.name] = (materials[currentNode.name] || 0) + 1;
-        totalSteps += 0; // 基础材料不计步数
-        continue;
-      }
-
-      // 合成材料计步数
-      totalSteps += 1;
-
-      // 将子节点加入栈中（注意顺序，先处理右子节点再处理左子节点）
-      if (currentNode.children) {
-        const [childA, childB] = currentNode.children;
-        if (childB) {
-          stack.push({ node: childB, depth: depth + 1, isRoot: false });
-        }
-        if (childA) {
-          stack.push({ node: childA, depth: depth + 1, isRoot: false });
-        }
-      }
-    }
-
-    if (iterations >= MAX_ITERATIONS) {
-      logger.warn(`calculateIcicleTreeStats: 物品 "${node.name}" 迭代次数超限 (${iterations}次)，可能存在复杂树结构`);
-      // 返回当前计算的统计信息，而不是继续计算
-    }
-
-    const totalMaterials = Object.values(materials).reduce((sum, count) => sum + count, 0);
-
-    return {
-      depth: maxDepth,
-      width: totalSteps,
-      total_materials: totalMaterials,
-      materials
-    };
-  }
 
   /**
    * 计算配方的路径统计信息（用于排序）
@@ -2222,8 +1885,6 @@ export class RecipeService {
    */
   async getReachabilityStats(itemName: string): Promise<{
     reachable: boolean;
-    depth?: number;
-    width?: number;
   }> {
     try {
       const cache = await this.getGraphCache();
@@ -2231,24 +1892,7 @@ export class RecipeService {
       // 检查可达性
       const reachable = cache.reachableItems.has(itemName);
 
-      if (!reachable) {
-        return { reachable: false };
-      }
-
-      // 获取最短路径树
-      const tree = await this.getShortestPathTree(itemName);
-      if (!tree) {
-        return { reachable: true };
-      }
-
-      // 计算统计信息
-      const stats = this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
-
-      return {
-        reachable: true,
-        depth: stats.depth,
-        width: stats.width
-      };
+      return { reachable };
     } catch (error) {
       logger.error(`获取元素 ${itemName} 的可达性统计失败:`, { 
         errorMessage: error instanceof Error ? error.message : String(error),
@@ -2256,333 +1900,6 @@ export class RecipeService {
       });
       throw error;
     }
-  }
-
-  /**
-   * 🚀 按需生成冰柱图（从图结构动态提取子图）- 非阻塞版本
-   * 相比预生成全量数据，这种方式：
-   * - 内存占用低（只生成请求的子图）
-   * - 响应更快（避免序列化巨型对象）
-   * - 支持深度限制（控制数据量）
-   * - 非阻塞处理（使用异步队列和超时机制）
-   * 
-   * @param itemName 目标物品名称
-   * @param maxDepth 最大展开深度（可选，默认不限制）
-   * @param includeStats 是否包含统计信息
-   */
-  async generateIcicleChartOnDemand(
-    itemName: string,
-    maxDepth?: number,
-    includeStats: boolean = false
-  ): Promise<IcicleChartData | null> {
-    // 使用队列系统控制并发请求
-    return new Promise<IcicleChartData | null>((resolve, reject) => {
-      // 如果队列中已经有相同物品的请求，直接返回缓存结果
-      const cachedResult = icicleChartCache.get(itemName);
-      if (cachedResult) {
-        logger.info(`[缓存命中] 物品 "${itemName}" 的冰柱图`, {
-          cacheSize: icicleChartCache.size,
-          fromCache: true
-        });
-        resolve(cachedResult);
-        return;
-      }
-
-      // 添加到队列
-      this.icicleChartQueue.push({ itemName, maxDepth, includeStats, resolve, reject });
-      
-      // 如果队列未在处理中，开始处理
-      if (!this.icicleChartProcessing) {
-        this.processIcicleChartQueue();
-      }
-    });
-  }
-
-  /**
-   * 处理冰柱图请求队列
-   */
-  private async processIcicleChartQueue() {
-    if (this.icicleChartProcessing || this.icicleChartQueue.length === 0) {
-      return;
-    }
-
-    this.icicleChartProcessing = true;
-
-    while (this.icicleChartQueue.length > 0 && this.activeIcicleRequests < this.MAX_CONCURRENT_ICICLE_REQUESTS) {
-      const request = this.icicleChartQueue.shift();
-      if (!request) continue;
-
-      this.activeIcicleRequests++;
-      
-      try {
-        const result = await this.generateIcicleChartInternal(request.itemName, request.maxDepth, request.includeStats);
-        request.resolve(result);
-      } catch (error) {
-        request.reject(error);
-      } finally {
-        this.activeIcicleRequests--;
-      }
-    }
-
-    this.icicleChartProcessing = false;
-    
-    // 如果队列中还有请求，继续处理
-    if (this.icicleChartQueue.length > 0) {
-      setTimeout(() => this.processIcicleChartQueue(), 100);
-    }
-  }
-
-  /**
-   * 内部方法：实际生成冰柱图数据
-   */
-  private async generateIcicleChartInternal(
-    itemName: string,
-    maxDepth?: number,
-    includeStats: boolean = false
-  ): Promise<IcicleChartData | null> {
-    try {
-      // 🔥 首先检查 LRU 缓存
-      const cacheKey = itemName; // 注：这里忽略 maxDepth 和 includeStats，使用默认设置
-      const cachedResult = icicleChartCache.get(cacheKey);
-      
-      if (cachedResult) {
-        logger.info(`[缓存命中] 物品 "${itemName}" 的冰柱图`, {
-          cacheSize: icicleChartCache.size,
-          fromCache: true
-        });
-        return cachedResult;
-      }
-
-      const cache = await this.getGraphCache();
-
-      // 检查物品是否存在
-      if (!cache.allItemNames.includes(itemName)) {
-        logger.warn(`物品 "${itemName}" 不存在于物品库中`, {
-          totalItems: cache.allItemNames.length,
-          itemExists: false
-        });
-        return null;
-      }
-
-      // 检查可达性
-      const isReachable = cache.reachableItems.has(itemName);
-      if (!isReachable) {
-        logger.warn(`物品 "${itemName}" 不可达（无法从基础材料合成）`, {
-          reachable: false,
-          totalReachable: cache.reachableItems.size
-        });
-      }
-      logger.info(`按需生成物品 "${itemName}" 的冰柱图，最大深度: ${maxDepth ?? '无限制'}, 包含统计: ${includeStats}, 可达性: ${isReachable}`);
-
-      // 🚀 非阻塞优化：使用异步队列和超时机制
-      // 将计算密集型任务放入异步队列，避免阻塞事件循环
-      const tree = await this.generateIcicleTreeAsync(
-        itemName,
-        cache.itemToRecipes,
-        cache.baseItemNames,
-        cache.itemEmojiMap,
-        cache.reachableItems,
-        maxDepth
-      );
-
-      logger.info(`提取物品 "${itemName}" 的冰柱图树成功`, {
-        maxDepth,
-        includeStats,
-        isReachable
-      });
-
-      // 检查树是否生成成功
-      if (!tree) {
-        logger.warn(`无法为物品 "${itemName}" 生成冰柱图树`, {
-          reason: '提取子图失败，可能是无法找到有效配方',
-          isReachable,
-          hasRecipes: (cache.itemToRecipes[itemName] || []).length > 0
-        });
-        return null;
-      }
-
-      // 计算深度和统计信息
-      const depth = this.calculateIcicleTreeDepth(tree);
-
-      // 可选：计算详细统计
-      if (includeStats && tree.stats) {
-        const stats = this.calculateIcicleTreeStats(tree, cache.itemToRecipes, cache.reachableItems);
-        tree.stats = {
-          depth: stats.depth,
-          width: stats.width
-        };
-      }
-
-      const result = {
-        nodes: [tree],
-        totalElements: 1,
-        maxDepth: depth
-      };
-
-      // 🔥 保存到 LRU 缓存
-      icicleChartCache.set(itemName, result);
-      logger.info(`[缓存保存] 物品 "${itemName}" 的冰柱图已缓存`, {
-        cacheSize: icicleChartCache.size
-      });
-
-      return result;
-    } catch (error) {
-      logger.error(`按需生成物品 "${itemName}" 的冰柱图失败:`, error);
-      throw error;
-    }
-  }
-
-  /**
-   * 🚀 异步生成冰柱树（非阻塞版本）
-   * 使用 Promise 包装计算密集型任务，避免阻塞事件循环
-   */
-  private async generateIcicleTreeAsync(
-    itemName: string,
-    itemToRecipes: Record<string, Recipe[]>,
-    baseItemNames: string[],
-    itemEmojiMap: Record<string, string>,
-    reachableItems: Set<string>,
-    maxDepth?: number
-  ): Promise<IcicleNode | null> {
-    // 使用 Promise 包装计算任务，避免阻塞事件循环
-    return new Promise<IcicleNode | null>((resolve, reject) => {
-      // 设置超时时间（2秒），防止长时间阻塞
-      const timeoutId = setTimeout(() => {
-        logger.warn(`冰柱树生成超时：物品 "${itemName}" 耗时超过 2 秒`);
-        // 返回降级方案
-        const emoji = itemEmojiMap[itemName];
-        // 保持与正常情况一致的名称格式：emoji + 空格 + 名称
-        const displayName = emoji ? `${emoji} ${itemName}` : itemName;
-        resolve({
-          id: `leaf_${itemName}`,
-          name: displayName,
-          emoji: emoji ? truncateEmoji(emoji) : undefined,
-          isBase: false,
-          value: 1
-        } as IcicleNode);
-      }, 2000);
-
-      // 在下一个事件循环中执行计算任务
-      setImmediate(() => {
-        try {
-          const tree = this.extractSubgraphAsTree(
-            itemName,
-            itemToRecipes,
-            baseItemNames,
-            itemEmojiMap,
-            reachableItems,
-            maxDepth
-          );
-          clearTimeout(timeoutId);
-          resolve(tree);
-        } catch (error) {
-          clearTimeout(timeoutId);
-          logger.error(`冰柱树生成失败：物品 "${itemName}"`, error);
-          // 返回降级方案
-          const emoji = itemEmojiMap[itemName];
-          // 保持与正常情况一致的名称格式：emoji + 空格 + 名称
-          const displayName = emoji ? `${emoji} ${itemName}` : itemName;
-          resolve({
-            id: `leaf_${itemName}`,
-            name: displayName,
-            emoji: emoji ? truncateEmoji(emoji) : undefined,
-            isBase: false,
-            value: 1
-          } as IcicleNode);
-        }
-      });
-    });
-  }
-
-  /**
-   * 🔍 从图结构中提取子图并构建为树（核心方法）
-   * 使用改进的 Dijkstra 算法构建最优路径树
-   * 
-   * @param itemName 目标物品
-   * @param itemToRecipes 图的邻接表（物品 → 配方列表）
-   * @param baseItemNames 基础材料集合
-   * @param itemEmojiMap 物品emoji映射
-   * @param reachableItems 可达物品集合
-   * @param maxDepth 最大深度限制
-   */
-  private async extractSubgraphAsTreeAsync(
-    itemName: string,
-    itemToRecipes: Record<string, Recipe[]>,
-    baseItemNames: string[],
-    itemEmojiMap: Record<string, string>,
-    reachableItems: Set<string>,
-    maxDepth?: number
-  ): Promise<IcicleNode | null> {
-    // 使用 SynthesisGraph 改进的 Dijkstra 算法构建最优路径树
-    if (!this.synthesisGraph) {
-      // 如果没有初始化 SynthesisGraph，则使用图缓存数据初始化
-      const cache = await this.getGraphCache();
-      if (cache) {
-        this.synthesisGraph = new SynthesisGraph(
-          cache.recipes,
-          cache.baseItemNames,
-          cache.itemToRecipes
-        );
-      } else {
-        return null;
-      }
-    }
-
-    // 使用改进的 Dijkstra 算法找到最优路径
-    const optimalPath = this.synthesisGraph.findOptimalPath(itemName);
-    if (!optimalPath) {
-      return null;
-    }
-
-    // 使用最优路径构建合成树
-    const craftingTree = this.buildCraftingTreeFromOptimalPath(itemName, optimalPath, itemToRecipes, baseItemNames, new Set());
-    if (!craftingTree) {
-      return null;
-    }
-
-    // 将合成树转换为冰柱图节点格式
-    return this.convertToIcicleNode(craftingTree, itemEmojiMap);
-  }
-
-  /**
-   * 🔍 从图结构中提取子图并构建为树（同步版本，用于其他场景）
-   * 使用改进的 Dijkstra 算法构建最优路径树
-   * 
-   * @param itemName 目标物品
-   * @param itemToRecipes 物品到配方的映射
-   * @param baseItemNames 基础材料名称列表
-   * @param itemEmojiMap 物品到 emoji 的映射
-   * @param reachableItems 可达物品集合
-   * @param maxDepth 最大深度限制
-   */
-  private extractSubgraphAsTree(
-    itemName: string,
-    itemToRecipes: Record<string, Recipe[]>,
-    baseItemNames: string[],
-    itemEmojiMap: Record<string, string>,
-    reachableItems: Set<string>,
-    maxDepth?: number
-  ): IcicleNode | null {
-    // 使用 SynthesisGraph 改进的 Dijkstra 算法构建最优路径树
-    if (!this.synthesisGraph) {
-      // 同步方法无法异步初始化，返回 null
-      return null;
-    }
-
-    // 使用改进的 Dijkstra 算法找到最优路径
-    const optimalPath = this.synthesisGraph.findOptimalPath(itemName);
-    if (!optimalPath) {
-      return null;
-    }
-
-    // 使用最优路径构建合成树
-    const craftingTree = this.buildCraftingTreeFromOptimalPath(itemName, optimalPath, itemToRecipes, baseItemNames);
-    if (!craftingTree) {
-      return null;
-    }
-
-    // 将合成树转换为冰柱图节点格式
-    return this.convertToIcicleNode(craftingTree, itemEmojiMap);
   }
 }
 
